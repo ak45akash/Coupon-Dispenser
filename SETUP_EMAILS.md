@@ -6,11 +6,11 @@ This guide explains how to configure email sending in your Supabase project.
 
 Your application uses Supabase's `generateLink` function which automatically sends password recovery emails. However, for emails to actually be sent, you need to configure Supabase's email provider.
 
-## Option 1: Use Supabase's Built-in Email Service (Recommended for Development)
+## How Email Works Now
 
-Supabase provides a free email service for development with some limitations.
+The application uses Supabase's built-in email service with customizable templates. When you create a user, Supabase automatically sends a password reset email using the "Reset password" template.
 
-### Steps:
+### Quick Setup:
 
 1. **Go to Supabase Dashboard**
    - Visit: https://app.supabase.com
@@ -20,32 +20,34 @@ Supabase provides a free email service for development with some limitations.
    - Click on "Authentication" in the left sidebar
    - Click on "Email Templates"
 
-3. **Enable the Email Templates**
-   - Make sure the following templates are enabled:
-     - ✓ **Confirm signup**
-     - ✓ **Invite user**
-     - ✓ **Reset Password** (This is what we use!)
-     - ✓ **Magic Link**
+3. **Customize the "Reset password" Template**
+   - Click on the "Reset password" template
+   - Edit the subject and HTML content
+   - Use these variables in your template:
+     - `{{ .ConfirmationURL }}` - The password reset link
+     - `{{ .Email }}` - User's email address
+     - `{{ .SiteURL }}` - Your site URL
+     - `{{ .RedirectTo }}` - Redirect URL after reset
+   
+   Example template:
+   ```html
+   <h2>Welcome to Coupon Dispenser!</h2>
+   <p>Click the button below to set your password:</p>
+   <a href="{{ .ConfirmationURL }}">Set My Password</a>
+   ```
 
-4. **Configure Email Settings**
-   - Go to "Authentication" → "Configuration"
-   - Scroll down to "Email Auth"
-   - Make sure "Enable Email Signup" is ON
-   - Set "Confirm email" to OFF (for admin-created users)
-   - Set "Double confirm email" to OFF
+4. **Save and Test**
+   - Click "Save" in Supabase dashboard
+   - Create a test user to verify email delivery
 
-5. **Test Email Configuration**
-   - The emails should now be sent automatically when you create a new user
-   - Check your spam folder if you don't receive the email
+## Option 2: Configure Custom SMTP (For Production)
 
-## Option 2: Configure Custom SMTP (Recommended for Production)
-
-For production, you'll want to use your own SMTP server.
+For production with better deliverability, configure your own SMTP server.
 
 ### Steps:
 
 1. **Get SMTP Credentials**
-   - You can use services like:
+   - Use services like:
      - **SendGrid** (https://sendgrid.com)
      - **Mailgun** (https://mailgun.com)
      - **Postmark** (https://postmarkapp.com)
@@ -55,44 +57,16 @@ For production, you'll want to use your own SMTP server.
    - Go to "Settings" → "Auth"
    - Scroll to "SMTP Settings"
    - Enter your SMTP credentials:
-     - **SMTP host**: e.g., `smtp.sendgrid.net`
-     - **SMTP port**: e.g., `587`
-     - **SMTP user**: Your SMTP username
-     - **SMTP password**: Your SMTP password
-     - **Sender email**: The email address to send from
-     - **Sender name**: e.g., "Coupon Dispenser"
+     - SMTP host: e.g., `smtp.sendgrid.net`
+     - SMTP port: e.g., `587`
+     - SMTP user: Your SMTP username
+     - SMTP password: Your SMTP password
+     - Sender email: The email address to send from
+     - Sender name: e.g., "Coupon Dispenser"
 
 3. **Test the Configuration**
-   - Try creating a new user
-   - Check if the email is received
-
-## Option 3: Use Resend (Already Integrated!)
-
-The application already has Resend integration! Just add your API key.
-
-### Steps:
-
-1. **Get Resend API Key**
-   - Sign up at https://resend.com
-   - Get your API key from the dashboard
-
-2. **Configure Environment Variable**
-   - Open your `.env` file
-   - Add:
-     ```
-     RESEND_API_KEY=re_your_api_key_here
-     RESEND_FROM_EMAIL="Coupon Dispenser <noreply@yourdomain.com>"
-     ```
-   - Replace `re_your_api_key_here` with your actual Resend API key
-
-3. **Verify Your Domain (Production)**
-   - In Resend dashboard, add your domain
-   - Add the DNS records they provide
-   - Wait for verification
-
-4. **Test**
-   - Create a new user
-   - You should receive a beautiful custom HTML email!
+   - Create a test user
+   - Verify email delivery
 
 ## Verification
 
