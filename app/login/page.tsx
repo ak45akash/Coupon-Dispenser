@@ -104,7 +104,7 @@ export default function LoginPage() {
               </Button>
             </form>
 
-            <div className="mt-6 rounded-lg bg-muted p-4 text-center text-sm">
+            {/* <div className="mt-6 rounded-lg bg-muted p-4 text-center text-sm">
               <p className="font-medium text-muted-foreground">Demo accounts:</p>
               <div className="mt-2 space-y-1 text-xs">
                 <p className="font-mono">
@@ -117,7 +117,7 @@ export default function LoginPage() {
                   User: user@example.com / password
                 </p>
               </div>
-            </div>
+            </div> */}
           </CardContent>
         </Card>
       </div>
