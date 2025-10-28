@@ -154,47 +154,6 @@ export default function CouponsPage() {
         </div>
       </div>
 
-      {/* Stats Cards at Top */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Total Coupons</p>
-              <p className="text-3xl font-bold">{filteredCoupons.length}</p>
-            </div>
-            <div className="rounded-full bg-primary/10 p-3">
-              <Plus className="h-6 w-6 text-primary" />
-            </div>
-          </div>
-        </Card>
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Available</p>
-              <p className="text-3xl font-bold text-green-600">
-                {filteredCoupons.filter((c) => !c.is_claimed).length}
-              </p>
-            </div>
-            <div className="rounded-full bg-green-100 p-3">
-              <Filter className="h-6 w-6 text-green-600" />
-            </div>
-          </div>
-        </Card>
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm font-medium text-muted-foreground">Claimed</p>
-              <p className="text-3xl font-bold text-yellow-600">
-                {filteredCoupons.filter((c) => c.is_claimed).length}
-              </p>
-            </div>
-            <div className="rounded-full bg-yellow-100 p-3">
-              <Upload className="h-6 w-6 text-yellow-600" />
-            </div>
-          </div>
-        </Card>
-      </div>
-
       <Card className="p-6">
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div className="space-y-2">
@@ -365,6 +324,27 @@ export default function CouponsPage() {
           </div>
         </div>
       )}
+
+      <div className="rounded-lg bg-muted p-4 text-sm">
+        <div className="flex items-center gap-4">
+          <div>
+            <span className="font-medium text-muted-foreground">Total:</span>{' '}
+            <span className="font-bold">{filteredCoupons.length} coupons</span>
+          </div>
+          <div>
+            <span className="font-medium text-muted-foreground">Available:</span>{' '}
+            <span className="font-bold text-green-600">
+              {filteredCoupons.filter((c) => !c.is_claimed).length}
+            </span>
+          </div>
+          <div>
+            <span className="font-medium text-muted-foreground">Claimed:</span>{' '}
+            <span className="font-bold text-yellow-600">
+              {filteredCoupons.filter((c) => c.is_claimed).length}
+            </span>
+          </div>
+        </div>
+      </div>
 
       <CouponModal
         isOpen={isModalOpen}
