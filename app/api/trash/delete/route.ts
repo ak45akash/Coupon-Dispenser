@@ -45,10 +45,7 @@ export async function DELETE(request: Request) {
         return NextResponse.json({ error: 'Invalid item type' }, { status: 400 })
     }
 
-    return NextResponse.json({
-      message: `${validatedData.type} permanently deleted`,
-      ...result,
-    })
+    return NextResponse.json(result)
   } catch (error: any) {
     console.error('Error permanently deleting item:', error)
 
