@@ -1,0 +1,101 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-gray-50 text-gray-900;
+  }
+}
+
+@layer components {
+  .btn {
+    @apply rounded-lg px-4 py-2 font-medium transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2;
+  }
+
+  .btn-primary {
+    @apply bg-primary-600 text-white hover:bg-primary-700 focus:ring-primary-500;
+  }
+
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-900 hover:bg-gray-300 focus:ring-gray-500;
+  }
+
+  .btn-danger {
+    @apply bg-red-600 text-white hover:bg-red-700 focus:ring-red-500;
+  }
+
+  .input {
+    @apply w-full rounded-lg border border-gray-300 px-4 py-2 focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500;
+  }
+
+  .label {
+    @apply mb-2 block text-sm font-medium text-gray-700;
+  }
+
+  .card {
+    @apply rounded-lg bg-white p-6 shadow-md;
+  }
+
+  .table {
+    @apply w-full border-collapse;
+  }
+
+  .table th {
+    @apply border-b-2 border-gray-200 bg-gray-50 px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-600;
+  }
+
+  .table td {
+    @apply border-b border-gray-200 px-4 py-3 text-sm;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium;
+  }
+
+  .badge-success {
+    @apply bg-green-100 text-green-800;
+  }
+
+  .badge-warning {
+    @apply bg-yellow-100 text-yellow-800;
+  }
+
+  .badge-danger {
+    @apply bg-red-100 text-red-800;
+  }
+
+  .badge-info {
+    @apply bg-blue-100 text-blue-800;
+  }
+
+  /* Modal Styles */
+  .modal-overlay {
+    @apply fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 p-4;
+  }
+
+  .modal-content {
+    @apply relative w-full max-w-lg rounded-lg bg-white shadow-xl;
+  }
+
+  .modal-header {
+    @apply flex items-center justify-between border-b border-gray-200 px-6 py-4;
+  }
+
+  .modal-title {
+    @apply text-lg font-semibold text-gray-900;
+  }
+
+  .modal-close {
+    @apply rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-primary-500;
+  }
+
+  .modal-body {
+    @apply px-6 py-4;
+  }
+
+  .modal-footer {
+    @apply flex justify-end gap-3 border-t border-gray-200 px-6 py-4;
+  }
+}
+
