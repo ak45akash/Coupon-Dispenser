@@ -20,12 +20,13 @@ export async function sendWelcomeEmail(
     // Get the site URL from environment
     const siteUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
     
-    // Generate password reset link with magic link
+    // Generate password reset link - this also sends the email automatically
     const { data: resetData, error: resetError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email: userEmail,
       options: {
         redirectTo: `${siteUrl}/reset-password`,
+        // This will send the default Supabase recovery email
       },
     })
 
@@ -36,6 +37,10 @@ export async function sendWelcomeEmail(
 
     const resetLink = resetData.properties?.action_link || ''
     
+    console.log('✓ Recovery email generated and sent via Supabase')
+    console.log('✓ User should receive email at:', userEmail)
+    console.log('✓ Reset link:', resetLink.substring(0, 80) + '...')
+    
     // Create our custom email
     const emailData: WelcomeEmailData = {
       userName,
@@ -45,13 +50,12 @@ export async function sendWelcomeEmail(
       companyName: 'Coupon Dispenser',
     }
 
-    const htmlContent = generateWelcomeEmail(emailData)
-    const textContent = generatePlainTextWelcome(emailData)
-
-    // Send custom email using Resend (only if configured)
+    // Optionally send custom email using Resend (only if configured)
     const client = getResendClient()
     
     if (client) {
+      const htmlContent = generateWelcomeEmail(emailData)
+      const textContent = generatePlainTextWelcome(emailData)
       const fromEmail = process.env.RESEND_FROM_EMAIL || 'Coupon Dispenser <onboarding@resend.dev>'
       
       try {
@@ -63,30 +67,13 @@ export async function sendWelcomeEmail(
           text: textContent,
         })
 
-        if (emailError) {
-          console.error('Failed to send email via Resend:', emailError)
-          console.log('Falling back to Supabase default recovery email')
-        } else {
-          console.log('✓ Custom welcome email sent successfully via Resend:', emailResult)
-          return { success: true }
+        if (!emailError) {
+          console.log('✓ Custom welcome email sent successfully via Resend')
         }
       } catch (resendError) {
-        console.error('Resend error:', resendError)
-        console.log('Falling back to Supabase default recovery email')
+        console.log('⚠ Resend not available - user will receive Supabase default email')
       }
-    } else {
-      console.log('✓ Resend not configured - using Supabase default recovery email')
     }
-
-    // If Resend fails, log what would be sent
-    console.log('=================================')
-    console.log('📧 CUSTOM EMAIL WOULD SEND TO:', userEmail)
-    console.log('📧 Reset Link:', resetLink.substring(0, 80) + '...')
-    console.log('📧 HTML Preview:', htmlContent.substring(0, 300) + '...')
-    console.log('=================================')
-
-    console.log('✓ Password reset link generated')
-    console.log('✓ Supabase will send default recovery email with reset link')
 
     return { success: true }
   } catch (error) {

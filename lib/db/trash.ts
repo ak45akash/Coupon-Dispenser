@@ -154,7 +154,14 @@ export async function permanentlyDeleteUser(userId: string) {
   if (fetchError) throw fetchError
   if (!user) throw new Error('User not found in trash')
 
-  // Permanently delete
+  // Permanently delete from Supabase Auth first
+  const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId)
+  if (authError) {
+    console.error('Error deleting auth user:', authError)
+    // Continue with database deletion even if auth deletion fails
+  }
+
+  // Permanently delete from users table
   const { error } = await supabaseAdmin.from('users').delete().eq('id', userId)
 
   if (error) throw error
