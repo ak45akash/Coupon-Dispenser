@@ -29,7 +29,7 @@ export default async function DashboardPage() {
               Dashboard
             </h1>
             <p className="mt-1 text-muted-foreground text-lg">
-              Welcome back! Here's what's happening with your coupons.
+              Welcome back! Here&apos;s what&apos;s happening with your coupons.
             </p>
           </div>
         </div>
