@@ -13,6 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
+import { RestoreDialog, PermanentDeleteDialog, SuccessDialog, ErrorDialog } from '@/components/ui/dialog-helpers'
 
 export default function TrashPage() {
   const [trashItems, setTrashItems] = useState<TrashItem[]>([])
@@ -306,90 +307,34 @@ export default function TrashPage() {
       )}
 
       {/* Restore Confirmation Dialog */}
-      <AlertDialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2">
-              <AlertCircle className="h-5 w-5 text-blue-600" />
-              Restore Item
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to restore this {selectedItem?.item_type}?
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmRestore}
-              className="bg-blue-600 text-white hover:bg-blue-700"
-            >
-              Restore
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <RestoreDialog
+        open={showRestoreDialog}
+        onOpenChange={setShowRestoreDialog}
+        onConfirm={confirmRestore}
+        itemType={selectedItem?.item_type || ''}
+      />
 
       {/* Permanent Delete Confirmation Dialog */}
-      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
-              <AlertCircle className="h-5 w-5" />
-              Permanent Delete
-            </AlertDialogTitle>
-            <AlertDialogDescription>
-              <strong className="text-red-600">⚠️ WARNING:</strong> Are you sure you want to PERMANENTLY delete this {selectedItem?.item_type}?
-              <br /><br />
-              <strong className="text-destructive">This action CANNOT be undone!</strong>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={confirmPermanentDelete}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-            >
-              Delete Forever
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <PermanentDeleteDialog
+        open={showDeleteDialog}
+        onOpenChange={setShowDeleteDialog}
+        onConfirm={confirmPermanentDelete}
+        itemType={selectedItem?.item_type || ''}
+      />
 
       {/* Success Dialog */}
-      <AlertDialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-green-600">
-              <CheckCircle className="h-5 w-5" />
-              Success
-            </AlertDialogTitle>
-            <AlertDialogDescription>{dialogMessage}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setShowSuccessDialog(false)}>
-              OK
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <SuccessDialog
+        open={showSuccessDialog}
+        onOpenChange={setShowSuccessDialog}
+        message={dialogMessage}
+      />
 
       {/* Error Dialog */}
-      <AlertDialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
-              <AlertCircle className="h-5 w-5" />
-              Error
-            </AlertDialogTitle>
-            <AlertDialogDescription>{dialogMessage}</AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogAction onClick={() => setShowErrorDialog(false)}>
-              OK
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      <ErrorDialog
+        open={showErrorDialog}
+        onOpenChange={setShowErrorDialog}
+        message={dialogMessage}
+      />
     </div>
   )
 }
