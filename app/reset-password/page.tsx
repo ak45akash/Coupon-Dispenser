@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase/client'
 
 export default function ResetPasswordPage() {
   const [password, setPassword] = useState('')
@@ -12,7 +12,6 @@ export default function ResetPasswordPage() {
   const [success, setSuccess] = useState(false)
   const searchParams = useSearchParams()
   const router = useRouter()
-  const supabase = createClientComponentClient()
 
   useEffect(() => {
     // Check if we have an access token from the email link

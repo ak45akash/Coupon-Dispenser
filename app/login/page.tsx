@@ -3,6 +3,11 @@
 import { useState } from 'react'
 import { signIn } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
+import { Ticket, Mail, Lock } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -36,71 +41,85 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100">
+    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-blue-50 via-white to-blue-50 p-4">
       <div className="w-full max-w-md">
-        <div className="card">
-          <div className="mb-8 text-center">
-            <h1 className="text-3xl font-bold text-gray-900">
+        <Card className="shadow-xl">
+          <CardHeader className="space-y-3 text-center">
+            <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-gradient-to-br from-primary to-primary/80">
+              <Ticket className="h-8 w-8 text-primary-foreground" />
+            </div>
+            <CardTitle className="text-3xl font-bold tracking-tight">
               Coupon Dispenser
-            </h1>
-            <p className="mt-2 text-gray-600">Sign in to your account</p>
-          </div>
+            </CardTitle>
+            <CardDescription className="text-base">
+              Sign in to manage your coupons
+            </CardDescription>
+          </CardHeader>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="rounded-lg bg-red-50 p-4 text-sm text-red-800">
-                {error}
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
+              {error && (
+                <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+                  {error}
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label htmlFor="email" className="flex items-center gap-2">
+                  <Mail className="h-4 w-4" />
+                  Email Address
+                </Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  required
+                />
               </div>
-            )}
 
-            <div>
-              <label htmlFor="email" className="label">
-                Email Address
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="input"
-                placeholder="you@example.com"
-                required
-              />
+              <div className="space-y-2">
+                <Label htmlFor="password" className="flex items-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  Password
+                </Label>
+                <Input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                />
+              </div>
+
+              <Button
+                type="submit"
+                disabled={loading}
+                className="w-full"
+                size="lg"
+              >
+                {loading ? 'Signing in...' : 'Sign In'}
+              </Button>
+            </form>
+
+            <div className="mt-6 rounded-lg bg-muted p-4 text-center text-sm">
+              <p className="font-medium text-muted-foreground">Demo accounts:</p>
+              <div className="mt-2 space-y-1 text-xs">
+                <p className="font-mono">
+                  Super Admin: admin@example.com / password
+                </p>
+                <p className="font-mono">
+                  Partner Admin: partner@example.com / password
+                </p>
+                <p className="font-mono">
+                  User: user@example.com / password
+                </p>
+              </div>
             </div>
-
-            <div>
-              <label htmlFor="password" className="label">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input"
-                placeholder="••••••••"
-                required
-              />
-            </div>
-
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn btn-primary w-full disabled:opacity-50"
-            >
-              {loading ? 'Signing in...' : 'Sign In'}
-            </button>
-          </form>
-
-          <div className="mt-6 text-center text-sm text-gray-600">
-            <p>Demo accounts:</p>
-            <p className="mt-1">
-              Super Admin: admin@example.com / password
-            </p>
-            <p>Partner Admin: partner@example.com / password</p>
-            <p>User: user@example.com / password</p>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
     </div>
   )

@@ -6,6 +6,17 @@ import type { User, Vendor } from '@/types/database'
 import UserRoleModal from '@/components/users/UserRoleModal'
 import PartnerAccessModal from '@/components/users/PartnerAccessModal'
 import CreateUserModal from '@/components/users/CreateUserModal'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
+import { Badge } from '@/components/ui/badge'
 
 export default function UsersPage() {
   const [users, setUsers] = useState<User[]>([])
@@ -57,14 +68,14 @@ export default function UsersPage() {
     setIsAccessModalOpen(true)
   }
 
-  const getRoleBadgeClass = (role: string) => {
+  const getRoleBadgeVariant = (role: string): 'default' | 'secondary' | 'outline' | 'destructive' => {
     switch (role) {
       case 'super_admin':
-        return 'badge-danger'
+        return 'destructive'
       case 'partner_admin':
-        return 'badge-warning'
+        return 'secondary'
       default:
-        return 'badge-info'
+        return 'outline'
     }
   }
 
@@ -82,7 +93,7 @@ export default function UsersPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="text-gray-600">Loading users...</div>
+        <div className="text-muted-foreground">Loading users...</div>
       </div>
     )
   }
@@ -91,110 +102,121 @@ export default function UsersPage() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Users</h1>
-          <p className="mt-1 text-gray-600">
+          <h1 className="text-3xl font-bold tracking-tight">Users</h1>
+          <p className="mt-1 text-muted-foreground">
             Manage user roles and permissions
           </p>
         </div>
-        <button
+        <Button
           onClick={() => setIsCreateModalOpen(true)}
-          className="btn btn-primary flex items-center gap-2"
+          size="lg"
+          className="gap-2"
         >
           <UserPlus className="h-5 w-5" />
           Create User
-        </button>
+        </Button>
       </div>
 
-      <div className="card overflow-hidden p-0">
-        <table className="table">
-          <thead>
-            <tr>
-              <th>Email</th>
-              <th>Name</th>
-              <th>Role</th>
-              <th>Registered</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.map((user) => (
-              <tr key={user.id}>
-                <td className="font-medium">{user.email}</td>
-                <td>{user.name || '-'}</td>
-                <td>
-                  <span className={`badge ${getRoleBadgeClass(user.role)}`}>
-                    {getRoleLabel(user.role)}
-                  </span>
-                </td>
-                <td>
-                  {new Date(user.created_at).toLocaleDateString()}
-                </td>
-                <td>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => handleEditRole(user)}
-                      className="text-sm text-primary-600 hover:text-primary-700"
-                    >
-                      Change Role
-                    </button>
-                    {user.role === 'partner_admin' && (
-                      <button
-                        onClick={() => handleEditAccess(user)}
-                        className="text-sm text-primary-600 hover:text-primary-700"
+      <Card>
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Email</TableHead>
+              <TableHead>Name</TableHead>
+              <TableHead>Role</TableHead>
+              <TableHead>Registered</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {users.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  No users found.
+                </TableCell>
+              </TableRow>
+            ) : (
+              users.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">{user.email}</TableCell>
+                  <TableCell>{user.name || '-'}</TableCell>
+                  <TableCell>
+                    <Badge variant={getRoleBadgeVariant(user.role)}>
+                      {getRoleLabel(user.role)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {new Date(user.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEditRole(user)}
                       >
-                        Manage Access
-                      </button>
-                    )}
-                  </div>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-
-        {users.length === 0 && (
-          <div className="py-12 text-center text-gray-500">
-            No users found.
-          </div>
-        )}
-      </div>
+                        Change Role
+                      </Button>
+                      {user.role === 'partner_admin' && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEditAccess(user)}
+                        >
+                          Manage Access
+                        </Button>
+                      )}
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+      </Card>
 
       <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
-        <div className="card">
-          <div className="flex items-center gap-3">
-            <Shield className="h-8 w-8 text-red-600" />
+        <Card>
+          <CardContent className="flex items-center gap-4 p-6">
+            <div className="rounded-full bg-red-100 p-3">
+              <Shield className="h-8 w-8 text-red-600" />
+            </div>
             <div>
-              <p className="text-sm text-gray-600">Super Admins</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm font-medium text-muted-foreground">Super Admins</p>
+              <p className="text-3xl font-bold">
                 {users.filter((u) => u.role === 'super_admin').length}
               </p>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="card">
-          <div className="flex items-center gap-3">
-            <Shield className="h-8 w-8 text-yellow-600" />
+        <Card>
+          <CardContent className="flex items-center gap-4 p-6">
+            <div className="rounded-full bg-yellow-100 p-3">
+              <Shield className="h-8 w-8 text-yellow-600" />
+            </div>
             <div>
-              <p className="text-sm text-gray-600">Partner Admins</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm font-medium text-muted-foreground">Partner Admins</p>
+              <p className="text-3xl font-bold">
                 {users.filter((u) => u.role === 'partner_admin').length}
               </p>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        <div className="card">
-          <div className="flex items-center gap-3">
-            <Shield className="h-8 w-8 text-blue-600" />
+        <Card>
+          <CardContent className="flex items-center gap-4 p-6">
+            <div className="rounded-full bg-blue-100 p-3">
+              <Shield className="h-8 w-8 text-blue-600" />
+            </div>
             <div>
-              <p className="text-sm text-gray-600">Users</p>
-              <p className="text-2xl font-bold text-gray-900">
+              <p className="text-sm font-medium text-muted-foreground">Users</p>
+              <p className="text-3xl font-bold">
                 {users.filter((u) => u.role === 'user').length}
               </p>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
       <CreateUserModal

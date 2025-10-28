@@ -1,4 +1,6 @@
-import { LucideIcon } from 'lucide-react'
+import { LucideIcon, TrendingUp, TrendingDown } from 'lucide-react'
+import { Card, CardContent } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 
 interface StatsCardProps {
   title: string
@@ -17,26 +19,36 @@ export default function StatsCard({
   trend,
 }: StatsCardProps) {
   return (
-    <div className="card">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="mt-2 text-3xl font-bold text-gray-900">{value}</p>
-          {trend && (
-            <p
-              className={`mt-2 text-sm ${
-                trend.positive ? 'text-green-600' : 'text-red-600'
-              }`}
-            >
-              {trend.positive ? '↑' : '↓'} {trend.value}
-            </p>
-          )}
+    <Card className="transition-all hover:shadow-lg">
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <p className="text-sm font-medium text-muted-foreground">{title}</p>
+            <p className="text-3xl font-bold tracking-tight">{value}</p>
+            {trend && (
+              <div className="flex items-center gap-1">
+                {trend.positive ? (
+                  <TrendingUp className="h-4 w-4 text-green-600" />
+                ) : (
+                  <TrendingDown className="h-4 w-4 text-red-600" />
+                )}
+                <p
+                  className={cn(
+                    'text-sm font-medium',
+                    trend.positive ? 'text-green-600' : 'text-red-600'
+                  )}
+                >
+                  {trend.value}
+                </p>
+              </div>
+            )}
+          </div>
+          <div className="rounded-full bg-primary/10 p-3">
+            <Icon className="h-6 w-6 text-primary" />
+          </div>
         </div>
-        <div className="rounded-full bg-primary-100 p-3">
-          <Icon className="h-6 w-6 text-primary-600" />
-        </div>
-      </div>
-    </div>
+      </CardContent>
+    </Card>
   )
 }
 

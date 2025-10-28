@@ -1,7 +1,18 @@
 'use client'
 
 import { useState } from 'react'
-import { X } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Mail, User as UserIcon, Shield } from 'lucide-react'
 
 interface CreateUserModalProps {
   isOpen: boolean
@@ -48,119 +59,115 @@ export default function CreateUserModal({
     }
   }
 
-  if (!isOpen) return null
-
   return (
-    <div className="modal-overlay">
-      <div className="modal-content max-w-md">
-        <div className="modal-header">
-          <h3 className="modal-title">Create New User</h3>
-          <button onClick={onClose} className="modal-close">
-            <X className="h-5 w-5" />
-          </button>
-        </div>
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[500px]">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            <UserIcon className="h-5 w-5 text-primary" />
+            Create New User
+          </DialogTitle>
+          <DialogDescription>
+            Add a new user to the system. They will receive an email to set their password.
+          </DialogDescription>
+        </DialogHeader>
 
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body space-y-4">
-            {error && (
-              <div className="rounded-lg bg-red-50 p-3 text-sm text-red-800">
-                {error}
-              </div>
-            )}
-
-            <div>
-              <label htmlFor="email" className="label">
-                Email Address
-              </label>
-              <input
-                id="email"
-                type="email"
-                className="input"
-                value={formData.email}
-                onChange={(e) =>
-                  setFormData({ ...formData, email: e.target.value })
-                }
-                required
-                placeholder="user@example.com"
-              />
-              <p className="mt-1 text-xs text-gray-500">
-                A password reset link will be sent to this email
-              </p>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {error && (
+            <div className="rounded-lg bg-destructive/10 p-3 text-sm text-destructive">
+              {error}
             </div>
+          )}
 
-            <div>
-              <label htmlFor="name" className="label">
-                Full Name
-              </label>
-              <input
-                id="name"
-                type="text"
-                className="input"
-                value={formData.name}
-                onChange={(e) =>
-                  setFormData({ ...formData, name: e.target.value })
-                }
-                required
-                placeholder="John Doe"
-              />
-            </div>
-
-            <div>
-              <label htmlFor="role" className="label">
-                Role
-              </label>
-              <select
-                id="role"
-                className="input"
-                value={formData.role}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    role: e.target.value as
-                      | 'super_admin'
-                      | 'partner_admin'
-                      | 'user',
-                  })
-                }
-              >
-                <option value="user">User - View only access</option>
-                <option value="partner_admin">
-                  Partner Admin - Manage assigned vendors
-                </option>
-                <option value="super_admin">
-                  Super Admin - Full system access
-                </option>
-              </select>
-              <p className="mt-1 text-xs text-gray-500">
-                {formData.role === 'super_admin' &&
-                  'Full access to all features and data'}
-                {formData.role === 'partner_admin' &&
-                  'Can manage coupons for assigned vendors only'}
-                {formData.role === 'user' && 'Read-only access to dashboard'}
-              </p>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="email" className="flex items-center gap-2">
+              <Mail className="h-4 w-4" />
+              Email Address
+            </Label>
+            <Input
+              id="email"
+              type="email"
+              value={formData.email}
+              onChange={(e) =>
+                setFormData({ ...formData, email: e.target.value })
+              }
+              required
+              placeholder="user@example.com"
+            />
+            <p className="text-xs text-muted-foreground">
+              A password reset link will be sent to this email
+            </p>
           </div>
 
-          <div className="modal-footer">
-            <button
+          <div className="space-y-2">
+            <Label htmlFor="name" className="flex items-center gap-2">
+              <UserIcon className="h-4 w-4" />
+              Full Name
+            </Label>
+            <Input
+              id="name"
+              type="text"
+              value={formData.name}
+              onChange={(e) =>
+                setFormData({ ...formData, name: e.target.value })
+              }
+              required
+              placeholder="John Doe"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="role" className="flex items-center gap-2">
+              <Shield className="h-4 w-4" />
+              Role
+            </Label>
+            <select
+              id="role"
+              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+              value={formData.role}
+              onChange={(e) =>
+                setFormData({
+                  ...formData,
+                  role: e.target.value as
+                    | 'super_admin'
+                    | 'partner_admin'
+                    | 'user',
+                })
+              }
+            >
+              <option value="user">User - View only access</option>
+              <option value="partner_admin">
+                Partner Admin - Manage assigned vendors
+              </option>
+              <option value="super_admin">
+                Super Admin - Full system access
+              </option>
+            </select>
+            <p className="text-xs text-muted-foreground">
+              {formData.role === 'super_admin' &&
+                'Full access to all features and data'}
+              {formData.role === 'partner_admin' &&
+                'Can manage coupons for assigned vendors only'}
+              {formData.role === 'user' && 'Read-only access to dashboard'}
+            </p>
+          </div>
+
+          <DialogFooter>
+            <Button
               type="button"
+              variant="outline"
               onClick={onClose}
-              className="btn btn-secondary"
               disabled={loading}
             >
               Cancel
-            </button>
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={loading}
-            >
+            </Button>
+            <Button type="submit" disabled={loading}>
               {loading ? 'Creating...' : 'Create User'}
-            </button>
-          </div>
+            </Button>
+          </DialogFooter>
         </form>
-      </div>
-    </div>
+      </DialogContent>
+    </Dialog>
   )
 }
 
