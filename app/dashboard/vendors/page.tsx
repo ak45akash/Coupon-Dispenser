@@ -89,7 +89,7 @@ export default function VendorsPage() {
     localStorageKey: 'vendors-page-size',
   })
 
-  const paginatedVendors = getPaginatedData()
+  const paginatedVendors = getPaginatedData(vendors)
   const pageSizeOptions = [5, 10, 20, 50, 100]
 
   if (loading) {

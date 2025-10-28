@@ -47,7 +47,7 @@ export default function UsersPage() {
     localStorageKey: 'users-page-size',
   })
 
-  const paginatedUsers = getPaginatedData()
+  const paginatedUsers = getPaginatedData(users)
 
   const fetchUsers = async () => {
     try {
