@@ -17,11 +17,13 @@ import { Mail, User as UserIcon, Shield } from 'lucide-react'
 interface CreateUserModalProps {
   isOpen: boolean
   onClose: () => void
+  onSuccess?: () => void
 }
 
 export default function CreateUserModal({
   isOpen,
   onClose,
+  onSuccess,
 }: CreateUserModalProps) {
   const [formData, setFormData] = useState({
     email: '',
@@ -46,9 +48,9 @@ export default function CreateUserModal({
       const data = await response.json()
 
       if (data.success) {
-        alert('User created successfully! A password reset email has been sent to their email address.')
         setFormData({ email: '', name: '', role: 'user' })
         onClose()
+        onSuccess?.() // Call success callback if provided
       } else {
         setError(data.error || 'Failed to create user')
       }

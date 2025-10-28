@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Upload, Trash2, Filter, ChevronLeft, ChevronRight, Settings2 } from 'lucide-react'
+import { Plus, Upload, Trash2, Filter, ChevronLeft, ChevronRight, Settings2, AlertCircle, CheckCircle } from 'lucide-react'
 import type { Coupon, Vendor } from '@/types/database'
 import CouponModal from '@/components/coupons/CouponModal'
 import CSVUploadModal from '@/components/coupons/CSVUploadModal'
@@ -26,6 +26,16 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 export default function CouponsPage() {
   const [coupons, setCoupons] = useState<Coupon[]>([])
@@ -35,6 +45,15 @@ export default function CouponsPage() {
   const [isCSVModalOpen, setIsCSVModalOpen] = useState(false)
   const [selectedVendor, setSelectedVendor] = useState<string>('')
   const [filterStatus, setFilterStatus] = useState<'all' | 'claimed' | 'unclaimed'>('all')
+  
+  // Delete dialog state
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [couponToDelete, setCouponToDelete] = useState<Coupon | null>(null)
+  
+  // Success/Error dialogs
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false)
+  const [showErrorDialog, setShowErrorDialog] = useState(false)
+  const [dialogMessage, setDialogMessage] = useState('')
 
   const fetchCoupons = async () => {
     try {
@@ -73,19 +92,34 @@ export default function CouponsPage() {
     fetchCoupons()
   }, [selectedVendor])
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this coupon?')) return
+  const handleDelete = (coupon: Coupon) => {
+    setCouponToDelete(coupon)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!couponToDelete) return
 
     try {
-      const response = await fetch(`/api/coupons/${id}`, {
+      const response = await fetch(`/api/coupons/${couponToDelete.id}`, {
         method: 'DELETE',
       })
 
       if (response.ok) {
+        setDialogMessage(`Coupon "${couponToDelete.code}" moved to trash successfully!`)
+        setShowSuccessDialog(true)
         fetchCoupons()
+      } else {
+        setDialogMessage('Failed to delete coupon.')
+        setShowErrorDialog(true)
       }
     } catch (error) {
       console.error('Error deleting coupon:', error)
+      setDialogMessage('An error occurred while deleting the coupon.')
+      setShowErrorDialog(true)
+    } finally {
+      setIsDeleteDialogOpen(false)
+      setCouponToDelete(null)
     }
   }
 
@@ -273,8 +307,9 @@ export default function CouponsPage() {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => handleDelete(coupon.id)}
+                      onClick={() => handleDelete(coupon)}
                       disabled={coupon.is_claimed}
+                      className="text-destructive hover:text-destructive"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -383,6 +418,67 @@ export default function CouponsPage() {
         }}
         vendors={vendors}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              Delete Coupon
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete coupon <strong>"{couponToDelete?.code}"</strong>? 
+              This will move the coupon to trash and it can be restored within 30 days.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Coupon
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Success Dialog */}
+      <AlertDialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-green-600">
+              <CheckCircle className="h-5 w-5" />
+              Success
+            </AlertDialogTitle>
+            <AlertDialogDescription>{dialogMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowSuccessDialog(false)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Error Dialog */}
+      <AlertDialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="h-5 w-5" />
+              Error
+            </AlertDialogTitle>
+            <AlertDialogDescription>{dialogMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowErrorDialog(false)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

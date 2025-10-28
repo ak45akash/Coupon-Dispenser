@@ -1,8 +1,18 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Trash2, RefreshCw, AlertCircle, Clock, Package, Users, Tag } from 'lucide-react'
+import { Trash2, RefreshCw, AlertCircle, Clock, Package, Users, Tag, CheckCircle } from 'lucide-react'
 import type { TrashItem } from '@/types/database'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 export default function TrashPage() {
   const [trashItems, setTrashItems] = useState<TrashItem[]>([])
@@ -10,6 +20,14 @@ export default function TrashPage() {
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<'all' | 'user' | 'vendor' | 'coupon'>('all')
   const [actionLoading, setActionLoading] = useState<string | null>(null)
+  
+  // Dialog states
+  const [showRestoreDialog, setShowRestoreDialog] = useState(false)
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false)
+  const [showErrorDialog, setShowErrorDialog] = useState(false)
+  const [selectedItem, setSelectedItem] = useState<TrashItem | null>(null)
+  const [dialogMessage, setDialogMessage] = useState('')
 
   useEffect(() => {
     fetchTrashItems()
@@ -29,15 +47,20 @@ export default function TrashPage() {
     }
   }
 
-  const handleRestore = async (item: TrashItem) => {
-    if (!confirm(`Are you sure you want to restore this ${item.item_type}?`)) return
+  const handleRestore = (item: TrashItem) => {
+    setSelectedItem(item)
+    setShowRestoreDialog(true)
+  }
+
+  const confirmRestore = async () => {
+    if (!selectedItem) return
 
     try {
-      setActionLoading(item.id)
+      setActionLoading(selectedItem.id)
       const response = await fetch('/api/trash/restore', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: item.id, type: item.item_type }),
+        body: JSON.stringify({ id: selectedItem.id, type: selectedItem.item_type }),
       })
 
       if (!response.ok) {
@@ -45,29 +68,33 @@ export default function TrashPage() {
         throw new Error(errorData.error || 'Failed to restore item')
       }
 
-      alert(`${item.item_type} restored successfully!`)
+      setDialogMessage(`${selectedItem.item_type} restored successfully!`)
+      setShowSuccessDialog(true)
       fetchTrashItems()
     } catch (err: any) {
-      alert(`Error: ${err.message}`)
+      setDialogMessage(`Error: ${err.message}`)
+      setShowErrorDialog(true)
     } finally {
       setActionLoading(null)
+      setShowRestoreDialog(false)
+      setSelectedItem(null)
     }
   }
 
-  const handlePermanentDelete = async (item: TrashItem) => {
-    if (
-      !confirm(
-        `⚠️ WARNING: Are you sure you want to PERMANENTLY delete this ${item.item_type}?\n\nThis action CANNOT be undone!`
-      )
-    )
-      return
+  const handlePermanentDelete = (item: TrashItem) => {
+    setSelectedItem(item)
+    setShowDeleteDialog(true)
+  }
+
+  const confirmPermanentDelete = async () => {
+    if (!selectedItem) return
 
     try {
-      setActionLoading(item.id)
+      setActionLoading(selectedItem.id)
       const response = await fetch('/api/trash/delete', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ id: item.id, type: item.item_type }),
+        body: JSON.stringify({ id: selectedItem.id, type: selectedItem.item_type }),
       })
 
       if (!response.ok) {
@@ -75,12 +102,16 @@ export default function TrashPage() {
         throw new Error(errorData.error || 'Failed to delete item')
       }
 
-      alert(`${item.item_type} permanently deleted`)
+      setDialogMessage(`${selectedItem.item_type} permanently deleted`)
+      setShowSuccessDialog(true)
       fetchTrashItems()
     } catch (err: any) {
-      alert(`Error: ${err.message}`)
+      setDialogMessage(`Error: ${err.message}`)
+      setShowErrorDialog(true)
     } finally {
       setActionLoading(null)
+      setShowDeleteDialog(false)
+      setSelectedItem(null)
     }
   }
 
@@ -273,7 +304,94 @@ export default function TrashPage() {
           </table>
         </div>
       )}
+
+      {/* Restore Confirmation Dialog */}
+      <AlertDialog open={showRestoreDialog} onOpenChange={setShowRestoreDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-blue-600" />
+              Restore Item
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to restore this {selectedItem?.item_type}?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmRestore}
+              className="bg-blue-600 text-white hover:bg-blue-700"
+            >
+              Restore
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Permanent Delete Confirmation Dialog */}
+      <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="h-5 w-5" />
+              Permanent Delete
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              <strong className="text-red-600">⚠️ WARNING:</strong> Are you sure you want to PERMANENTLY delete this {selectedItem?.item_type}?
+              <br /><br />
+              <strong className="text-destructive">This action CANNOT be undone!</strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmPermanentDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Forever
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Success Dialog */}
+      <AlertDialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-green-600">
+              <CheckCircle className="h-5 w-5" />
+              Success
+            </AlertDialogTitle>
+            <AlertDialogDescription>{dialogMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowSuccessDialog(false)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Error Dialog */}
+      <AlertDialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="h-5 w-5" />
+              Error
+            </AlertDialogTitle>
+            <AlertDialogDescription>{dialogMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowErrorDialog(false)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
+
 

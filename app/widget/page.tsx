@@ -13,6 +13,7 @@ export default function WidgetPage() {
   )
   const [message, setMessage] = useState('')
   const [coupon, setCoupon] = useState<any>(null)
+  const [copySuccess, setCopySuccess] = useState(false)
 
   useEffect(() => {
     // Get vendor ID from URL params
@@ -105,12 +106,18 @@ export default function WidgetPage() {
                 <button
                   onClick={() => {
                     navigator.clipboard.writeText(coupon.code)
-                    alert('Coupon code copied!')
+                    setCopySuccess(true)
+                    setTimeout(() => setCopySuccess(false), 3000)
                   }}
-                  className="btn btn-primary mt-4 w-full"
+                  className="btn btn-primary mt-4 w-full relative"
                 >
-                  Copy Code
+                  {copySuccess ? '✓ Copied!' : 'Copy Code'}
                 </button>
+                {copySuccess && (
+                  <div className="mt-2 text-center text-sm text-green-600 animate-in fade-in-50 duration-300">
+                    Coupon code copied to clipboard!
+                  </div>
+                )}
               </div>
             </div>
           ) : (

@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, Settings2 } from 'lucide-react'
+import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, Settings2, AlertCircle, CheckCircle } from 'lucide-react'
 import type { VendorWithStats } from '@/types/database'
 import VendorModal from '@/components/vendors/VendorModal'
 import { usePagination } from '@/lib/hooks/usePagination'
@@ -22,6 +22,16 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
 
 export default function VendorsPage() {
   const [vendors, setVendors] = useState<VendorWithStats[]>([])
@@ -30,6 +40,15 @@ export default function VendorsPage() {
   const [editingVendor, setEditingVendor] = useState<VendorWithStats | null>(
     null
   )
+  
+  // Delete dialog state
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [vendorToDelete, setVendorToDelete] = useState<VendorWithStats | null>(null)
+  
+  // Success/Error dialogs
+  const [showSuccessDialog, setShowSuccessDialog] = useState(false)
+  const [showErrorDialog, setShowErrorDialog] = useState(false)
+  const [dialogMessage, setDialogMessage] = useState('')
 
   const fetchVendors = async () => {
     try {
@@ -49,19 +68,34 @@ export default function VendorsPage() {
     fetchVendors()
   }, [])
 
-  const handleDelete = async (id: string) => {
-    if (!confirm('Are you sure you want to delete this vendor?')) return
+  const handleDelete = (vendor: VendorWithStats) => {
+    setVendorToDelete(vendor)
+    setIsDeleteDialogOpen(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!vendorToDelete) return
 
     try {
-      const response = await fetch(`/api/vendors/${id}`, {
+      const response = await fetch(`/api/vendors/${vendorToDelete.id}`, {
         method: 'DELETE',
       })
 
       if (response.ok) {
+        setDialogMessage(`Vendor "${vendorToDelete.name}" moved to trash successfully!`)
+        setShowSuccessDialog(true)
         fetchVendors()
+      } else {
+        setDialogMessage('Failed to delete vendor.')
+        setShowErrorDialog(true)
       }
     } catch (error) {
       console.error('Error deleting vendor:', error)
+      setDialogMessage('An error occurred while deleting the vendor.')
+      setShowErrorDialog(true)
+    } finally {
+      setIsDeleteDialogOpen(false)
+      setVendorToDelete(null)
     }
   }
 
@@ -189,7 +223,7 @@ export default function VendorsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDelete(vendor.id)}
+                        onClick={() => handleDelete(vendor)}
                         className="text-destructive hover:text-destructive"
                       >
                         <Trash2 className="h-4 w-4" />
@@ -288,6 +322,67 @@ export default function VendorsPage() {
         onClose={handleModalClose}
         vendor={editingVendor}
       />
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2">
+              <AlertCircle className="h-5 w-5 text-destructive" />
+              Delete Vendor
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete <strong>{vendorToDelete?.name}</strong>? 
+              This will move the vendor to trash and it can be restored within 30 days.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmDelete}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete Vendor
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Success Dialog */}
+      <AlertDialog open={showSuccessDialog} onOpenChange={setShowSuccessDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-green-600">
+              <CheckCircle className="h-5 w-5" />
+              Success
+            </AlertDialogTitle>
+            <AlertDialogDescription>{dialogMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowSuccessDialog(false)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Error Dialog */}
+      <AlertDialog open={showErrorDialog} onOpenChange={setShowErrorDialog}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2 text-red-600">
+              <AlertCircle className="h-5 w-5" />
+              Error
+            </AlertDialogTitle>
+            <AlertDialogDescription>{dialogMessage}</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setShowErrorDialog(false)}>
+              OK
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
