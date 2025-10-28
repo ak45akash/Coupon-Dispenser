@@ -2,7 +2,14 @@ import { supabaseAdmin } from '@/lib/supabase/server'
 import { Resend } from 'resend'
 import { generateWelcomeEmail, generatePlainTextWelcome, type WelcomeEmailData } from './templates'
 
-const resend = new Resend(process.env.RESEND_API_KEY)
+// Lazy initialize Resend only if API key is provided
+let resend: Resend | null = null
+const getResendClient = () => {
+  if (!resend && process.env.RESEND_API_KEY) {
+    resend = new Resend(process.env.RESEND_API_KEY)
+  }
+  return resend
+}
 
 export async function sendWelcomeEmail(
   userEmail: string,
@@ -41,29 +48,34 @@ export async function sendWelcomeEmail(
     const htmlContent = generateWelcomeEmail(emailData)
     const textContent = generatePlainTextWelcome(emailData)
 
-    // Send custom email using Resend
-    const fromEmail = process.env.RESEND_FROM_EMAIL || 'Coupon Dispenser <onboarding@resend.dev>'
+    // Send custom email using Resend (only if configured)
+    const client = getResendClient()
     
-    try {
-      const { data: emailResult, error: emailError } = await resend.emails.send({
-        from: fromEmail,
-        to: userEmail,
-        subject: `Welcome to ${emailData.companyName}!`,
-        html: htmlContent,
-        text: textContent,
-      })
+    if (client) {
+      const fromEmail = process.env.RESEND_FROM_EMAIL || 'Coupon Dispenser <onboarding@resend.dev>'
+      
+      try {
+        const { data: emailResult, error: emailError } = await client.emails.send({
+          from: fromEmail,
+          to: userEmail,
+          subject: `Welcome to ${emailData.companyName}!`,
+          html: htmlContent,
+          text: textContent,
+        })
 
-      if (emailError) {
-        console.error('Failed to send email via Resend:', emailError)
-        // Fallback to Supabase default email
+        if (emailError) {
+          console.error('Failed to send email via Resend:', emailError)
+          console.log('Falling back to Supabase default recovery email')
+        } else {
+          console.log('✓ Custom welcome email sent successfully via Resend:', emailResult)
+          return { success: true }
+        }
+      } catch (resendError) {
+        console.error('Resend error:', resendError)
         console.log('Falling back to Supabase default recovery email')
-      } else {
-        console.log('✓ Custom welcome email sent successfully via Resend:', emailResult)
-        return { success: true }
       }
-    } catch (resendError) {
-      console.error('Resend error:', resendError)
-      console.log('Falling back to Supabase default recovery email')
+    } else {
+      console.log('✓ Resend not configured - using Supabase default recovery email')
     }
 
     // If Resend fails, log what would be sent
