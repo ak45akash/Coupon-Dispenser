@@ -1,15 +1,4 @@
 import { supabaseAdmin } from '@/lib/supabase/server'
-import { Resend } from 'resend'
-import { generateWelcomeEmail, generatePlainTextWelcome, type WelcomeEmailData } from './templates'
-
-// Lazy initialize Resend only if API key is provided
-let resend: Resend | null = null
-const getResendClient = () => {
-  if (!resend && process.env.RESEND_API_KEY) {
-    resend = new Resend(process.env.RESEND_API_KEY)
-  }
-  return resend
-}
 
 export async function sendWelcomeEmail(
   userEmail: string,
@@ -20,61 +9,27 @@ export async function sendWelcomeEmail(
     // Get the site URL from environment
     const siteUrl = process.env.NEXTAUTH_URL || process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'
     
-    // Generate password reset link - this also sends the email automatically
+    // Generate password reset link - Supabase will automatically send the email
+    // Use the "Reset password" template that you customize in Supabase dashboard
     const { data: resetData, error: resetError } = await supabaseAdmin.auth.admin.generateLink({
       type: 'recovery',
       email: userEmail,
       options: {
         redirectTo: `${siteUrl}/reset-password`,
-        // This will send the default Supabase recovery email
       },
     })
 
     if (resetError || !resetData) {
-      console.error('Failed to generate reset link:', resetError)
+      console.error('❌ Failed to generate reset link:', resetError)
       return { success: false, error: resetError?.message || 'Failed to generate reset link' }
     }
 
     const resetLink = resetData.properties?.action_link || ''
     
-    console.log('✓ Recovery email generated and sent via Supabase')
+    console.log('✓ Password reset email sent via Supabase')
     console.log('✓ User should receive email at:', userEmail)
     console.log('✓ Reset link:', resetLink.substring(0, 80) + '...')
     
-    // Create our custom email
-    const emailData: WelcomeEmailData = {
-      userName,
-      userEmail,
-      invitedBy: invitedByName,
-      resetLink,
-      companyName: 'Coupon Dispenser',
-    }
-
-    // Optionally send custom email using Resend (only if configured)
-    const client = getResendClient()
-    
-    if (client) {
-      const htmlContent = generateWelcomeEmail(emailData)
-      const textContent = generatePlainTextWelcome(emailData)
-      const fromEmail = process.env.RESEND_FROM_EMAIL || 'Coupon Dispenser <onboarding@resend.dev>'
-      
-      try {
-        const { data: emailResult, error: emailError } = await client.emails.send({
-          from: fromEmail,
-          to: userEmail,
-          subject: `Welcome to ${emailData.companyName}!`,
-          html: htmlContent,
-          text: textContent,
-        })
-
-        if (!emailError) {
-          console.log('✓ Custom welcome email sent successfully via Resend')
-        }
-      } catch (resendError) {
-        console.log('⚠ Resend not available - user will receive Supabase default email')
-      }
-    }
-
     return { success: true }
   } catch (error) {
     console.error('❌ Error sending welcome email:', error)
