@@ -205,7 +205,3 @@ export function ErrorDialog({ open, onOpenChange, message }: ErrorDialogProps) {
     </AlertDialog>
   )
 }
-
-
-// Exports
-export { DeleteDialog, SuccessDialog, ErrorDialog, RestoreDialog, PermanentDeleteDialog }
