@@ -112,7 +112,7 @@ export default function CouponsPage() {
     localStorageKey: 'coupons-page-size',
   })
 
-  const paginatedCoupons = getPaginatedData()
+  const paginatedCoupons = getPaginatedData(filteredCoupons)
 
   const pageSizeOptions = [5, 10, 20, 50, 100]
 
