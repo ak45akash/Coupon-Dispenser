@@ -7,19 +7,19 @@ interface UsePaginationOptions {
   localStorageKey: string
 }
 
-interface UsePaginationReturn {
+interface UsePaginationReturn<T> {
   currentPage: number
   pageSize: number
   setCurrentPage: (page: number) => void
   setPageSize: (size: number) => void
   totalPages: number
-  getPaginatedData: <T>(data: T[]) => T[]
+  getPaginatedData: (dataArray: T[]) => T[]
 }
 
 export function usePagination<T>(
   data: T[],
   options: UsePaginationOptions
-): UsePaginationReturn {
+): UsePaginationReturn<T> {
   const { defaultPageSize = 10, localStorageKey } = options
 
   // Load page size from localStorage or use default
@@ -59,10 +59,10 @@ export function usePagination<T>(
   }
 
   // Get paginated data
-  const getPaginatedData = () => {
+  const getPaginatedData = (dataArray: T[]) => {
     const startIndex = (currentPage - 1) * pageSize
     const endIndex = startIndex + pageSize
-    return data.slice(startIndex, endIndex)
+    return dataArray.slice(startIndex, endIndex)
   }
 
   return {
