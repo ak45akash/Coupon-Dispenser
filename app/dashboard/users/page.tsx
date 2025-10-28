@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Shield, UserPlus, ChevronLeft, ChevronRight, Settings2 } from 'lucide-react'
+import { Shield, UserPlus, ChevronLeft, ChevronRight, Settings2, Trash2 } from 'lucide-react'
 import type { User, Vendor } from '@/types/database'
 import UserRoleModal from '@/components/users/UserRoleModal'
 import PartnerAccessModal from '@/components/users/PartnerAccessModal'
@@ -88,6 +88,30 @@ export default function UsersPage() {
   const handleEditAccess = (user: User) => {
     setSelectedUser(user)
     setIsAccessModalOpen(true)
+  }
+
+  const handleDeleteUser = async (user: User) => {
+    if (!confirm(`Are you sure you want to delete user "${user.email}"? This will move the user to trash and they can be restored within 30 days.`)) {
+      return
+    }
+
+    try {
+      const response = await fetch(`/api/users/${user.id}`, {
+        method: 'DELETE',
+      })
+      
+      const data = await response.json()
+      
+      if (data.success || response.ok) {
+        alert('User moved to trash successfully.')
+        fetchUsers()
+      } else {
+        alert(data.error || 'Failed to delete user.')
+      }
+    } catch (error) {
+      console.error('Error deleting user:', error)
+      alert('An error occurred while deleting the user.')
+    }
   }
 
   const getRoleBadgeVariant = (role: string): 'default' | 'secondary' | 'outline' | 'destructive' => {
@@ -190,6 +214,14 @@ export default function UsersPage() {
                           Manage Access
                         </Button>
                       )}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDeleteUser(user)}
+                        className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </TableCell>
                 </TableRow>

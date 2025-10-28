@@ -17,9 +17,16 @@ function ResetPasswordContent() {
     // Check if we have an access token from the email link
     const hashParams = new URLSearchParams(window.location.hash.substring(1))
     const accessToken = hashParams.get('access_token')
+    const type = hashParams.get('type')
     
-    if (!accessToken) {
-      setError('Invalid or expired reset link. Please request a new password reset.')
+    // Log for debugging
+    console.log('Hash params:', { accessToken, type })
+    
+    if (!accessToken || type !== 'recovery') {
+      // Only show error if there's actually a hash but no valid token
+      if (window.location.hash && !accessToken) {
+        setError('Invalid or expired reset link. Please request a new password reset.')
+      }
     }
   }, [])
 
