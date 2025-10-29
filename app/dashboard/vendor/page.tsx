@@ -376,7 +376,7 @@ export default function VendorProfilePage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setCurrentPage((prev) => Math.max(1, prev - 1))}
+                    onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1}
                   >
                     Previous
@@ -387,7 +387,7 @@ export default function VendorProfilePage() {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => setCurrentPage((prev) => Math.min(totalPages || 1, prev + 1))}
+                    onClick={() => setCurrentPage(Math.min(totalPages || 1, currentPage + 1))}
                     disabled={currentPage >= (totalPages || 1)}
                   >
                     Next
