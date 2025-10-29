@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X, Upload, Download } from 'lucide-react'
 import type { Vendor } from '@/types/database'
 import { parseCSV } from '@/lib/utils/csv'
@@ -21,6 +21,24 @@ export default function CSVUploadModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+
+  // Auto-select vendor if there's only one
+  useEffect(() => {
+    if (vendors.length === 1 && isOpen && !vendorId) {
+      setVendorId(vendors[0].id)
+    }
+  }, [vendors, vendorId, isOpen])
+
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      const reset = vendors.length === 1 ? vendors[0].id : ''
+      setVendorId(reset)
+      setFile(null)
+      setError('')
+      setSuccess('')
+    }
+  }, [isOpen, vendors])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -115,25 +133,27 @@ WELCOME10,Welcome discount,10% off,2024-12-31`
             </div>
           )}
 
-          <div>
-            <label htmlFor="vendor" className="label">
-              Vendor *
-            </label>
-            <select
-              id="vendor"
-              value={vendorId}
-              onChange={(e) => setVendorId(e.target.value)}
-              className="input"
-              required
-            >
-              <option value="">Select a vendor</option>
-              {vendors.map((vendor) => (
-                <option key={vendor.id} value={vendor.id}>
-                  {vendor.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {vendors.length > 1 && (
+            <div>
+              <label htmlFor="vendor" className="label">
+                Vendor *
+              </label>
+              <select
+                id="vendor"
+                value={vendorId}
+                onChange={(e) => setVendorId(e.target.value)}
+                className="input"
+                required
+              >
+                <option value="">Select a vendor</option>
+                {vendors.map((vendor) => (
+                  <option key={vendor.id} value={vendor.id}>
+                    {vendor.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label htmlFor="csv-file" className="label">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
 import type { Vendor } from '@/types/database'
 
@@ -9,6 +9,15 @@ interface CouponModalProps {
   onClose: () => void
   vendors: Vendor[]
 }
+
+// Reset form when modal closes
+const resetForm = () => ({
+  vendor_id: '',
+  code: '',
+  description: '',
+  discount_value: '',
+  expiry_date: '',
+})
 
 export default function CouponModal({
   isOpen,
@@ -25,6 +34,25 @@ export default function CouponModal({
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Auto-select vendor if there's only one
+  useEffect(() => {
+    if (vendors.length === 1 && isOpen && !formData.vendor_id) {
+      setFormData((prev) => ({ ...prev, vendor_id: vendors[0].id }))
+    }
+  }, [vendors, formData.vendor_id, isOpen])
+
+  // Reset form when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      const reset = resetForm()
+      if (vendors.length === 1) {
+        reset.vendor_id = vendors[0].id
+      }
+      setFormData(reset)
+      setError('')
+    }
+  }, [isOpen, vendors])
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError('')
@@ -40,13 +68,7 @@ export default function CouponModal({
       const data = await response.json()
 
       if (data.success) {
-        setFormData({
-          vendor_id: '',
-          code: '',
-          description: '',
-          discount_value: '',
-          expiry_date: '',
-        })
+        setFormData(resetForm())
         onClose()
       } else {
         setError(data.error || 'An error occurred')
@@ -80,27 +102,29 @@ export default function CouponModal({
             </div>
           )}
 
-          <div>
-            <label htmlFor="vendor_id" className="label">
-              Vendor *
-            </label>
-            <select
-              id="vendor_id"
-              value={formData.vendor_id}
-              onChange={(e) =>
-                setFormData({ ...formData, vendor_id: e.target.value })
-              }
-              className="input"
-              required
-            >
-              <option value="">Select a vendor</option>
-              {vendors.map((vendor) => (
-                <option key={vendor.id} value={vendor.id}>
-                  {vendor.name}
-                </option>
-              ))}
-            </select>
-          </div>
+          {vendors.length > 1 && (
+            <div>
+              <label htmlFor="vendor_id" className="label">
+                Vendor *
+              </label>
+              <select
+                id="vendor_id"
+                value={formData.vendor_id}
+                onChange={(e) =>
+                  setFormData({ ...formData, vendor_id: e.target.value })
+                }
+                className="input"
+                required
+              >
+                <option value="">Select a vendor</option>
+                {vendors.map((vendor) => (
+                  <option key={vendor.id} value={vendor.id}>
+                    {vendor.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div>
             <label htmlFor="code" className="label">

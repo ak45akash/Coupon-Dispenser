@@ -111,3 +111,30 @@ export async function getVendorsByPartner(userId: string): Promise<Vendor[]> {
   return data?.map((item: any) => item.vendors) || []
 }
 
+/**
+ * Get the vendor associated with a partner admin user
+ * Returns the first vendor if user has access to multiple vendors
+ */
+export async function getVendorByPartner(userId: string): Promise<Vendor | null> {
+  const vendors = await getVendorsByPartner(userId)
+  return vendors.length > 0 ? vendors[0] : null
+}
+
+/**
+ * Check if a user has access to a specific vendor
+ */
+export async function hasVendorAccess(
+  userId: string,
+  vendorId: string
+): Promise<boolean> {
+  const { data, error } = await supabaseAdmin
+    .from('partner_vendor_access')
+    .select('id')
+    .eq('user_id', userId)
+    .eq('vendor_id', vendorId)
+    .single()
+
+  if (error || !data) return false
+  return true
+}
+

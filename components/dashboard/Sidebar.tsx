@@ -10,6 +10,7 @@ import {
   BarChart3,
   FileText,
   Trash2,
+  Building2,
 } from 'lucide-react'
 import { UserRole } from '@/types/database'
 import clsx from 'clsx'
@@ -36,13 +37,19 @@ const navItems: NavItem[] = [
     name: 'Vendors',
     href: '/dashboard/vendors',
     icon: Store,
-    roles: ['super_admin', 'partner_admin'],
+    roles: ['super_admin'],
+  },
+  {
+    name: 'My Vendor',
+    href: '/dashboard/vendor',
+    icon: Building2,
+    roles: ['partner_admin'],
   },
   {
     name: 'Coupons',
     href: '/dashboard/coupons',
     icon: Ticket,
-    roles: ['super_admin', 'partner_admin'],
+    roles: ['super_admin'],
   },
   {
     name: 'Users',

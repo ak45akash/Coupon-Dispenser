@@ -3,7 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getCouponById, deleteCoupon } from '@/lib/db/coupons'
 import { softDeleteCoupon } from '@/lib/db/trash'
-import { canManageCoupons } from '@/lib/auth/permissions'
+import { canManageCoupons, isPartnerAdmin } from '@/lib/auth/permissions'
+import { getVendorByPartner, hasVendorAccess } from '@/lib/db/vendors'
 
 export async function GET(
   request: NextRequest,
@@ -52,6 +53,26 @@ export async function DELETE(
     }
 
     const { id } = await params
+    
+    // Get the coupon to check vendor access
+    const coupon = await getCouponById(id)
+    if (!coupon) {
+      return NextResponse.json(
+        { success: false, error: 'Coupon not found' },
+        { status: 404 }
+      )
+    }
+
+    // If partner admin, verify they have access to this coupon's vendor
+    if (isPartnerAdmin(session.user.role)) {
+      const hasAccess = await hasVendorAccess(session.user.id, coupon.vendor_id)
+      if (!hasAccess) {
+        return NextResponse.json(
+          { success: false, error: 'You can only delete coupons for your assigned vendor' },
+          { status: 403 }
+        )
+      }
+    }
     
     // Soft delete the coupon (moves to trash)
     await softDeleteCoupon(id, session.user.id)

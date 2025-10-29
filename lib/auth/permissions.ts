@@ -24,6 +24,14 @@ export const canManageCoupons = (role: UserRole): boolean => {
   return isSuperAdmin(role) || isPartnerAdmin(role)
 }
 
+/**
+ * Check if a partner admin can manage coupons for a specific vendor
+ * This should be used with hasVendorAccess() from lib/db/vendors
+ */
+export const canManageVendorCoupons = (role: UserRole): boolean => {
+  return isSuperAdmin(role) || isPartnerAdmin(role)
+}
+
 export const canViewAnalytics = (role: UserRole): boolean => {
   return isSuperAdmin(role) || isPartnerAdmin(role)
 }
