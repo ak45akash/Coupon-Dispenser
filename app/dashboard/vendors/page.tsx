@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, Settings2, AlertCircle, CheckCircle } from 'lucide-react'
 import type { VendorWithStats } from '@/types/database'
 import VendorModal from '@/components/vendors/VendorModal'
@@ -179,13 +180,19 @@ export default function VendorsPage() {
                 <TableRow key={vendor.id}>
                   <TableCell>
                     <div>
-                      <div className="font-medium">{vendor.name}</div>
+                      <Link
+                        href={`/dashboard/vendors/${vendor.id}`}
+                        className="font-medium text-primary hover:underline cursor-pointer"
+                      >
+                        {vendor.name}
+                      </Link>
                       {vendor.website && (
                         <a
                           href={vendor.website}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="text-sm text-primary hover:underline"
+                          className="text-sm text-muted-foreground hover:underline block mt-1"
+                          onClick={(e) => e.stopPropagation()}
                         >
                           {vendor.website}
                         </a>

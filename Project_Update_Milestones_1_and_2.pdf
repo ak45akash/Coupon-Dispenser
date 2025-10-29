@@ -1,0 +1,154 @@
+Project Update: Milestones 1 & 2 Completion Report
+
+Dear Client,
+
+We are pleased to provide an update on the successful completion of Milestones 1 and 2 for your project, along with significant enhancements that improve functionality and user experience.
+
+═══════════════════════════════════════════════════════════════════════════════
+
+MILESTONE 1 – PROJECT SETUP & ARCHITECTURE
+
+Original Description:
+Initialize the Next.js project, configure Supabase, and deploy the base structure on Vercel.
+
+Original Deliverables:
+• Live Vercel deployment showing base project setup.
+• Supabase database schema created (Vendors, Coupons, Users, Claims).
+• Environment and API configuration completed.
+• Brief architecture overview document (PDF).
+
+Implemented Features & Enhancements:
+• Next.js 15 Project Initialization
+  The project has been successfully initialized using Next.js 15, ensuring a modern and performant foundation.
+
+• Supabase Integration
+  Comprehensive Supabase configuration for database management and authentication.
+
+• Vercel Deployment
+  The application is fully deployed and accessible on Vercel, providing a live environment for testing and review.
+
+• Robust Database Schema
+  The Supabase database schema has been established, including tables for Vendors, Coupons, Users, and Claims, with appropriate relationships.
+
+• Environment & API Configuration
+  All necessary environment variables and API configurations are in place, ensuring secure and efficient data handling.
+
+• Architecture Overview
+  A foundational architecture is in place, supporting scalability and maintainability.
+
+═══════════════════════════════════════════════════════════════════════════════
+
+MILESTONE 2 – AUTHENTICATION & ADMIN DASHBOARD BASE
+
+Original Description:
+Develop secure authentication (NextAuth + Supabase) and create the base admin panel layout.
+
+Original Deliverables:
+• Admin login with NextAuth (Super Admin and Partner Admin roles).
+• Role-based access and protected routes.
+• Dashboard layout (sidebar, topbar).
+• Vendor Management (Add/Edit/Delete vendors).
+
+Implemented Features & Enhancements:
+
+A. Secure Authentication (NextAuth + Supabase)
+   A robust authentication system has been implemented using NextAuth in conjunction with Supabase, providing secure user access.
+
+B. Role-Based Access Control (RBAC)
+   • Admin Login
+     Super Admin and Partner Admin roles are fully functional, with distinct login capabilities.
+   
+   • Protected Routes
+     The application features role-based access control, ensuring that users can only access routes and functionalities relevant to their assigned roles.
+
+C. Comprehensive Dashboard Layout
+   • Sidebar & Topbar
+     A clean and intuitive dashboard layout has been developed, including a responsive sidebar for navigation and a functional topbar.
+   
+   • UI Enhancements (shadcn/ui)
+     The entire user interface has been significantly upgraded using shadcn/ui components, providing a modern, aesthetic, and animated user experience. This includes:
+     - Improved buttons, cards, tables, dialogs, inputs, labels, badges, pagination, and dropdown menus.
+     - Custom animations for a more dynamic feel.
+
+D. User Management
+   • Super Admin User Creation
+     Super Admins can now directly create new users from within the application via a dedicated modal.
+   
+   • Automated Welcome Emails
+     Newly created users receive a customized welcome email with a secure link to set/reset their password, eliminating manual password entry during creation.
+
+E. Vendor Management
+   Full CRUD (Create, Read, Update, Delete) functionality for vendors is implemented, allowing Super Admins and Partner Admins to manage vendor data efficiently.
+
+F. Pagination System
+   • Users, Coupons, and Vendors Pages
+     All major data tables (Users, Coupons, Vendors) now feature a comprehensive pagination system.
+   
+   • Customizable Options
+     Users can select between 5, 10, 20, 50, or 100 items per page.
+   
+   • Persistence
+     Page size preferences are saved locally for each page type, ensuring a consistent user experience across sessions.
+   
+   • Intuitive Controls
+     Includes "Previous" and "Next" buttons, direct page number selection, and a page size dropdown.
+
+G. Coupon Statistics
+   The Coupons page now prominently displays total, available, and claimed coupon counts at the top, providing quick insights.
+
+═══════════════════════════════════════════════════════════════════════════════
+
+KEY FEATURE HIGHLIGHT: SOFT DELETE & TRASH FUNCTIONALITY
+
+A critical enhancement implemented across the system is the Soft Delete and Trash functionality for Users, Coupons, and Vendors.
+
+• Soft Deletion
+  Instead of permanent deletion, items are now "soft-deleted," meaning they are marked as deleted in the database but not immediately removed. This prevents accidental data loss.
+
+• Trash Section
+  A dedicated "Trash" section has been added to the Super Admin dashboard (accessible via the sidebar).
+
+• Restore Capability
+  Super Admins have the ability to view all soft-deleted items and restore them if needed.
+
+• Permanent Deletion
+  Items in the trash are automatically permanently deleted after 30 days. Super Admins can also manually trigger permanent deletion for individual items from the trash.
+
+• Audit Trail
+  The system tracks who deleted an item, enhancing accountability.
+
+═══════════════════════════════════════════════════════════════════════════════
+
+DEPLOYMENT INFORMATION
+
+Local Development:
+The application is running locally at http://localhost:3000 and can be accessed for development and testing purposes.
+
+Production Deployment (Vercel):
+The application is live and accessible at:
+https://coupon-dispenser-ca4gff0q0-akashdeep-kanchas-projects.vercel.app
+
+All changes have been committed to GitHub:
+https://github.com/ak45akash/Coupon-Dispenser.git
+
+═══════════════════════════════════════════════════════════════════════════════
+
+CONCLUSION
+
+We believe these completed milestones and additional features significantly enhance the application's robustness, usability, and administrative capabilities. The project now includes:
+
+• A modern, responsive, and visually appealing interface
+• Comprehensive user and vendor management systems
+• Efficient data handling with pagination and persistence
+• Enhanced data protection through soft delete functionality
+• Secure authentication and role-based access control
+• Automated user onboarding with welcome emails
+
+The application is ready for review and testing in both the local development environment and the production deployment on Vercel.
+
+═══════════════════════════════════════════════════════════════════════════════
+
+Best regards,
+
+Development Team
+
