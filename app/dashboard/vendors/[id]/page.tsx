@@ -160,7 +160,7 @@ export default function VendorProfilePage() {
 
   if (loading) {
     return (
-      <div className="ml-64 p-8">
+      <div>
         <Skeleton className="h-8 w-64 mb-6" />
         <Skeleton className="h-48 w-full mb-6" />
         <Skeleton className="h-96 w-full" />
@@ -170,7 +170,7 @@ export default function VendorProfilePage() {
 
   if (!vendor) {
     return (
-      <div className="ml-64 p-8">
+      <div>
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-4 text-destructive">
@@ -189,8 +189,8 @@ export default function VendorProfilePage() {
   }
 
   return (
-    <div className="ml-64 p-8">
-      <div className="mb-6">
+    <div className="space-y-6">
+      <div>
         <Link href="/dashboard/vendors">
           <Button variant="ghost" size="sm" className="mb-4 gap-2">
             <ArrowLeft className="h-4 w-4" />
