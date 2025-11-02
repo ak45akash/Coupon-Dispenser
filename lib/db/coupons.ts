@@ -28,11 +28,12 @@ export async function getCouponsByVendor(vendorId: string): Promise<Coupon[]> {
 export async function getAvailableCouponsByVendor(
   vendorId: string
 ): Promise<Coupon[]> {
+  // All coupons are available (shared model)
+  // Monthly limits are enforced through claim_history
   const { data, error } = await supabaseAdmin
     .from('coupons')
     .select('*')
     .eq('vendor_id', vendorId)
-    .eq('is_claimed', false)
     .is('deleted_at', null) // Exclude soft-deleted coupons
     .order('created_at', { ascending: false })
 
@@ -138,47 +139,37 @@ export async function claimCoupon(
     throw new Error('Monthly claim limit reached for this vendor')
   }
 
-  // Get an available coupon
+  // Get any coupon for this vendor (all coupons are shared/available)
   const { data: coupon, error: couponError } = await supabaseAdmin
     .from('coupons')
     .select('*')
     .eq('vendor_id', vendorId)
-    .eq('is_claimed', false)
     .is('deleted_at', null) // Exclude soft-deleted coupons
     .limit(1)
     .single()
 
   if (couponError || !coupon) {
-    throw new Error('No available coupons')
+    throw new Error('No coupons available for this vendor')
   }
 
-  // Update coupon as claimed
-  const { data: updatedCoupon, error: updateError } = await supabaseAdmin
-    .from('coupons')
-    .update({
-      is_claimed: true,
-      claimed_by: userId,
-      claimed_at: new Date().toISOString(),
-    })
-    .eq('id', coupon.id)
-    .select()
-    .single()
-
-  if (updateError) throw updateError
-
-  // Record claim history
+  // Record claim history (this is the only place we track claims now)
   const startOfMonth = new Date()
   startOfMonth.setDate(1)
   startOfMonth.setHours(0, 0, 0, 0)
 
-  await supabaseAdmin.from('claim_history').insert({
-    user_id: userId,
-    vendor_id: vendorId,
-    coupon_id: coupon.id,
-    claim_month: startOfMonth.toISOString().split('T')[0],
-  })
+  const { error: historyError } = await supabaseAdmin
+    .from('claim_history')
+    .insert({
+      user_id: userId,
+      vendor_id: vendorId,
+      coupon_id: coupon.id,
+      claim_month: startOfMonth.toISOString().split('T')[0],
+    })
 
-  return updatedCoupon
+  if (historyError) throw historyError
+
+  // Return the coupon (unchanged - it's shared)
+  return coupon
 }
 
 export async function getCouponsWithVendor(): Promise<CouponWithVendor[]> {

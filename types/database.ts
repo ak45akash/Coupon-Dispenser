@@ -34,9 +34,6 @@ export interface Coupon {
   description: string | null
   discount_value: string | null
   expiry_date: string | null
-  is_claimed: boolean
-  claimed_by: string | null
-  claimed_at: string | null
   created_by: string | null
   created_at: string
   updated_at: string
@@ -77,9 +74,8 @@ export interface CouponWithVendor extends Coupon {
   vendor: Vendor
 }
 
-export interface CouponWithUser extends Coupon {
-  user: User | null
-}
+// Note: Coupons are now shared - no exclusive user ownership
+// Use ClaimHistory to track individual claims
 
 export interface ClaimHistoryWithDetails extends ClaimHistory {
   user: User

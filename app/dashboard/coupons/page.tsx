@@ -45,7 +45,7 @@ export default function CouponsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCSVModalOpen, setIsCSVModalOpen] = useState(false)
   const [selectedVendor, setSelectedVendor] = useState<string>('')
-  const [filterStatus, setFilterStatus] = useState<'all' | 'claimed' | 'unclaimed'>('all')
+  // Status filter removed - all coupons are shared/available
   
   // Delete dialog state
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -128,9 +128,10 @@ export default function CouponsPage() {
     return vendors.find((v) => v.id === vendorId)?.name || 'Unknown'
   }
 
+  // All coupons are available (shared model)
+  // Status filtering removed since coupons are reusable
   const filteredCoupons = coupons.filter((coupon) => {
-    if (filterStatus === 'claimed') return coupon.is_claimed
-    if (filterStatus === 'unclaimed') return !coupon.is_claimed
+    // Vendor filter only
     return true
   })
 
@@ -207,7 +208,7 @@ export default function CouponsPage() {
             <div>
               <p className="text-sm font-medium text-muted-foreground">Available</p>
               <p className="text-3xl font-bold text-green-600">
-                {filteredCoupons.filter((c) => !c.is_claimed).length}
+                {filteredCoupons.length}
               </p>
             </div>
             <div className="rounded-full bg-green-100 p-3">
@@ -218,13 +219,13 @@ export default function CouponsPage() {
         <Card className="p-6">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-muted-foreground">Claimed</p>
-              <p className="text-3xl font-bold text-yellow-600">
-                {filteredCoupons.filter((c) => c.is_claimed).length}
+              <p className="text-sm font-medium text-muted-foreground">Vendors</p>
+              <p className="text-3xl font-bold text-blue-600">
+                {vendors.length}
               </p>
             </div>
-            <div className="rounded-full bg-yellow-100 p-3">
-              <Upload className="h-6 w-6 text-yellow-600" />
+            <div className="rounded-full bg-blue-100 p-3">
+              <Upload className="h-6 w-6 text-blue-600" />
             </div>
           </div>
         </Card>
@@ -249,19 +250,7 @@ export default function CouponsPage() {
             </select>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="status-filter">Filter by Status</Label>
-            <select
-              id="status-filter"
-              value={filterStatus}
-              onChange={(e) => setFilterStatus(e.target.value as any)}
-              className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-            >
-              <option value="all">All Coupons</option>
-              <option value="unclaimed">Unclaimed</option>
-              <option value="claimed">Claimed</option>
-            </select>
-          </div>
+          {/* Status filter removed - all coupons are shared/available */}
         </div>
       </Card>
 
@@ -300,8 +289,8 @@ export default function CouponsPage() {
                       : 'No expiry'}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={coupon.is_claimed ? 'warning' : 'success'}>
-                      {coupon.is_claimed ? 'Claimed' : 'Available'}
+                    <Badge variant="success">
+                      Available
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
@@ -309,7 +298,6 @@ export default function CouponsPage() {
                       variant="ghost"
                       size="sm"
                       onClick={() => handleDelete(coupon)}
-                      disabled={coupon.is_claimed}
                       className="text-destructive hover:text-destructive"
                     >
                       <Trash2 className="h-4 w-4" />

@@ -40,15 +40,22 @@ export async function getVendorsWithStats(): Promise<VendorWithStats[]> {
   // Calculate stats for each vendor
   const vendorsWithStats = await Promise.all(
     (data || []).map(async (vendor) => {
-      const { data: coupons } = await supabaseAdmin
+      // Get total coupons (all are available in shared model)
+      const { count: totalCouponsCount } = await supabaseAdmin
         .from('coupons')
-        .select('is_claimed')
+        .select('id', { count: 'exact', head: true })
         .eq('vendor_id', vendor.id)
         .is('deleted_at', null) // Exclude soft-deleted coupons
 
-      const total_coupons = coupons?.length || 0
-      const claimed_coupons = coupons?.filter((c) => c.is_claimed).length || 0
-      const available_coupons = total_coupons - claimed_coupons
+      // Get total claims from claim_history
+      const { count: claimedCouponsCount } = await supabaseAdmin
+        .from('claim_history')
+        .select('id', { count: 'exact', head: true })
+        .eq('vendor_id', vendor.id)
+
+      const total_coupons = totalCouponsCount || 0
+      const claimed_coupons = claimedCouponsCount || 0 // Total claims for this vendor
+      const available_coupons = total_coupons // All coupons are available (shared)
 
       return {
         ...vendor,

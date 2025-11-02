@@ -39,6 +39,8 @@ CREATE TABLE public.partner_vendor_access (
 );
 
 -- Coupons table
+-- Note: Coupons are shared - multiple users can claim the same coupon
+-- Claim tracking is handled through claim_history table
 CREATE TABLE public.coupons (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   vendor_id UUID NOT NULL REFERENCES public.vendors(id) ON DELETE CASCADE,
@@ -46,9 +48,6 @@ CREATE TABLE public.coupons (
   description TEXT,
   discount_value TEXT,
   expiry_date TIMESTAMPTZ,
-  is_claimed BOOLEAN NOT NULL DEFAULT false,
-  claimed_by UUID REFERENCES public.users(id),
-  claimed_at TIMESTAMPTZ,
   created_by UUID REFERENCES public.users(id),
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -79,8 +78,6 @@ ON CONFLICT (key) DO NOTHING;
 
 -- Create indexes for performance
 CREATE INDEX idx_coupons_vendor_id ON public.coupons(vendor_id);
-CREATE INDEX idx_coupons_is_claimed ON public.coupons(is_claimed);
-CREATE INDEX idx_coupons_claimed_by ON public.coupons(claimed_by);
 CREATE INDEX idx_claim_history_user_id ON public.claim_history(user_id);
 CREATE INDEX idx_claim_history_vendor_id ON public.claim_history(vendor_id);
 CREATE INDEX idx_claim_history_claim_month ON public.claim_history(claim_month);
@@ -170,11 +167,9 @@ CREATE POLICY "Partner admins can view their vendor coupons" ON public.coupons
     )
   );
 
-CREATE POLICY "Users can view unclaimed coupons" ON public.coupons
-  FOR SELECT USING (is_claimed = false);
-
-CREATE POLICY "Users can view their claimed coupons" ON public.coupons
-  FOR SELECT USING (claimed_by = auth.uid());
+-- All authenticated users can view all coupons (shared model)
+CREATE POLICY "Everyone can view coupons" ON public.coupons
+  FOR SELECT USING (true);
 
 -- Claim history policies
 CREATE POLICY "Users can view their own claim history" ON public.claim_history

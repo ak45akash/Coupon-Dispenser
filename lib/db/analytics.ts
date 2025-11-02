@@ -9,22 +9,22 @@ import { startOfMonth, format } from 'date-fns'
 
 export async function getAnalyticsOverview(): Promise<AnalyticsOverview> {
   // Get counts in parallel
-  const [vendorsResult, couponsResult, usersResult, claimsResult] =
+  const [vendorsResult, couponsResult, usersResult, claimsResult, totalClaimsResult] =
     await Promise.all([
       supabaseAdmin.from('vendors').select('id', { count: 'exact' }),
-      supabaseAdmin.from('coupons').select('id, is_claimed', { count: 'exact' }),
+      supabaseAdmin.from('coupons').select('id', { count: 'exact' }),
       supabaseAdmin.from('users').select('id', { count: 'exact' }),
       supabaseAdmin
         .from('claim_history')
         .select('id', { count: 'exact' })
         .gte('claimed_at', startOfMonth(new Date()).toISOString()),
+      supabaseAdmin.from('claim_history').select('id', { count: 'exact' }),
     ])
 
   const total_vendors = vendorsResult.count || 0
   const total_coupons = couponsResult.count || 0
-  const claimed_coupons =
-    couponsResult.data?.filter((c) => c.is_claimed).length || 0
-  const available_coupons = total_coupons - claimed_coupons
+  const claimed_coupons = totalClaimsResult.count || 0 // Total claims ever made
+  const available_coupons = total_coupons // All coupons are available (shared)
   const total_users = usersResult.count || 0
   const claims_this_month = claimsResult.count || 0
 
@@ -52,15 +52,22 @@ export async function getVendorAnalytics(
   if (error) throw error
 
   const analyticsPromises = (vendors || []).map(async (vendor) => {
-    // Get coupon stats
-    const { data: coupons } = await supabaseAdmin
+    // Get coupon stats (coupons are shared, so all are available)
+    const { count: totalCouponsCount } = await supabaseAdmin
       .from('coupons')
-      .select('is_claimed')
+      .select('id', { count: 'exact', head: true })
+      .eq('vendor_id', vendor.id)
+      .is('deleted_at', null)
+
+    // Get claim stats from claim_history
+    const { count: claimedCouponsCount } = await supabaseAdmin
+      .from('claim_history')
+      .select('id', { count: 'exact', head: true })
       .eq('vendor_id', vendor.id)
 
-    const total_coupons = coupons?.length || 0
-    const claimed_coupons = coupons?.filter((c) => c.is_claimed).length || 0
-    const available_coupons = total_coupons - claimed_coupons
+    const total_coupons = totalCouponsCount || 0
+    const claimed_coupons = claimedCouponsCount || 0 // Total claims for this vendor
+    const available_coupons = total_coupons // All coupons are available (shared)
     const claim_rate =
       total_coupons > 0 ? (claimed_coupons / total_coupons) * 100 : 0
 

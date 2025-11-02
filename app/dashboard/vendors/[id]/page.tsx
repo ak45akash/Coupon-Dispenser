@@ -41,7 +41,7 @@ export default function VendorProfilePage() {
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCSVModalOpen, setIsCSVModalOpen] = useState(false)
-  const [filterStatus, setFilterStatus] = useState<'all' | 'claimed' | 'unclaimed'>('all')
+  // Status filter removed - all coupons are shared/available
 
   // Delete dialog state
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -131,10 +131,9 @@ export default function VendorProfilePage() {
     }
   }
 
+  // All coupons are available (shared model)
   const filteredCoupons = coupons.filter((coupon) => {
-    if (filterStatus === 'claimed') return coupon.is_claimed
-    if (filterStatus === 'unclaimed') return !coupon.is_claimed
-    return true
+    return true // All coupons are available
   })
 
   // Pagination
@@ -153,10 +152,10 @@ export default function VendorProfilePage() {
   const paginatedCoupons = getPaginatedData(filteredCoupons)
   const pageSizeOptions = [5, 10, 20, 50, 100]
 
-  // Calculate stats
+  // Calculate stats - all coupons are available (shared model)
   const totalCoupons = coupons.length
-  const availableCoupons = coupons.filter((c) => !c.is_claimed).length
-  const claimedCoupons = coupons.filter((c) => c.is_claimed).length
+  const availableCoupons = totalCoupons // All coupons are available
+  // Note: Claim stats would need to come from claim_history API
 
   if (loading) {
     return (
@@ -260,8 +259,8 @@ export default function VendorProfilePage() {
         </Card>
         <Card>
           <CardHeader className="pb-3">
-            <CardDescription>Claimed</CardDescription>
-            <CardTitle className="text-3xl text-orange-600">{claimedCoupons}</CardTitle>
+            <CardDescription>Active</CardDescription>
+            <CardTitle className="text-3xl text-orange-600">{availableCoupons}</CardTitle>
           </CardHeader>
         </Card>
       </div>
@@ -287,30 +286,7 @@ export default function VendorProfilePage() {
           </div>
         </CardHeader>
         <CardContent>
-          {/* Filter */}
-          <div className="mb-4 flex items-center gap-4">
-            <label className="text-sm font-medium">Filter by Status:</label>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="w-[180px]">
-                  {filterStatus === 'all' && 'All Coupons'}
-                  {filterStatus === 'claimed' && 'Claimed'}
-                  {filterStatus === 'unclaimed' && 'Available'}
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent>
-                <DropdownMenuItem onClick={() => setFilterStatus('all')}>
-                  All Coupons
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setFilterStatus('unclaimed')}>
-                  Available
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => setFilterStatus('claimed')}>
-                  Claimed
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          {/* Status filter removed - all coupons are shared/available */}
 
           {/* Coupons Table */}
           {paginatedCoupons.length === 0 ? (
@@ -345,8 +321,8 @@ export default function VendorProfilePage() {
                             : 'No expiry'}
                         </TableCell>
                         <TableCell>
-                          <Badge variant={coupon.is_claimed ? 'warning' : 'success'}>
-                            {coupon.is_claimed ? 'Claimed' : 'Available'}
+                          <Badge variant="success">
+                            Available
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">
@@ -354,7 +330,6 @@ export default function VendorProfilePage() {
                             variant="ghost"
                             size="sm"
                             onClick={() => handleDelete(coupon)}
-                            disabled={coupon.is_claimed}
                             className="text-destructive hover:text-destructive"
                           >
                             <Trash2 className="h-4 w-4" />
