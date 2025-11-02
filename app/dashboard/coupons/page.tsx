@@ -1,10 +1,12 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Plus, Upload, Trash2, Filter, ChevronLeft, ChevronRight, Settings2, AlertCircle, CheckCircle } from 'lucide-react'
+import { Plus, Upload, Trash2, Filter, ChevronLeft, ChevronRight, Settings2, AlertCircle, CheckCircle, History } from 'lucide-react'
 import type { Coupon, Vendor } from '@/types/database'
 import CouponModal from '@/components/coupons/CouponModal'
 import CSVUploadModal from '@/components/coupons/CSVUploadModal'
+import CouponClaimHistoryModal from '@/components/coupons/CouponClaimHistoryModal'
+import CouponDetailModal from '@/components/coupons/CouponDetailModal'
 import { formatDate } from '@/lib/utils/format'
 import { usePagination } from '@/lib/hooks/usePagination'
 import { Button } from '@/components/ui/button'
@@ -55,6 +57,14 @@ export default function CouponsPage() {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [showErrorDialog, setShowErrorDialog] = useState(false)
   const [dialogMessage, setDialogMessage] = useState('')
+  
+  // Claim history modal state
+  const [isClaimHistoryModalOpen, setIsClaimHistoryModalOpen] = useState(false)
+  const [selectedCouponForHistory, setSelectedCouponForHistory] = useState<string | null>(null)
+  
+  // Coupon detail modal state
+  const [isCouponDetailModalOpen, setIsCouponDetailModalOpen] = useState(false)
+  const [selectedCouponForDetail, setSelectedCouponForDetail] = useState<string | null>(null)
 
   const fetchCoupons = async () => {
     try {
@@ -96,6 +106,17 @@ export default function CouponsPage() {
   const handleDelete = (coupon: Coupon) => {
     setCouponToDelete(coupon)
     setIsDeleteDialogOpen(true)
+  }
+
+  const handleViewClaimHistory = (coupon: Coupon, e?: React.MouseEvent) => {
+    e?.stopPropagation() // Prevent row click when clicking history button
+    setSelectedCouponForHistory(coupon.id)
+    setIsClaimHistoryModalOpen(true)
+  }
+
+  const handleViewCouponDetail = (coupon: Coupon) => {
+    setSelectedCouponForDetail(coupon.id)
+    setIsCouponDetailModalOpen(true)
   }
 
   const confirmDelete = async () => {
@@ -276,7 +297,11 @@ export default function CouponsPage() {
               </TableRow>
             ) : (
               paginatedCoupons.map((coupon) => (
-                <TableRow key={coupon.id}>
+                <TableRow 
+                  key={coupon.id}
+                  onClick={() => handleViewCouponDetail(coupon)}
+                  className="cursor-pointer hover:bg-accent/50 transition-colors"
+                >
                   <TableCell className="font-mono font-semibold">{coupon.code}</TableCell>
                   <TableCell>{getVendorName(coupon.vendor_id)}</TableCell>
                   <TableCell className="max-w-xs truncate">
@@ -294,14 +319,29 @@ export default function CouponsPage() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => handleDelete(coupon)}
-                      className="text-destructive hover:text-destructive"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center justify-end gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => handleViewClaimHistory(coupon, e)}
+                        className="text-primary hover:text-primary"
+                        title="View claim history"
+                      >
+                        <History className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDelete(coupon)
+                        }}
+                        className="text-destructive hover:text-destructive"
+                        title="Delete coupon"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))
@@ -430,6 +470,26 @@ export default function CouponsPage() {
         open={showErrorDialog}
         onOpenChange={setShowErrorDialog}
         message={dialogMessage}
+      />
+
+      {/* Claim History Modal */}
+      <CouponClaimHistoryModal
+        isOpen={isClaimHistoryModalOpen}
+        onClose={() => {
+          setIsClaimHistoryModalOpen(false)
+          setSelectedCouponForHistory(null)
+        }}
+        couponId={selectedCouponForHistory}
+      />
+
+      {/* Coupon Detail Modal */}
+      <CouponDetailModal
+        isOpen={isCouponDetailModalOpen}
+        onClose={() => {
+          setIsCouponDetailModalOpen(false)
+          setSelectedCouponForDetail(null)
+        }}
+        couponId={selectedCouponForDetail}
       />
     </div>
   )

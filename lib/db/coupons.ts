@@ -186,3 +186,108 @@ export async function getCouponsWithVendor(): Promise<CouponWithVendor[]> {
   return data as any || []
 }
 
+/**
+ * Get detailed claim history for a specific coupon
+ */
+export async function getCouponClaimHistory(couponId: string) {
+  const { data, error } = await supabaseAdmin
+    .from('claim_history')
+    .select(`
+      *,
+      user:users(id, email, name, role, created_at),
+      vendor:vendors(id, name)
+    `)
+    .eq('coupon_id', couponId)
+    .order('claimed_at', { ascending: false })
+
+  if (error) throw error
+  return data || []
+}
+
+/**
+ * Calculate next available claim date for a user for a specific vendor
+ * Returns null if user can claim now, or a date string for when they can claim next
+ */
+export async function getNextAvailableClaimDate(
+  userId: string,
+  vendorId: string
+): Promise<string | null> {
+  // Get monthly claim rule
+  const { data: config } = await supabaseAdmin
+    .from('system_config')
+    .select('value')
+    .eq('key', 'monthly_claim_rule')
+    .single()
+
+  if (!config) return null
+
+  const rule = config.value as MonthlyClaimRule
+  if (!rule.enabled) return null
+
+  // Check claims this month
+  const now = new Date()
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  startOfMonth.setHours(0, 0, 0, 0)
+
+  const { data, error } = await supabaseAdmin
+    .from('claim_history')
+    .select('claimed_at, claim_month')
+    .eq('user_id', userId)
+    .eq('vendor_id', vendorId)
+    .gte('claimed_at', startOfMonth.toISOString())
+    .order('claimed_at', { ascending: false })
+
+  if (error) throw error
+
+  const claimCount = data?.length || 0
+  if (claimCount < rule.max_claims_per_vendor) {
+    return null // Can claim now
+  }
+
+  // User has reached limit - return first day of next month
+  const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+  nextMonth.setHours(0, 0, 0, 0)
+  return nextMonth.toISOString()
+}
+
+/**
+ * Get claim statistics for a coupon
+ */
+export async function getCouponClaimStats(couponId: string) {
+  const { count: totalClaims, error: countError } = await supabaseAdmin
+    .from('claim_history')
+    .select('*', { count: 'exact', head: true })
+    .eq('coupon_id', couponId)
+
+  if (countError) throw countError
+
+  // Get claims this month
+  const startOfMonth = new Date()
+  startOfMonth.setDate(1)
+  startOfMonth.setHours(0, 0, 0, 0)
+
+  const { count: thisMonthClaims, error: monthError } = await supabaseAdmin
+    .from('claim_history')
+    .select('*', { count: 'exact', head: true })
+    .eq('coupon_id', couponId)
+    .gte('claimed_at', startOfMonth.toISOString())
+
+  if (monthError) throw monthError
+
+  // Get unique users who claimed
+  const { data: uniqueUsers, error: usersError } = await supabaseAdmin
+    .from('claim_history')
+    .select('user_id')
+    .eq('coupon_id', couponId)
+
+  if (usersError) throw usersError
+
+  const uniqueUserCount = new Set(uniqueUsers?.map((c: any) => c.user_id) || []).size
+
+  return {
+    total_claims: totalClaims || 0,
+    this_month_claims: thisMonthClaims || 0,
+    unique_users: uniqueUserCount,
+  }
+}
+
