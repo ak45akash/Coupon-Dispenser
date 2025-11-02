@@ -13,6 +13,31 @@ export async function getAllCoupons(): Promise<Coupon[]> {
   return data || []
 }
 
+export interface CouponWithClaimCount extends Coupon {
+  claim_count: number
+}
+
+export async function getAllCouponsWithClaimCount(): Promise<CouponWithClaimCount[]> {
+  const coupons = await getAllCoupons()
+  
+  // Get claim counts for all coupons in parallel
+  const couponsWithCounts = await Promise.all(
+    coupons.map(async (coupon) => {
+      const { count } = await supabaseAdmin
+        .from('claim_history')
+        .select('*', { count: 'exact', head: true })
+        .eq('coupon_id', coupon.id)
+      
+      return {
+        ...coupon,
+        claim_count: count || 0,
+      }
+    })
+  )
+  
+  return couponsWithCounts
+}
+
 export async function getCouponsByVendor(vendorId: string): Promise<Coupon[]> {
   const { data, error } = await supabaseAdmin
     .from('coupons')

@@ -4,6 +4,7 @@ import { authOptions } from '@/lib/auth'
 import { createCouponSchema, bulkCreateCouponsSchema } from '@/lib/validators/coupon'
 import {
   getAllCoupons,
+  getAllCouponsWithClaimCount,
   getCouponsByVendor,
   createCoupon,
   bulkCreateCoupons,
@@ -39,9 +40,10 @@ export async function GET(request: NextRequest) {
     }
 
     // Super admin can see all or filtered by vendor_id
+    // Include claim counts for the main coupons page
     const coupons = vendorId
       ? await getCouponsByVendor(vendorId)
-      : await getAllCoupons()
+      : await getAllCouponsWithClaimCount()
 
     return NextResponse.json({ success: true, data: coupons })
   } catch (error) {

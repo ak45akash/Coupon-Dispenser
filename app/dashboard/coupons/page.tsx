@@ -1,11 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Plus, Upload, Trash2, Filter, ChevronLeft, ChevronRight, Settings2, AlertCircle, CheckCircle, History } from 'lucide-react'
 import type { Coupon, Vendor } from '@/types/database'
 import CouponModal from '@/components/coupons/CouponModal'
 import CSVUploadModal from '@/components/coupons/CSVUploadModal'
-import CouponClaimHistoryModal from '@/components/coupons/CouponClaimHistoryModal'
 import CouponDetailModal from '@/components/coupons/CouponDetailModal'
 import { formatDate } from '@/lib/utils/format'
 import { usePagination } from '@/lib/hooks/usePagination'
@@ -40,8 +40,13 @@ import {
 } from '@/components/ui/alert-dialog'
 import { DeleteDialog, SuccessDialog, ErrorDialog } from '@/components/ui/dialog-helpers'
 
+interface CouponWithClaimCount extends Coupon {
+  claim_count?: number
+}
+
 export default function CouponsPage() {
-  const [coupons, setCoupons] = useState<Coupon[]>([])
+  const router = useRouter()
+  const [coupons, setCoupons] = useState<CouponWithClaimCount[]>([])
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -57,10 +62,6 @@ export default function CouponsPage() {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [showErrorDialog, setShowErrorDialog] = useState(false)
   const [dialogMessage, setDialogMessage] = useState('')
-  
-  // Claim history modal state
-  const [isClaimHistoryModalOpen, setIsClaimHistoryModalOpen] = useState(false)
-  const [selectedCouponForHistory, setSelectedCouponForHistory] = useState<string | null>(null)
   
   // Coupon detail modal state
   const [isCouponDetailModalOpen, setIsCouponDetailModalOpen] = useState(false)
@@ -110,8 +111,7 @@ export default function CouponsPage() {
 
   const handleViewClaimHistory = (coupon: Coupon, e?: React.MouseEvent) => {
     e?.stopPropagation() // Prevent row click when clicking history button
-    setSelectedCouponForHistory(coupon.id)
-    setIsClaimHistoryModalOpen(true)
+    router.push(`/dashboard/coupons/${coupon.id}/claims`)
   }
 
   const handleViewCouponDetail = (coupon: Coupon) => {
@@ -284,6 +284,7 @@ export default function CouponsPage() {
               <TableHead>Description</TableHead>
               <TableHead>Discount</TableHead>
               <TableHead>Expiry Date</TableHead>
+              <TableHead>Claims</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -291,7 +292,7 @@ export default function CouponsPage() {
           <TableBody>
             {paginatedCoupons.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   No coupons found. Add coupons to get started.
                 </TableCell>
               </TableRow>
@@ -312,6 +313,11 @@ export default function CouponsPage() {
                     {coupon.expiry_date
                       ? formatDate(coupon.expiry_date)
                       : 'No expiry'}
+                  </TableCell>
+                  <TableCell>
+                    <div className="font-medium">
+                      {(coupon as CouponWithClaimCount).claim_count ?? 0}
+                    </div>
                   </TableCell>
                   <TableCell>
                     <Badge variant="success">
@@ -470,16 +476,6 @@ export default function CouponsPage() {
         open={showErrorDialog}
         onOpenChange={setShowErrorDialog}
         message={dialogMessage}
-      />
-
-      {/* Claim History Modal */}
-      <CouponClaimHistoryModal
-        isOpen={isClaimHistoryModalOpen}
-        onClose={() => {
-          setIsClaimHistoryModalOpen(false)
-          setSelectedCouponForHistory(null)
-        }}
-        couponId={selectedCouponForHistory}
       />
 
       {/* Coupon Detail Modal */}

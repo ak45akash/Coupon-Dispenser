@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Shield, UserPlus, ChevronLeft, ChevronRight, Settings2, Trash2, AlertCircle, CheckCircle } from 'lucide-react'
 import type { User, Vendor } from '@/types/database'
 import UserRoleModal from '@/components/users/UserRoleModal'
@@ -37,6 +39,7 @@ import {
 import { DeleteDialog, SuccessDialog, ErrorDialog } from '@/components/ui/dialog-helpers'
 
 export default function UsersPage() {
+  const router = useRouter()
   const [users, setUsers] = useState<User[]>([])
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [loading, setLoading] = useState(true)
@@ -214,8 +217,20 @@ export default function UsersPage() {
               </TableRow>
             ) : (
               paginatedUsers.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.email}</TableCell>
+                <TableRow 
+                  key={user.id}
+                  onClick={() => router.push(`/dashboard/users/${user.id}`)}
+                  className="cursor-pointer hover:bg-accent/50 transition-colors"
+                >
+                  <TableCell className="font-medium">
+                    <Link
+                      href={`/dashboard/users/${user.id}`}
+                      className="text-primary hover:underline"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      {user.email}
+                    </Link>
+                  </TableCell>
                   <TableCell>{user.name || '-'}</TableCell>
                   <TableCell>
                     <Badge variant={getRoleBadgeVariant(user.role)}>
@@ -230,7 +245,10 @@ export default function UsersPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleEditRole(user)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleEditRole(user)
+                        }}
                       >
                         Change Role
                       </Button>
@@ -238,7 +256,10 @@ export default function UsersPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => handleEditAccess(user)}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleEditAccess(user)
+                          }}
                         >
                           Manage Access
                         </Button>
@@ -246,7 +267,10 @@ export default function UsersPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleDeleteUser(user)}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          handleDeleteUser(user)
+                        }}
                         className="text-destructive hover:text-destructive hover:bg-destructive/10"
                       >
                         <Trash2 className="h-4 w-4" />

@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { X, Calendar, Tag, Store, FileText, DollarSign, Clock, Users, History } from 'lucide-react'
 import { formatDate, formatDateTime } from '@/lib/utils/format'
 import {
@@ -13,7 +14,6 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import CouponClaimHistoryModal from './CouponClaimHistoryModal'
 
 interface CouponDetail {
   id: string
@@ -49,10 +49,10 @@ export default function CouponDetailModal({
   onClose,
   couponId,
 }: CouponDetailModalProps) {
+  const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<CouponDetail | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [isClaimHistoryModalOpen, setIsClaimHistoryModalOpen] = useState(false)
 
   useEffect(() => {
     if (isOpen && couponId) {
@@ -308,7 +308,12 @@ export default function CouponDetailModal({
                       <Button
                         variant="outline"
                         size="sm"
-                        onClick={() => setIsClaimHistoryModalOpen(true)}
+                        onClick={() => {
+                          if (couponId) {
+                            router.push(`/dashboard/coupons/${couponId}/claims`)
+                            onClose()
+                          }
+                        }}
                         className="gap-2"
                       >
                         <History className="h-3 w-3" />
@@ -338,13 +343,6 @@ export default function CouponDetailModal({
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Claim History Modal */}
-      <CouponClaimHistoryModal
-        isOpen={isClaimHistoryModalOpen}
-        onClose={() => setIsClaimHistoryModalOpen(false)}
-        couponId={couponId}
-      />
     </>
   )
 }

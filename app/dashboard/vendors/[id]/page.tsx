@@ -7,7 +7,6 @@ import { Building2, Mail, Phone, Globe, Trash2, Plus, Upload, ArrowLeft, History
 import type { Vendor, Coupon } from '@/types/database'
 import CouponModal from '@/components/coupons/CouponModal'
 import CSVUploadModal from '@/components/coupons/CSVUploadModal'
-import CouponClaimHistoryModal from '@/components/coupons/CouponClaimHistoryModal'
 import CouponDetailModal from '@/components/coupons/CouponDetailModal'
 import { formatDate } from '@/lib/utils/format'
 import { usePagination } from '@/lib/hooks/usePagination'
@@ -53,10 +52,6 @@ export default function VendorProfilePage() {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [showErrorDialog, setShowErrorDialog] = useState(false)
   const [dialogMessage, setDialogMessage] = useState('')
-  
-  // Claim history modal state
-  const [isClaimHistoryModalOpen, setIsClaimHistoryModalOpen] = useState(false)
-  const [selectedCouponForHistory, setSelectedCouponForHistory] = useState<string | null>(null)
   
   // Coupon detail modal state
   const [isCouponDetailModalOpen, setIsCouponDetailModalOpen] = useState(false)
@@ -117,8 +112,7 @@ export default function VendorProfilePage() {
 
   const handleViewClaimHistory = (coupon: Coupon, e?: React.MouseEvent) => {
     e?.stopPropagation() // Prevent row click when clicking history button
-    setSelectedCouponForHistory(coupon.id)
-    setIsClaimHistoryModalOpen(true)
+    router.push(`/dashboard/coupons/${coupon.id}/claims`)
   }
 
   const handleViewCouponDetail = (coupon: Coupon) => {
@@ -472,16 +466,6 @@ export default function VendorProfilePage() {
         open={showErrorDialog}
         onOpenChange={setShowErrorDialog}
         message={dialogMessage}
-      />
-
-      {/* Claim History Modal */}
-      <CouponClaimHistoryModal
-        isOpen={isClaimHistoryModalOpen}
-        onClose={() => {
-          setIsClaimHistoryModalOpen(false)
-          setSelectedCouponForHistory(null)
-        }}
-        couponId={selectedCouponForHistory}
       />
 
       {/* Coupon Detail Modal */}
