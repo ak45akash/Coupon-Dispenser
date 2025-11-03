@@ -428,6 +428,7 @@ export default function VendorsPage() {
         title="Delete Vendor"
         itemName={vendorToDelete?.name || ''}
         itemType="vendor"
+        showCouponWarning={true}
       />
 
       {/* Success Dialog */}

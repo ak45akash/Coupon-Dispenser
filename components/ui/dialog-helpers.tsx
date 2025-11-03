@@ -17,6 +17,7 @@ interface DeleteDialogProps {
   title: string
   itemName: string
   itemType: string
+  showCouponWarning?: boolean
 }
 
 export function DeleteDialog({
@@ -26,6 +27,7 @@ export function DeleteDialog({
   title,
   itemName,
   itemType,
+  showCouponWarning = false,
 }: DeleteDialogProps) {
   return (
     <AlertDialog open={open} onOpenChange={onOpenChange}>
@@ -41,6 +43,11 @@ export function DeleteDialog({
             <span className="text-sm text-muted-foreground mt-2 block">
               This will move the {itemType} to trash and it can be restored within 30 days.
             </span>
+            {showCouponWarning && (
+              <span className="text-sm text-muted-foreground mt-2 block">
+                Associated coupons will also be moved to trash.
+              </span>
+            )}
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
