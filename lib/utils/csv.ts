@@ -2,9 +2,9 @@ import Papa from 'papaparse'
 
 export interface CSVCoupon {
   code: string
-  description?: string
-  discount_value?: string
-  expiry_date?: string
+  description: string
+  discount_value: string
+  expiry_date: string
 }
 
 export function parseCSV(file: File): Promise<CSVCoupon[]> {
@@ -14,18 +14,37 @@ export function parseCSV(file: File): Promise<CSVCoupon[]> {
       skipEmptyLines: true,
       complete: (results) => {
         try {
-          const coupons = results.data.map((row: any) => {
-            // Parse expiry_date: if it's YYYY-MM-DD format, convert to ISO datetime
+          const coupons = results.data.map((row: any, index: number) => {
+            // All fields are now required
+            const code = row.code || row.Code || ''
+            const description = row.description || row.Description || ''
+            const discountValue = row.discount_value || row['Discount Value'] || ''
             let expiryDate = row.expiry_date || row['Expiry Date'] || ''
+
+            // Validate required fields
+            if (!code) {
+              throw new Error(`Row ${index + 2}: Missing required field 'code'`)
+            }
+            if (!description) {
+              throw new Error(`Row ${index + 2}: Missing required field 'description'`)
+            }
+            if (!discountValue) {
+              throw new Error(`Row ${index + 2}: Missing required field 'discount_value'`)
+            }
+            if (!expiryDate) {
+              throw new Error(`Row ${index + 2}: Missing required field 'expiry_date'`)
+            }
+
+            // Parse expiry_date: if it's YYYY-MM-DD format, convert to ISO datetime
             if (expiryDate && /^\d{4}-\d{2}-\d{2}$/.test(expiryDate)) {
               // Convert YYYY-MM-DD to ISO datetime format (end of day in UTC)
               expiryDate = new Date(expiryDate + 'T23:59:59Z').toISOString()
             }
             
             return {
-              code: row.code || row.Code,
-              description: row.description || row.Description || '',
-              discount_value: row.discount_value || row['Discount Value'] || '',
+              code,
+              description,
+              discount_value: discountValue,
               expiry_date: expiryDate,
             }
           })

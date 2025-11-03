@@ -35,24 +35,34 @@ describe('Coupon Validators', () => {
       expect(() => createCouponSchema.parse(invalidCoupon)).toThrow()
     })
 
-    it('should allow empty optional fields', () => {
-      const coupon = {
+    it('should require all fields (description, discount_value, expiry_date)', () => {
+      const incompleteCoupon = {
         vendor_id: '123e4567-e89b-12d3-a456-426614174000',
         code: 'SAVE20',
         expiry_date: '',
       }
 
-      expect(() => createCouponSchema.parse(coupon)).not.toThrow()
+      expect(() => createCouponSchema.parse(incompleteCoupon)).toThrow()
     })
   })
 
   describe('bulkCreateCouponsSchema', () => {
-    it('should validate bulk coupon creation', () => {
+    it('should validate bulk coupon creation with all required fields', () => {
       const bulkData = {
         vendor_id: '123e4567-e89b-12d3-a456-426614174000',
         coupons: [
-          { code: 'SAVE10', description: '10% off' },
-          { code: 'SAVE20', description: '20% off' },
+          { 
+            code: 'SAVE10', 
+            description: '10% off',
+            discount_value: '10%',
+            expiry_date: '2024-12-31T23:59:59Z',
+          },
+          { 
+            code: 'SAVE20', 
+            description: '20% off',
+            discount_value: '20%',
+            expiry_date: '2024-12-31T23:59:59Z',
+          },
         ],
       }
 

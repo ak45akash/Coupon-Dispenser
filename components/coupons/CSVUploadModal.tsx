@@ -95,9 +95,9 @@ export default function CSVUploadModal({
 
   const downloadTemplate = () => {
     const csv = `code,description,discount_value,expiry_date
-SAVE20,Get 20% off your purchase,20% off,2024-12-31
-FREESHIP,Free shipping on orders,Free Shipping,2024-12-31
-WELCOME10,Welcome discount,10% off,2024-12-31`
+SAVE20,Get 20% off your purchase,20% off,2024-12-31T23:59:59Z
+FREESHIP,Free shipping on orders,Free Shipping,2024-12-31T23:59:59Z
+WELCOME10,Welcome discount,10% off,2024-12-31T23:59:59Z`
 
     const blob = new Blob([csv], { type: 'text/csv' })
     const url = URL.createObjectURL(blob)
@@ -184,20 +184,20 @@ WELCOME10,Welcome discount,10% off,2024-12-31`
               CSV Format Requirements
             </h3>
             <p className="mb-3 text-sm text-blue-800">
-              Your CSV file should include the following columns:
+              Your CSV file must include all the following columns:
             </p>
             <ul className="mb-3 list-inside list-disc space-y-1 text-sm text-blue-800">
               <li>
-                <strong>code</strong> (required): Unique coupon code
+                <strong>code</strong> (required): Unique coupon code, max 100 characters
               </li>
               <li>
-                <strong>description</strong> (optional): Coupon description
+                <strong>description</strong> (required): Coupon description, max 500 characters
               </li>
               <li>
-                <strong>discount_value</strong> (optional): e.g., &quot;20% off&quot;
+                <strong>discount_value</strong> (required): e.g., &quot;20% off&quot;, max 100 characters
               </li>
               <li>
-                <strong>expiry_date</strong> (optional): Format: YYYY-MM-DD
+                <strong>expiry_date</strong> (required): ISO datetime format, e.g., 2024-12-31T23:59:59Z
               </li>
             </ul>
             <button

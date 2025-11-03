@@ -43,52 +43,26 @@ FREESHIP,Free shipping on orders,Free Shipping,2024-12-31`
       })
     })
 
-    it('should parse CSV with only required code field', async () => {
+    it('should throw error when required fields are missing', async () => {
       const csvContent = `code
 COUPON1
 COUPON2
 COUPON3`
 
       const file = createCSVFile(csvContent)
-      const result = await parseCSV(file)
 
-      expect(result).toHaveLength(3)
-      expect(result[0]).toEqual({
-        code: 'COUPON1',
-        description: '',
-        discount_value: '',
-        expiry_date: '',
-      })
+      await expect(parseCSV(file)).rejects.toThrow('Missing required field')
     })
 
-    it('should handle optional fields being empty', async () => {
+    it('should throw error when optional fields are empty (all fields now required)', async () => {
       const csvContent = `code,description,discount_value,expiry_date
 COUPON1,Some description,,
 COUPON2,,15% off,
 COUPON3,,,2025-01-01`
 
       const file = createCSVFile(csvContent)
-      const result = await parseCSV(file)
 
-      expect(result).toHaveLength(3)
-      expect(result[0]).toEqual({
-        code: 'COUPON1',
-        description: 'Some description',
-        discount_value: '',
-        expiry_date: '',
-      })
-      expect(result[1]).toEqual({
-        code: 'COUPON2',
-        description: '',
-        discount_value: '15% off',
-        expiry_date: '',
-      })
-      expect(result[2]).toEqual({
-        code: 'COUPON3',
-        description: '',
-        discount_value: '',
-        expiry_date: '2025-01-01T23:59:59.000Z',
-      })
+      await expect(parseCSV(file)).rejects.toThrow('Missing required field')
     })
 
     it('should skip empty lines', async () => {

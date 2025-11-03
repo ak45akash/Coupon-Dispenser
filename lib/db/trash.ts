@@ -21,9 +21,22 @@ export async function softDeleteUser(userId: string, deletedBy: string) {
 }
 
 /**
- * Soft delete a vendor
+ * Soft delete a vendor and all associated coupons
  */
 export async function softDeleteVendor(vendorId: string, deletedBy: string) {
+  // First, soft delete all coupons for this vendor
+  const { error: couponsError } = await supabaseAdmin
+    .from('coupons')
+    .update({
+      deleted_at: new Date().toISOString(),
+      deleted_by: deletedBy,
+    })
+    .eq('vendor_id', vendorId)
+    .is('deleted_at', null)
+
+  if (couponsError) throw couponsError
+
+  // Then soft delete the vendor
   const { data, error } = await supabaseAdmin
     .from('vendors')
     .update({
