@@ -196,13 +196,13 @@ export default function TrashPage() {
             <button 
               onClick={handleDeleteAll} 
               disabled={actionLoading === 'all'}
-              className="btn btn-danger"
+              className="btn btn-danger flex items-center gap-2"
             >
               <Trash2 className={`h-4 w-4 ${actionLoading === 'all' ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">Delete All</span>
             </button>
           )}
-          <button onClick={fetchTrashItems} className="btn btn-secondary">
+          <button onClick={fetchTrashItems} className="btn btn-secondary flex items-center gap-2">
             <RefreshCw className="h-4 w-4" />
             <span className="hidden sm:inline">Refresh</span>
           </button>
