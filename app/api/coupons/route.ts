@@ -132,6 +132,22 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Handle database unique constraint violations
+    if (error.code === '23505') {
+      return NextResponse.json(
+        { success: false, error: 'Duplicate coupon code detected. Please check for duplicate codes in your CSV.' },
+        { status: 409 }
+      )
+    }
+
+    // Handle other Supabase errors
+    if (error.code && error.message) {
+      return NextResponse.json(
+        { success: false, error: error.message },
+        { status: 400 }
+      )
+    }
+
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

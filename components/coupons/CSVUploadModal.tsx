@@ -80,7 +80,11 @@ export default function CSVUploadModal({
           onClose()
         }, 2000)
       } else {
-        setError(data.error || 'An error occurred')
+        let errorMsg = data.error || 'An error occurred'
+        if (data.details && Array.isArray(data.details)) {
+          errorMsg += ': ' + data.details.map((d: any) => d.message).join(', ')
+        }
+        setError(errorMsg)
       }
     } catch (err: any) {
       setError(err.message || 'Failed to parse CSV file')
