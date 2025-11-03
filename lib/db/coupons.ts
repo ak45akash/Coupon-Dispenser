@@ -2,12 +2,18 @@ import { supabaseAdmin } from '@/lib/supabase/server'
 import type { Coupon, CouponWithVendor, MonthlyClaimRule } from '@/types/database'
 import type { CreateCouponInput, BulkCreateCouponsInput } from '@/lib/validators/coupon'
 
-export async function getAllCoupons(): Promise<Coupon[]> {
-  const { data, error } = await supabaseAdmin
+export async function getAllCoupons(limit?: number): Promise<Coupon[]> {
+  let query = supabaseAdmin
     .from('coupons')
     .select('*')
     .is('deleted_at', null) // Exclude soft-deleted coupons
     .order('created_at', { ascending: false })
+  
+  if (limit) {
+    query = query.limit(limit)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   return data || []
@@ -17,8 +23,8 @@ export interface CouponWithClaimCount extends Coupon {
   claim_count: number
 }
 
-export async function getAllCouponsWithClaimCount(): Promise<CouponWithClaimCount[]> {
-  const coupons = await getAllCoupons()
+export async function getAllCouponsWithClaimCount(limit?: number): Promise<CouponWithClaimCount[]> {
+  const coupons = await getAllCoupons(limit)
   if (coupons.length === 0) return []
   
   // OPTIMIZED: Try using SQL aggregation function first

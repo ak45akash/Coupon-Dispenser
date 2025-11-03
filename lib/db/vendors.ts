@@ -2,12 +2,18 @@ import { supabaseAdmin } from '@/lib/supabase/server'
 import type { Vendor, VendorWithStats } from '@/types/database'
 import type { CreateVendorInput, UpdateVendorInput } from '@/lib/validators/vendor'
 
-export async function getAllVendors(): Promise<Vendor[]> {
-  const { data, error } = await supabaseAdmin
+export async function getAllVendors(limit?: number): Promise<Vendor[]> {
+  let query = supabaseAdmin
     .from('vendors')
     .select('*')
     .is('deleted_at', null) // Exclude soft-deleted vendors
     .order('created_at', { ascending: false })
+  
+  if (limit) {
+    query = query.limit(limit)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
   return data || []
@@ -25,13 +31,19 @@ export async function getVendorById(id: string): Promise<Vendor | null> {
   return data
 }
 
-export async function getVendorsWithStats(): Promise<VendorWithStats[]> {
+export async function getVendorsWithStats(limit?: number): Promise<VendorWithStats[]> {
   // Optimized: Get all vendors in one query
-  const { data: vendors, error: vendorsError } = await supabaseAdmin
+  let vendorsQuery = supabaseAdmin
     .from('vendors')
     .select('*')
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
+  
+  if (limit) {
+    vendorsQuery = vendorsQuery.limit(limit)
+  }
+
+  const { data: vendors, error: vendorsError } = await vendorsQuery
 
   if (vendorsError) throw vendorsError
   if (!vendors || vendors.length === 0) return []

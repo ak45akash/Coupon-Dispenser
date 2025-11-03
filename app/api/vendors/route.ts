@@ -18,8 +18,10 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams
     const withStats = searchParams.get('stats') === 'true'
+    const limitParam = searchParams.get('limit')
+    const limit = limitParam ? parseInt(limitParam) : undefined
 
-    const vendors = withStats ? await getVendorsWithStats() : await getAllVendors()
+    const vendors = withStats ? await getVendorsWithStats(limit) : await getAllVendors(limit)
 
     return NextResponse.json({ success: true, data: vendors })
   } catch (error) {

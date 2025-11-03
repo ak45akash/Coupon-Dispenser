@@ -24,6 +24,8 @@ export async function GET(request: NextRequest) {
 
     const searchParams = request.nextUrl.searchParams
     const vendorId = searchParams.get('vendor_id')
+    const limitParam = searchParams.get('limit')
+    const limit = limitParam ? parseInt(limitParam) : undefined
 
     // If partner admin, only show their vendor's coupons
     if (isPartnerAdmin(session.user.role)) {
@@ -43,7 +45,7 @@ export async function GET(request: NextRequest) {
     // Include claim counts for the main coupons page
     const coupons = vendorId
       ? await getCouponsByVendor(vendorId)
-      : await getAllCouponsWithClaimCount()
+      : await getAllCouponsWithClaimCount(limit)
 
     return NextResponse.json({ success: true, data: coupons })
   } catch (error) {
