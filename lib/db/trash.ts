@@ -115,9 +115,22 @@ export async function restoreUser(userId: string) {
 }
 
 /**
- * Restore a vendor from trash
+ * Restore a vendor from trash and all associated coupons
  */
 export async function restoreVendor(vendorId: string) {
+  // First, restore all coupons for this vendor
+  const { error: couponsError } = await supabaseAdmin
+    .from('coupons')
+    .update({
+      deleted_at: null,
+      deleted_by: null,
+    })
+    .eq('vendor_id', vendorId)
+    .not('deleted_at', 'is', null)
+
+  if (couponsError) throw couponsError
+
+  // Then restore the vendor
   const { data, error } = await supabaseAdmin
     .from('vendors')
     .update({
