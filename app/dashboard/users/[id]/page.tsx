@@ -19,7 +19,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import PartnerAccessModal from '@/components/users/PartnerAccessModal'
-import type { Vendor } from '@/types/database'
+import type { Vendor, UserRole } from '@/types/database'
 
 interface ClaimHistoryItem {
   id: string
@@ -48,12 +48,14 @@ interface UserDetailData {
     id: string
     email: string
     name: string | null
-    role: string
+    role: UserRole
     created_at: string
     updated_at: string
     phone: string | null
     last_sign_in_at: string | null
     email_confirmed: boolean
+    deleted_at: string | null
+    deleted_by: string | null
   }
   stats: {
     total_claims: number
