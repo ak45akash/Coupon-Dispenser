@@ -199,12 +199,12 @@ export default function TrashPage() {
               className="btn btn-danger"
             >
               <Trash2 className={`h-4 w-4 ${actionLoading === 'all' ? 'animate-spin' : ''}`} />
-              Delete All
+              <span className="hidden sm:inline">Delete All</span>
             </button>
           )}
           <button onClick={fetchTrashItems} className="btn btn-secondary">
             <RefreshCw className="h-4 w-4" />
-            Refresh
+            <span className="hidden sm:inline">Refresh</span>
           </button>
         </div>
       </div>
@@ -328,16 +328,18 @@ export default function TrashPage() {
                       <button
                         onClick={() => handleRestore(item)}
                         disabled={actionLoading === item.id}
-                        className="text-primary-600 hover:text-primary-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-primary-600 hover:text-primary-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                       >
                         <RefreshCw className={`h-4 w-4 ${actionLoading === item.id ? 'animate-spin' : ''}`} />
+                        <span className="hidden sm:inline">Restore</span>
                       </button>
                       <button
                         onClick={() => handlePermanentDelete(item)}
                         disabled={actionLoading === item.id}
-                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="text-red-600 hover:text-red-900 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
                       >
                         <Trash2 className="h-4 w-4" />
+                        <span className="hidden sm:inline">Delete</span>
                       </button>
                     </div>
                   </td>
