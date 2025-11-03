@@ -1,0 +1,102 @@
+code,description,discount_value,expiry_date
+SAVE20,Get 20% off your purchase,20% off,2025-12-31
+FREESHIP,Free shipping on orders over $50,Free Shipping,2025-12-31
+WELCOME10,Welcome discount for new customers,10% off,2025-12-31
+SAVE50,Save big with 50% off,50% off,2025-12-31
+NEWYEAR25,New Year special discount,25% off,2025-12-31
+HOLIDAY30,Holiday season special,30% off,2025-12-31
+SPRING15,Spring cleaning sale,15% off,2025-12-31
+SUMMER20,Summer special discount,20% off,2025-12-31
+FALL25,Autumn savings offer,25% off,2025-12-31
+WINTER30,Winter wonderland discount,30% off,2025-12-31
+EARLYBIRD,Early bird special pricing,20% off,2025-12-31
+FIRSTORDER,First order bonus,15% off,2025-12-31
+MEMBER15,Member exclusive discount,15% off,2025-12-31
+REWARD10,Reward yourself today,10% off,2025-12-31
+DEAL20,Great deal on everything,20% off,2025-12-31
+VIP30,VIP customer special,30% off,2025-12-31
+FLASH25,Flash sale pricing,25% off,2025-12-31
+ENDSEASON,End of season clearance,40% off,2025-12-31
+BULK20,Bulk purchase discount,20% off,2025-12-31
+REFERRAL,Refer a friend bonus,15% off,2025-12-31
+STUDENT10,Student discount offer,10% off,2025-12-31
+SENIOR15,Senior citizen discount,15% off,2025-12-31
+MILITARY,Military and veteran discount,20% off,2025-12-31
+TEACHER15,Teacher appreciation discount,15% off,2025-12-31
+NURSE20,Nurse appreciation offer,20% off,2025-12-31
+BIRTHDAY,Happy birthday special,25% off,2025-12-31
+ANNIVERSARY,Anniversary celebration,20% off,2025-12-31
+LOVE25,Valentines special,25% off,2025-12-31
+GRADUATE,Congratulations graduate,15% off,2025-12-31
+JOBWELL,Job well done reward,20% off,2025-12-31
+SMILES20,Spread some joy today,20% off,2025-12-31
+CHEER15,Cheers to savings,15% off,2025-12-31
+ZEST30,Feel the zest discount,30% off,2025-12-31
+BRIGHT25,Brighten your day,25% off,2025-12-31
+SHINE20,Shine bright savings,20% off,2025-12-31
+SPARKLE30,Sparkle and save,30% off,2025-12-31
+GLOW25,Glow with savings,25% off,2025-12-31
+TWINKLE20,Twinkle discount star,20% off,2025-12-31
+RADIANT25,Radiant savings offer,25% off,2025-12-31
+GLEAM30,Gleam of savings,30% off,2025-12-31
+BRILLIANT,Brilliant deal today,20% off,2025-12-31
+DAZZLE25,Dazzling discount price,25% off,2025-12-31
+AMAZE30,Amazing savings here,30% off,2025-12-31
+WOW35,Wonderful offer wow,35% off,2025-12-31
+SWEET20,Sweet deal discount,20% off,2025-12-31
+NICE25,Nice price for you,25% off,2025-12-31
+COOL30,Cool customer offer,30% off,2025-12-31
+FRESH25,Fresh savings daily,25% off,2025-12-31
+CLEAN20,Clean and save today,20% off,2025-12-31
+PURE25,Pure value pricing,25% off,2025-12-31
+MINT30,Mint condition deal,30% off,2025-12-31
+CRISP20,Crisp fresh offer,20% off,2025-12-31
+SNAPPY25,Snappy discount price,25% off,2025-12-31
+QUICK20,Quick savings special,20% off,2025-12-31
+SPEEDY25,Speedy checkout discount,25% off,2025-12-31
+SWIFT30,Swift savings offer,30% off,2025-12-31
+FAST20,Fast track discount,20% off,2025-12-31
+RAPID25,Rapid rewards bonus,25% off,2025-12-31
+INSTANT30,Instant savings now,30% off,2025-12-31
+IMMEDIATE20,Immediate discount access,20% off,2025-12-31
+DIRECT25,Direct savings offer,25% off,2025-12-31
+STRAIGHT30,Straight to savings,30% off,2025-12-31
+EASY20,Easy discount to use,20% off,2025-12-31
+SIMPLE25,Simple savings plan,25% off,2025-12-31
+EFFORTLESS30,Effortless discount,30% off,2025-12-31
+SMOOTH20,Smooth savings experience,20% off,2025-12-31
+SEAMLESS25,Seamless discount offer,25% off,2025-12-31
+FLAWLESS30,Flawless deal today,30% off,2025-12-31
+PERFECT25,Perfect savings match,25% off,2025-12-31
+PRIME30,Prime discount offer,30% off,2025-12-31
+TOP25,Top tier savings,25% off,2025-12-31
+BEST30,Best deal available,30% off,2025-12-31
+ULTIMATE35,Ultimate savings package,35% off,2025-12-31
+MAXIMUM40,Maximum discount value,40% off,2025-12-31
+ELITE25,Elite customer pricing,25% off,2025-12-31
+PREMIUM30,Premium savings offer,30% off,2025-12-31
+LUXURY35,Luxury discount today,35% off,2025-12-31
+ROYAL30,Royal treatment savings,30% off,2025-12-31
+MAJESTIC25,Majestic discount price,25% off,2025-12-31
+GRAND30,Grand opening special,30% off,2025-12-31
+NOBLE25,Noble savings offer,25% off,2025-12-31
+SUPREME30,Supreme discount deal,30% off,2025-12-31
+EMPIRE35,Empire building savings,35% off,2025-12-31
+KINGDOM30,Kingdom of discounts,30% off,2025-12-31
+CASTLE25,Castle savings offer,25% off,2025-12-31
+PALACE30,Palace discount pricing,30% off,2025-12-31
+TREASURE25,Treasure trove savings,25% off,2025-12-31
+GEM30,Gem of a discount,30% off,2025-12-31
+JEWEL35,Jewel in the crown deal,35% off,2025-12-31
+PEARL25,Pearl of great value,25% off,2025-12-31
+DIAMOND30,Diamond customer offer,30% off,2025-12-31
+GOLD35,Gold standard savings,35% off,2025-12-31
+SILVER30,Silver tier discount,30% off,2025-12-31
+BRONZE25,Bronze level offer,25% off,2025-12-31
+PLATINUM40,Platinum exclusive deal,40% off,2025-12-31
+TITANIUM30,Titanium strength savings,30% off,2025-12-31
+CARBON25,Carbon fiber discount,25% off,2025-12-31
+STEEL30,Steel deal savings,30% off,2025-12-31
+SUPER99,Super saver coupon,99% off,2025-12-31
+FINAL100,Final destination discount,100% off,2025-12-31
+
