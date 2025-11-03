@@ -22,9 +22,12 @@ export async function getAllCouponsWithClaimCount(): Promise<CouponWithClaimCoun
   if (coupons.length === 0) return []
   
   // OPTIMIZED: Try using SQL aggregation function first
-  const claimCountsResult = await supabaseAdmin
-    .rpc('get_claim_counts_by_coupon')
-    .catch(() => null)
+  let claimCountsResult: { data: any; error: any } | null = null
+  try {
+    claimCountsResult = await supabaseAdmin.rpc('get_claim_counts_by_coupon')
+  } catch {
+    claimCountsResult = null
+  }
 
   // Fallback: If RPC function doesn't exist, use the old method
   if (!claimCountsResult || claimCountsResult.error) {

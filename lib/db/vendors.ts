@@ -38,12 +38,20 @@ export async function getVendorsWithStats(): Promise<VendorWithStats[]> {
 
   // Optimized: Get coupon and claim counts in parallel using raw SQL aggregation
   // This is MUCH faster than fetching all rows and counting in memory
-  const [couponCountsResult, claimCountsResult] = await Promise.all([
-    // Get aggregated coupon counts per vendor
-    supabaseAdmin.rpc('get_coupon_counts_by_vendor').catch(() => null),
-    // Get aggregated claim counts per vendor  
-    supabaseAdmin.rpc('get_claim_counts_by_vendor').catch(() => null),
-  ])
+  let couponCountsResult: { data: any; error: any } | null = null
+  let claimCountsResult: { data: any; error: any } | null = null
+  
+  try {
+    const [couponResult, claimResult] = await Promise.all([
+      supabaseAdmin.rpc('get_coupon_counts_by_vendor'),
+      supabaseAdmin.rpc('get_claim_counts_by_vendor'),
+    ])
+    couponCountsResult = couponResult
+    claimCountsResult = claimResult
+  } catch {
+    couponCountsResult = null
+    claimCountsResult = null
+  }
 
   // Fallback: If RPC functions don't exist, use the old method
   if (!couponCountsResult || couponCountsResult.error || !claimCountsResult || claimCountsResult.error) {
