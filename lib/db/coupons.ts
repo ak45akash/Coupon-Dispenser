@@ -19,23 +19,25 @@ export interface CouponWithClaimCount extends Coupon {
 
 export async function getAllCouponsWithClaimCount(): Promise<CouponWithClaimCount[]> {
   const coupons = await getAllCoupons()
+  if (coupons.length === 0) return []
   
-  // Get claim counts for all coupons in parallel
-  const couponsWithCounts = await Promise.all(
-    coupons.map(async (coupon) => {
-      const { count } = await supabaseAdmin
-        .from('claim_history')
-        .select('*', { count: 'exact', head: true })
-        .eq('coupon_id', coupon.id)
-      
-      return {
-        ...coupon,
-        claim_count: count || 0,
-      }
-    })
-  )
+  // Optimized: Get all claim counts in one query
+  const { data: claimHistory, error } = await supabaseAdmin
+    .from('claim_history')
+    .select('coupon_id')
   
-  return couponsWithCounts
+  if (error) throw error
+  
+  // Calculate counts in memory
+  const claimCounts = new Map<string, number>()
+  claimHistory?.forEach((claim) => {
+    claimCounts.set(claim.coupon_id, (claimCounts.get(claim.coupon_id) || 0) + 1)
+  })
+  
+  return coupons.map((coupon) => ({
+    ...coupon,
+    claim_count: claimCounts.get(coupon.id) || 0,
+  }))
 }
 
 export async function getCouponsByVendor(vendorId: string): Promise<Coupon[]> {

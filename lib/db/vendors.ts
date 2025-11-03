@@ -26,47 +26,49 @@ export async function getVendorById(id: string): Promise<Vendor | null> {
 }
 
 export async function getVendorsWithStats(): Promise<VendorWithStats[]> {
-  const { data, error } = await supabaseAdmin
+  // Optimized: Get all vendors in one query
+  const { data: vendors, error: vendorsError } = await supabaseAdmin
     .from('vendors')
-    .select(`
-      *,
-      coupons:coupons(count)
-    `)
-    .is('deleted_at', null) // Exclude soft-deleted vendors
+    .select('*')
+    .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
-  if (error) throw error
+  if (vendorsError) throw vendorsError
+  if (!vendors || vendors.length === 0) return []
 
-  // Calculate stats for each vendor
-  const vendorsWithStats = await Promise.all(
-    (data || []).map(async (vendor) => {
-      // Get total coupons (all are available in shared model)
-      const { count: totalCouponsCount } = await supabaseAdmin
-        .from('coupons')
-        .select('id', { count: 'exact', head: true })
-        .eq('vendor_id', vendor.id)
-        .is('deleted_at', null) // Exclude soft-deleted coupons
+  // Optimized: Get all coupon counts in one query using aggregation
+  const { data: couponStats, error: couponsError } = await supabaseAdmin
+    .from('coupons')
+    .select('vendor_id')
+    .is('deleted_at', null)
 
-      // Get total claims from claim_history
-      const { count: claimedCouponsCount } = await supabaseAdmin
-        .from('claim_history')
-        .select('id', { count: 'exact', head: true })
-        .eq('vendor_id', vendor.id)
+  if (couponsError) throw couponsError
 
-      const total_coupons = totalCouponsCount || 0
-      const claimed_coupons = claimedCouponsCount || 0 // Total claims for this vendor
-      const available_coupons = total_coupons // All coupons are available (shared)
+  // Optimized: Get all claim counts in one query
+  const { data: claimStats, error: claimsError } = await supabaseAdmin
+    .from('claim_history')
+    .select('vendor_id')
 
-      return {
-        ...vendor,
-        total_coupons,
-        claimed_coupons,
-        available_coupons,
-      }
-    })
-  )
+  if (claimsError) throw claimsError
 
-  return vendorsWithStats
+  // Calculate counts in memory (O(n) instead of O(n²))
+  const couponCounts = new Map<string, number>()
+  couponStats?.forEach((coupon) => {
+    couponCounts.set(coupon.vendor_id, (couponCounts.get(coupon.vendor_id) || 0) + 1)
+  })
+
+  const claimCounts = new Map<string, number>()
+  claimStats?.forEach((claim) => {
+    claimCounts.set(claim.vendor_id, (claimCounts.get(claim.vendor_id) || 0) + 1)
+  })
+
+  // Map vendors with stats
+  return vendors.map((vendor) => ({
+    ...vendor,
+    total_coupons: couponCounts.get(vendor.id) || 0,
+    claimed_coupons: claimCounts.get(vendor.id) || 0,
+    available_coupons: couponCounts.get(vendor.id) || 0, // All coupons available (shared)
+  }))
 }
 
 export async function createVendor(

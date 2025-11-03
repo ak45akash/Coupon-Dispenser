@@ -50,53 +50,75 @@ export async function getVendorAnalytics(
   const { data: vendors, error } = await query
 
   if (error) throw error
+  if (!vendors || vendors.length === 0) return []
 
-  const analyticsPromises = (vendors || []).map(async (vendor) => {
-    // Get coupon stats (coupons are shared, so all are available)
-    const { count: totalCouponsCount } = await supabaseAdmin
-      .from('coupons')
-      .select('id', { count: 'exact', head: true })
-      .eq('vendor_id', vendor.id)
-      .is('deleted_at', null)
+  // Optimized: Get all data in parallel bulk queries
+  const twelveMonthsAgo = new Date()
+  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
 
-    // Get claim stats from claim_history
-    const { count: claimedCouponsCount } = await supabaseAdmin
-      .from('claim_history')
-      .select('id', { count: 'exact', head: true })
-      .eq('vendor_id', vendor.id)
+  // Batch query for all coupons
+  let couponQuery = supabaseAdmin
+    .from('coupons')
+    .select('vendor_id')
+    .is('deleted_at', null)
 
-    const total_coupons = totalCouponsCount || 0
-    const claimed_coupons = claimedCouponsCount || 0 // Total claims for this vendor
-    const available_coupons = total_coupons // All coupons are available (shared)
-    const claim_rate =
-      total_coupons > 0 ? (claimed_coupons / total_coupons) * 100 : 0
+  if (vendorId) {
+    couponQuery = couponQuery.eq('vendor_id', vendorId)
+  }
 
-    // Get claims by month for the last 12 months
-    const twelveMonthsAgo = new Date()
-    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
+  // Batch query for all claims
+  let claimQuery = supabaseAdmin
+    .from('claim_history')
+    .select('vendor_id, claim_month, claimed_at')
 
-    const { data: claimHistory } = await supabaseAdmin
-      .from('claim_history')
-      .select('claim_month')
-      .eq('vendor_id', vendor.id)
-      .gte('claimed_at', twelveMonthsAgo.toISOString())
+  if (vendorId) {
+    claimQuery = claimQuery.eq('vendor_id', vendorId)
+  }
 
-    // Group by month
-    const claimsByMonth = (claimHistory || []).reduce(
-      (acc, claim) => {
-        const month = claim.claim_month
-        acc[month] = (acc[month] || 0) + 1
-        return acc
-      },
-      {} as Record<string, number>
-    )
+  // Run queries in parallel
+  const [couponsResult, claimsResult] = await Promise.all([
+    couponQuery,
+    claimQuery,
+  ])
 
-    const claims_by_month = Object.entries(claimsByMonth).map(
-      ([month, count]) => ({
-        month,
-        count,
-      })
-    )
+  if (couponsResult.error) throw couponsResult.error
+  if (claimsResult.error) throw claimsResult.error
+
+  // Calculate stats in memory (O(n) instead of O(n²))
+  const couponCounts = new Map<string, number>()
+  couponsResult.data?.forEach((coupon) => {
+    couponCounts.set(coupon.vendor_id, (couponCounts.get(coupon.vendor_id) || 0) + 1)
+  })
+
+  const claimCounts = new Map<string, number>()
+  claimsResult.data?.forEach((claim) => {
+    claimCounts.set(claim.vendor_id, (claimCounts.get(claim.vendor_id) || 0) + 1)
+  })
+
+  // Group claims by vendor and month
+  const claimsByMonthMap = new Map<string, Map<string, number>>()
+  claimsResult.data?.forEach((claim) => {
+    if (new Date(claim.claimed_at) >= twelveMonthsAgo) {
+      if (!claimsByMonthMap.has(claim.vendor_id)) {
+        claimsByMonthMap.set(claim.vendor_id, new Map())
+      }
+      const monthMap = claimsByMonthMap.get(claim.vendor_id)!
+      monthMap.set(claim.claim_month, (monthMap.get(claim.claim_month) || 0) + 1)
+    }
+  })
+
+  // Map vendors with stats
+  return vendors.map((vendor) => {
+    const total_coupons = couponCounts.get(vendor.id) || 0
+    const claimed_coupons = claimCounts.get(vendor.id) || 0
+    const available_coupons = total_coupons
+    const claim_rate = total_coupons > 0 ? (claimed_coupons / total_coupons) * 100 : 0
+
+    const monthMap = claimsByMonthMap.get(vendor.id) || new Map()
+    const claims_by_month = Array.from(monthMap.entries()).map(([month, count]) => ({
+      month,
+      count,
+    }))
 
     return {
       vendor_id: vendor.id,
@@ -108,8 +130,6 @@ export async function getVendorAnalytics(
       claims_by_month,
     }
   })
-
-  return Promise.all(analyticsPromises)
 }
 
 export async function getClaimTrends(days: number = 30, vendorId?: string): Promise<ClaimTrend[]> {
