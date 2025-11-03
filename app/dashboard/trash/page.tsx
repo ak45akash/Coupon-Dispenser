@@ -13,7 +13,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
-import { RestoreDialog, PermanentDeleteDialog, SuccessDialog, ErrorDialog } from '@/components/ui/dialog-helpers'
+import { RestoreDialog, PermanentDeleteDialog, SuccessDialog, ErrorDialog, DeleteAllDialog } from '@/components/ui/dialog-helpers'
 
 export default function TrashPage() {
   const [trashItems, setTrashItems] = useState<TrashItem[]>([])
@@ -25,6 +25,7 @@ export default function TrashPage() {
   // Dialog states
   const [showRestoreDialog, setShowRestoreDialog] = useState(false)
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [showDeleteAllDialog, setShowDeleteAllDialog] = useState(false)
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [showErrorDialog, setShowErrorDialog] = useState(false)
   const [selectedItem, setSelectedItem] = useState<TrashItem | null>(null)
@@ -116,6 +117,35 @@ export default function TrashPage() {
     }
   }
 
+  const handleDeleteAll = () => {
+    setShowDeleteAllDialog(true)
+  }
+
+  const confirmDeleteAll = async () => {
+    try {
+      setActionLoading('all')
+      const response = await fetch('/api/trash/delete-all', {
+        method: 'POST',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to delete all items')
+      }
+
+      const data = await response.json()
+      setDialogMessage(data.message || 'All trash items permanently deleted')
+      setShowSuccessDialog(true)
+      fetchTrashItems()
+    } catch (err: any) {
+      setDialogMessage(`Error: ${err.message}`)
+      setShowErrorDialog(true)
+    } finally {
+      setActionLoading(null)
+      setShowDeleteAllDialog(false)
+    }
+  }
+
   const filteredItems = filter === 'all' ? trashItems : trashItems.filter((item) => item.item_type === filter)
 
   const getItemIcon = (type: string) => {
@@ -161,10 +191,22 @@ export default function TrashPage() {
             Items are automatically deleted after 30 days. Restore or permanently delete items below.
           </p>
         </div>
-        <button onClick={fetchTrashItems} className="btn btn-secondary">
-          <RefreshCw className="h-4 w-4" />
-          Refresh
-        </button>
+        <div className="flex gap-2">
+          {trashItems.length > 0 && (
+            <button 
+              onClick={handleDeleteAll} 
+              disabled={actionLoading === 'all'}
+              className="btn btn-danger"
+            >
+              <Trash2 className={`h-4 w-4 ${actionLoading === 'all' ? 'animate-spin' : ''}`} />
+              Delete All
+            </button>
+          )}
+          <button onClick={fetchTrashItems} className="btn btn-secondary">
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -334,6 +376,14 @@ export default function TrashPage() {
         open={showErrorDialog}
         onOpenChange={setShowErrorDialog}
         message={dialogMessage}
+      />
+
+      {/* Delete All Confirmation Dialog */}
+      <DeleteAllDialog
+        open={showDeleteAllDialog}
+        onOpenChange={setShowDeleteAllDialog}
+        onConfirm={confirmDeleteAll}
+        itemCount={trashItems.length}
       />
     </div>
   )

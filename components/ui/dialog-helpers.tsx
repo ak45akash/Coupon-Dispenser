@@ -205,3 +205,53 @@ export function ErrorDialog({ open, onOpenChange, message }: ErrorDialogProps) {
     </AlertDialog>
   )
 }
+
+interface DeleteAllDialogProps {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  onConfirm: () => void
+  itemCount: number
+}
+
+export function DeleteAllDialog({
+  open,
+  onOpenChange,
+  onConfirm,
+  itemCount,
+}: DeleteAllDialogProps) {
+  return (
+    <AlertDialog open={open} onOpenChange={onOpenChange}>
+      <AlertDialogContent>
+        <div className="flex items-center justify-center w-20 h-20 mx-auto mb-4 rounded-full bg-red-200 animate-pulse">
+          <Trash2 className="h-10 w-10 text-red-700" />
+        </div>
+        <AlertDialogHeader>
+          <AlertDialogTitle className="text-center text-red-700 text-2xl">
+            ⚠️ Delete All Trash
+          </AlertDialogTitle>
+          <AlertDialogDescription className="text-center text-base pt-2">
+            <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-3">
+              <strong className="text-red-700 text-lg">WARNING:</strong>
+              <br />
+              <span className="text-red-600">
+                Are you sure you want to PERMANENTLY delete ALL {itemCount} item{itemCount !== 1 ? 's' : ''} in trash?
+              </span>
+            </div>
+            <strong className="text-destructive block mt-3 text-base">
+              This action CANNOT be undone!
+            </strong>
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+        <AlertDialogFooter className="gap-2">
+          <AlertDialogCancel className="w-full sm:w-auto">Cancel</AlertDialogCancel>
+          <AlertDialogAction
+            onClick={onConfirm}
+            className="w-full sm:w-auto bg-red-700 text-white hover:bg-red-800"
+          >
+            Delete All Forever
+          </AlertDialogAction>
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}

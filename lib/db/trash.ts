@@ -252,3 +252,63 @@ export async function getTrashStats() {
   return stats
 }
 
+/**
+ * Permanently delete all items from trash
+ */
+export async function permanentlyDeleteAll() {
+  // Get all items in trash first for stats
+  const { data: trashItems, error: fetchError } = await supabaseAdmin
+    .from('trash_summary')
+    .select('id, item_type')
+
+  if (fetchError) throw fetchError
+
+  const stats = {
+    users: 0,
+    vendors: 0,
+    coupons: 0,
+  }
+
+  // Delete users from Supabase Auth and database
+  const users = trashItems.filter((item) => item.item_type === 'user')
+  for (const user of users) {
+    try {
+      await supabaseAdmin.auth.admin.deleteUser(user.id)
+      await supabaseAdmin.from('users').delete().eq('id', user.id)
+      stats.users++
+    } catch (error) {
+      console.error(`Error deleting user ${user.id}:`, error)
+    }
+  }
+
+  // Delete vendors (will cascade to coupons via ON DELETE CASCADE)
+  const vendors = trashItems.filter((item) => item.item_type === 'vendor')
+  if (vendors.length > 0) {
+    const { error: vendorsError } = await supabaseAdmin
+      .from('vendors')
+      .delete()
+      .in('id', vendors.map((v) => v.id))
+    
+    if (vendorsError) throw vendorsError
+    stats.vendors = vendors.length
+  }
+
+  // Delete remaining coupons (if any weren't cascaded)
+  const coupons = trashItems.filter((item) => item.item_type === 'coupon')
+  if (coupons.length > 0) {
+    const { error: couponsError } = await supabaseAdmin
+      .from('coupons')
+      .delete()
+      .in('id', coupons.map((c) => c.id))
+    
+    if (couponsError) throw couponsError
+    stats.coupons = coupons.length
+  }
+
+  return { 
+    success: true, 
+    message: 'All trash items permanently deleted',
+    stats 
+  }
+}
+
