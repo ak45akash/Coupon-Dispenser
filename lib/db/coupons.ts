@@ -21,18 +21,37 @@ export async function getAllCouponsWithClaimCount(): Promise<CouponWithClaimCoun
   const coupons = await getAllCoupons()
   if (coupons.length === 0) return []
   
-  // Optimized: Get all claim counts in one query
-  const { data: claimHistory, error } = await supabaseAdmin
-    .from('claim_history')
-    .select('coupon_id')
-  
-  if (error) throw error
-  
-  // Calculate counts in memory
+  // OPTIMIZED: Try using SQL aggregation function first
+  const claimCountsResult = await supabaseAdmin
+    .rpc('get_claim_counts_by_coupon')
+    .catch(() => null)
+
+  // Fallback: If RPC function doesn't exist, use the old method
+  if (!claimCountsResult || claimCountsResult.error) {
+    const { data: claimHistory, error } = await supabaseAdmin
+      .from('claim_history')
+      .select('coupon_id')
+    
+    if (error) throw error
+    
+    const claimCounts = new Map<string, number>()
+    claimHistory?.forEach((claim) => {
+      claimCounts.set(claim.coupon_id, (claimCounts.get(claim.coupon_id) || 0) + 1)
+    })
+    
+    return coupons.map((coupon) => ({
+      ...coupon,
+      claim_count: claimCounts.get(coupon.id) || 0,
+    }))
+  }
+
+  // Use RPC results
   const claimCounts = new Map<string, number>()
-  claimHistory?.forEach((claim) => {
-    claimCounts.set(claim.coupon_id, (claimCounts.get(claim.coupon_id) || 0) + 1)
-  })
+  if (claimCountsResult.data) {
+    claimCountsResult.data.forEach((row: any) => {
+      claimCounts.set(row.coupon_id, row.count)
+    })
+  }
   
   return coupons.map((coupon) => ({
     ...coupon,
