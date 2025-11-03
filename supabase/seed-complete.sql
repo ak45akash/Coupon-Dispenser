@@ -17,13 +17,25 @@
 --    If not, you may need to manually insert them or run the schema.sql first
 
 -- ============================================
--- CLEAN EXISTING DATA (Optional - use with caution)
+-- CLEAN EXISTING DATA (uses soft delete)
 -- ============================================
--- Uncomment to clear existing data before seeding:
--- DELETE FROM public.claim_history;
--- DELETE FROM public.partner_vendor_access;
--- DELETE FROM public.coupons;
--- DELETE FROM public.vendors;
+-- Soft delete existing vendors (which will cascade to coupons)
+UPDATE public.vendors
+SET 
+  deleted_at = NOW(),
+  deleted_by = (SELECT id FROM public.users WHERE role = 'super_admin' LIMIT 1)
+WHERE deleted_at IS NULL;
+
+-- Soft delete any remaining coupons
+UPDATE public.coupons
+SET 
+  deleted_at = NOW(),
+  deleted_by = (SELECT id FROM public.users WHERE role = 'super_admin' LIMIT 1)
+WHERE deleted_at IS NULL;
+
+-- Delete claim history and partner access
+DELETE FROM public.claim_history;
+DELETE FROM public.partner_vendor_access;
 
 -- ============================================
 -- 1. ENSURE ADMIN USER EXISTS
@@ -54,18 +66,7 @@ WHERE email IN ('partner1@example.com', 'partner2@example.com')
 -- 4. CREATE VENDORS (Bicycle Parts Brands)
 -- ============================================
 
--- Delete existing vendors and recreate (to ensure clean slate)
-DELETE FROM public.vendors WHERE name IN (
-  'Shimano Components',
-  'SRAM Corporation',
-  'Continental Tires',
-  'Brooks England',
-  'Park Tool Company',
-  'Maxxis International',
-  'Fizik Saddles',
-  'RockShox Suspension'
-);
-
+-- Create vendors (only if they don't already exist)
 INSERT INTO public.vendors (id, name, description, website, contact_email, contact_phone, active, created_by)
 SELECT 
   gen_random_uuid(),
@@ -142,7 +143,9 @@ FROM (VALUES
     false
   )
 ) AS vendor_data(name, description, website, contact_email, contact_phone, active)
-ON CONFLICT DO NOTHING;
+WHERE NOT EXISTS (
+  SELECT 1 FROM public.vendors WHERE vendors.name = vendor_data.name
+);
 
 -- ============================================
 -- 5. ASSIGN PARTNER ADMINS TO VENDORS
@@ -173,9 +176,6 @@ ON CONFLICT (user_id, vendor_id) DO NOTHING;
 -- ============================================
 -- 6. CREATE COUPONS (Shared Model - No is_claimed)
 -- ============================================
-
--- Delete existing coupons to start fresh
-DELETE FROM public.coupons;
 
 -- Shimano Components Coupons (25 coupons)
 INSERT INTO public.coupons (vendor_id, code, description, discount_value, expiry_date, created_by)
@@ -367,9 +367,6 @@ ON CONFLICT (code) DO NOTHING;
 -- 7. CREATE CLAIM HISTORY (Multiple Users Claiming)
 -- ============================================
 -- This demonstrates the shared coupon model where multiple users can claim the same coupon
-
--- Clear existing claim history
-DELETE FROM public.claim_history;
 
 -- User1 claims from Shimano (this month)
 INSERT INTO public.claim_history (user_id, vendor_id, coupon_id, claimed_at, claim_month)
