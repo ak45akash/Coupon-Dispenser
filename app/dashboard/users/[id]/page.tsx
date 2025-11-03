@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { User, Mail, Shield, Calendar, ArrowLeft, Ticket, Store, Clock, Phone, CheckCircle, XCircle, AlertCircle } from 'lucide-react'
+import { User, Mail, Shield, Calendar, ArrowLeft, Ticket, Store, Clock, Phone, CheckCircle, XCircle, AlertCircle, Settings } from 'lucide-react'
 import { formatDate, formatDateTime } from '@/lib/utils/format'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -18,6 +18,8 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
+import PartnerAccessModal from '@/components/users/PartnerAccessModal'
+import type { Vendor } from '@/types/database'
 
 interface ClaimHistoryItem {
   id: string
@@ -77,6 +79,8 @@ export default function UserDetailPage() {
   const [loading, setLoading] = useState(true)
   const [data, setData] = useState<UserDetailData | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [vendors, setVendors] = useState<Vendor[]>([])
+  const [isPartnerAccessModalOpen, setIsPartnerAccessModalOpen] = useState(false)
 
   useEffect(() => {
     if (!session) {
@@ -91,7 +95,20 @@ export default function UserDetailPage() {
     }
 
     fetchUserDetails()
+    fetchVendors()
   }, [session, router, userId])
+
+  const fetchVendors = async () => {
+    try {
+      const response = await fetch('/api/vendors')
+      const result = await response.json()
+      if (result.success) {
+        setVendors(result.data)
+      }
+    } catch (err) {
+      console.error('Error fetching vendors:', err)
+    }
+  }
 
   const fetchUserDetails = async () => {
     if (!userId) return
@@ -281,28 +298,45 @@ export default function UserDetailPage() {
       </div>
 
       {/* Partner Admin Vendor Access */}
-      {data.user.role === 'partner_admin' && data.vendor_access.length > 0 && (
+      {data.user.role === 'partner_admin' && (
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Store className="h-5 w-5" />
-              Vendor Access
-            </CardTitle>
-            <CardDescription>Vendors this partner admin can manage</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <Store className="h-5 w-5" />
+                  Vendor Access
+                </CardTitle>
+                <CardDescription>Vendors this partner admin can manage</CardDescription>
+              </div>
+              <Button
+                onClick={() => setIsPartnerAccessModalOpen(true)}
+                variant="outline"
+                size="sm"
+                className="gap-2"
+              >
+                <Settings className="h-4 w-4" />
+                Manage Access
+              </Button>
+            </div>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-2">
-              {data.vendor_access.map((access) => (
-                <Link
-                  key={access.vendor_id}
-                  href={`/dashboard/vendors/${access.vendor_id}`}
-                >
-                  <Badge variant="outline" className="cursor-pointer hover:bg-accent">
-                    {access.vendor.name}
-                  </Badge>
-                </Link>
-              ))}
-            </div>
+            {data.vendor_access.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {data.vendor_access.map((access) => (
+                  <Link
+                    key={access.vendor_id}
+                    href={`/dashboard/vendors/${access.vendor_id}`}
+                  >
+                    <Badge variant="outline" className="cursor-pointer hover:bg-accent">
+                      {access.vendor.name}
+                    </Badge>
+                  </Link>
+                ))}
+              </div>
+            ) : (
+              <p className="text-muted-foreground">No vendors assigned</p>
+            )}
           </CardContent>
         </Card>
       )}
@@ -418,6 +452,19 @@ export default function UserDetailPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Partner Access Modal */}
+      {data && (
+        <PartnerAccessModal
+          isOpen={isPartnerAccessModalOpen}
+          onClose={() => {
+            setIsPartnerAccessModalOpen(false)
+            fetchUserDetails()
+          }}
+          user={data.user}
+          vendors={vendors}
+        />
+      )}
     </div>
   )
 }

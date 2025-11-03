@@ -8,6 +8,7 @@ import type { Vendor, Coupon } from '@/types/database'
 import CouponModal from '@/components/coupons/CouponModal'
 import CSVUploadModal from '@/components/coupons/CSVUploadModal'
 import CouponDetailModal from '@/components/coupons/CouponDetailModal'
+import VendorModal from '@/components/vendors/VendorModal'
 import { formatDate } from '@/lib/utils/format'
 import { usePagination } from '@/lib/hooks/usePagination'
 import { Button } from '@/components/ui/button'
@@ -38,6 +39,7 @@ export default function VendorProfilePage() {
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [isCSVModalOpen, setIsCSVModalOpen] = useState(false)
+  const [isVendorModalOpen, setIsVendorModalOpen] = useState(false)
   // Status filter removed - all coupons are shared/available
 
   // Delete dialog state
@@ -183,20 +185,43 @@ export default function VendorProfilePage() {
 
   if (!vendor) {
     return (
-      <div>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">My Vendor</h1>
+            <p className="mt-1 text-muted-foreground">
+              Create and manage your vendor profile
+            </p>
+          </div>
+        </div>
+
         <Card>
           <CardContent className="pt-6">
-            <div className="flex items-center gap-4 text-destructive">
-              <AlertCircle className="h-8 w-8" />
-              <div>
-                <h2 className="text-xl font-bold">No Vendor Found</h2>
-                <p className="text-muted-foreground">
-                  You don&apos;t have a vendor associated with your account. Please contact an administrator.
+            <div className="flex flex-col items-center justify-center gap-4 py-12">
+              <Building2 className="h-16 w-16 text-muted-foreground" />
+              <div className="text-center">
+                <h2 className="text-xl font-bold mb-2">No Vendor Found</h2>
+                <p className="text-muted-foreground mb-6">
+                  Create your vendor profile to start managing coupons and tracking analytics.
                 </p>
+                <Button onClick={() => setIsVendorModalOpen(true)} size="lg" className="gap-2">
+                  <Plus className="h-5 w-5" />
+                  Create Vendor
+                </Button>
               </div>
             </div>
           </CardContent>
         </Card>
+
+        {/* Vendor Modal */}
+        <VendorModal
+          isOpen={isVendorModalOpen}
+          onClose={() => {
+            setIsVendorModalOpen(false)
+            fetchVendor()
+          }}
+          vendor={null}
+        />
       </div>
     )
   }
@@ -211,10 +236,19 @@ export default function VendorProfilePage() {
       {/* Vendor Information */}
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Building2 className="h-5 w-5" />
-            Vendor Information
-          </CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Building2 className="h-5 w-5" />
+              Vendor Information
+            </CardTitle>
+            <Button
+              onClick={() => setIsVendorModalOpen(true)}
+              variant="outline"
+              size="sm"
+            >
+              Edit Vendor
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -463,6 +497,16 @@ export default function VendorProfilePage() {
           setSelectedCouponForDetail(null)
         }}
         couponId={selectedCouponForDetail}
+      />
+
+      {/* Vendor Modal for Edit */}
+      <VendorModal
+        isOpen={isVendorModalOpen}
+        onClose={() => {
+          setIsVendorModalOpen(false)
+          fetchVendor()
+        }}
+        vendor={vendor}
       />
     </div>
   )

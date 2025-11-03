@@ -112,15 +112,21 @@ export async function getVendorAnalytics(
   return Promise.all(analyticsPromises)
 }
 
-export async function getClaimTrends(days: number = 30): Promise<ClaimTrend[]> {
+export async function getClaimTrends(days: number = 30, vendorId?: string): Promise<ClaimTrend[]> {
   const startDate = new Date()
   startDate.setDate(startDate.getDate() - days)
 
-  const { data, error } = await supabaseAdmin
+  let query = supabaseAdmin
     .from('claim_history')
     .select('claimed_at')
     .gte('claimed_at', startDate.toISOString())
     .order('claimed_at', { ascending: true })
+
+  if (vendorId) {
+    query = query.eq('vendor_id', vendorId)
+  }
+
+  const { data, error } = await query
 
   if (error) throw error
 

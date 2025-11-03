@@ -44,9 +44,9 @@ describe('Permission Functions', () => {
   })
 
   describe('canManageVendors', () => {
-    it('should return true only for super_admin', () => {
+    it('should return true for super_admin and partner_admin', () => {
       expect(canManageVendors('super_admin')).toBe(true)
-      expect(canManageVendors('partner_admin')).toBe(false)
+      expect(canManageVendors('partner_admin')).toBe(true)
       expect(canManageVendors('user')).toBe(false)
     })
   })

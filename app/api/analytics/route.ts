@@ -37,7 +37,8 @@ export async function GET(request: NextRequest) {
 
       case 'trends': {
         const days = parseInt(searchParams.get('days') || '30')
-        const trends = await getClaimTrends(days)
+        const vendorId = searchParams.get('vendor_id')
+        const trends = await getClaimTrends(days, vendorId || undefined)
         return NextResponse.json({ success: true, data: trends })
       }
 

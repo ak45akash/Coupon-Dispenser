@@ -17,7 +17,7 @@ export const isUser = (role: UserRole): boolean => {
 }
 
 export const canManageVendors = (role: UserRole): boolean => {
-  return isSuperAdmin(role)
+  return isSuperAdmin(role) || isPartnerAdmin(role)
 }
 
 export const canManageCoupons = (role: UserRole): boolean => {

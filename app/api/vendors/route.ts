@@ -3,7 +3,8 @@ import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { createVendorSchema } from '@/lib/validators/vendor'
 import { getAllVendors, createVendor, getVendorsWithStats } from '@/lib/db/vendors'
-import { canManageVendors } from '@/lib/auth/permissions'
+import { assignPartnerVendorAccess } from '@/lib/db/users'
+import { canManageVendors, isPartnerAdmin } from '@/lib/auth/permissions'
 
 export async function GET(request: NextRequest) {
   try {
@@ -44,6 +45,11 @@ export async function POST(request: NextRequest) {
     const validatedData = createVendorSchema.parse(body)
 
     const vendor = await createVendor(validatedData, session.user.id)
+
+    // If partner admin created the vendor, auto-assign them access to it
+    if (isPartnerAdmin(session.user.role)) {
+      await assignPartnerVendorAccess(session.user.id, [vendor.id])
+    }
 
     return NextResponse.json(
       { success: true, data: vendor, message: 'Vendor created successfully' },
