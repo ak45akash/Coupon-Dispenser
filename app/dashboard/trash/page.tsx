@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Trash2, RefreshCw, AlertCircle, Clock, Package, Users, Tag, CheckCircle } from 'lucide-react'
+import { Trash2, RefreshCw, AlertCircle, Clock, Package, Users, Tag, CheckCircle, CheckSquare, Square } from 'lucide-react'
 import type { TrashItem } from '@/types/database'
 import {
   AlertDialog,
@@ -14,6 +14,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { RestoreDialog, PermanentDeleteDialog, SuccessDialog, ErrorDialog, DeleteAllDialog } from '@/components/ui/dialog-helpers'
+import { Button } from '@/components/ui/button'
 
 export default function TrashPage() {
   const [trashItems, setTrashItems] = useState<TrashItem[]>([])
@@ -30,6 +31,11 @@ export default function TrashPage() {
   const [showErrorDialog, setShowErrorDialog] = useState(false)
   const [selectedItem, setSelectedItem] = useState<TrashItem | null>(null)
   const [dialogMessage, setDialogMessage] = useState('')
+  
+  // Bulk selection state
+  const [selectedItems, setSelectedItems] = useState<Set<string>>(new Set())
+  const [showBulkRestoreDialog, setShowBulkRestoreDialog] = useState(false)
+  const [showBulkDeleteDialog, setShowBulkDeleteDialog] = useState(false)
 
   useEffect(() => {
     fetchTrashItems()
@@ -148,6 +154,103 @@ export default function TrashPage() {
 
   const filteredItems = filter === 'all' ? trashItems : trashItems.filter((item) => item.item_type === filter)
 
+  // Bulk selection handlers
+  const handleSelectAll = () => {
+    if (selectedItems.size === filteredItems.length) {
+      setSelectedItems(new Set())
+    } else {
+      setSelectedItems(new Set(filteredItems.map(item => item.id)))
+    }
+  }
+
+  const handleSelectItem = (itemId: string) => {
+    const newSelected = new Set(selectedItems)
+    if (newSelected.has(itemId)) {
+      newSelected.delete(itemId)
+    } else {
+      newSelected.add(itemId)
+    }
+    setSelectedItems(newSelected)
+  }
+
+  const handleBulkRestore = () => {
+    if (selectedItems.size === 0) return
+    setShowBulkRestoreDialog(true)
+  }
+
+  const confirmBulkRestore = async () => {
+    try {
+      const promises = Array.from(selectedItems).map(id => {
+        const item = trashItems.find(t => t.id === id)
+        if (!item) return Promise.reject(new Error('Item not found'))
+        
+        return fetch('/api/trash/restore', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, type: item.item_type }),
+        })
+      })
+      
+      const results = await Promise.all(promises)
+      const failed = results.filter(r => !r.ok).length
+      
+      if (failed === 0) {
+        setDialogMessage(`Successfully restored ${selectedItems.size} item(s)!`)
+        setShowSuccessDialog(true)
+        setSelectedItems(new Set())
+        fetchTrashItems()
+      } else {
+        setDialogMessage(`Failed to restore ${failed} item(s).`)
+        setShowErrorDialog(true)
+      }
+    } catch (error) {
+      console.error('Error bulk restoring items:', error)
+      setDialogMessage('An error occurred while restoring items.')
+      setShowErrorDialog(true)
+    } finally {
+      setShowBulkRestoreDialog(false)
+    }
+  }
+
+  const handleBulkPermanentDelete = () => {
+    if (selectedItems.size === 0) return
+    setShowBulkDeleteDialog(true)
+  }
+
+  const confirmBulkPermanentDelete = async () => {
+    try {
+      const promises = Array.from(selectedItems).map(id => {
+        const item = trashItems.find(t => t.id === id)
+        if (!item) return Promise.reject(new Error('Item not found'))
+        
+        return fetch('/api/trash/delete', {
+          method: 'DELETE',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ id, type: item.item_type }),
+        })
+      })
+      
+      const results = await Promise.all(promises)
+      const failed = results.filter(r => !r.ok).length
+      
+      if (failed === 0) {
+        setDialogMessage(`Successfully permanently deleted ${selectedItems.size} item(s)`)
+        setShowSuccessDialog(true)
+        setSelectedItems(new Set())
+        fetchTrashItems()
+      } else {
+        setDialogMessage(`Failed to delete ${failed} item(s).`)
+        setShowErrorDialog(true)
+      }
+    } catch (error) {
+      console.error('Error bulk deleting items:', error)
+      setDialogMessage('An error occurred while deleting items.')
+      setShowErrorDialog(true)
+    } finally {
+      setShowBulkDeleteDialog(false)
+    }
+  }
+
   const getItemIcon = (type: string) => {
     switch (type) {
       case 'user':
@@ -258,6 +361,35 @@ export default function TrashPage() {
         </button>
       </div>
 
+      {/* Bulk Actions Bar */}
+      {selectedItems.size > 0 && (
+        <div className="flex items-center justify-between bg-primary/10 p-4 rounded-lg">
+          <span className="text-sm font-medium">
+            {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''} selected
+          </span>
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleBulkRestore}
+              className="gap-2"
+            >
+              <CheckCircle className="h-4 w-4" />
+              <span className="hidden sm:inline">Restore Selected</span>
+            </Button>
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={handleBulkPermanentDelete}
+              className="gap-2"
+            >
+              <Trash2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Delete Selected</span>
+            </Button>
+          </div>
+        </div>
+      )}
+
       {/* Trash Items */}
       {filteredItems.length === 0 ? (
         <div className="text-center py-12">
@@ -272,6 +404,15 @@ export default function TrashPage() {
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-gray-50">
               <tr>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider w-12">
+                  <button onClick={handleSelectAll} className="flex items-center">
+                    {selectedItems.size === filteredItems.length ? (
+                      <CheckSquare className="h-5 w-5 text-primary-600" />
+                    ) : (
+                      <Square className="h-5 w-5" />
+                    )}
+                  </button>
+                </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Type
                 </th>
@@ -295,6 +436,15 @@ export default function TrashPage() {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredItems.map((item) => (
                 <tr key={item.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <button onClick={() => handleSelectItem(item.id)} className="flex items-center">
+                      {selectedItems.has(item.id) ? (
+                        <CheckSquare className="h-5 w-5 text-primary-600" />
+                      ) : (
+                        <Square className="h-5 w-5" />
+                      )}
+                    </button>
+                  </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <div className="flex items-center gap-2">
                       <div className="text-gray-600">{getItemIcon(item.item_type)}</div>
@@ -387,6 +537,69 @@ export default function TrashPage() {
         onConfirm={confirmDeleteAll}
         itemCount={trashItems.length}
       />
+
+      {/* Bulk Restore Confirmation Dialog */}
+      <AlertDialog open={showBulkRestoreDialog} onOpenChange={setShowBulkRestoreDialog}>
+        <AlertDialogContent>
+          <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-blue-100">
+            <CheckCircle className="h-8 w-8 text-blue-600" />
+          </div>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-center">Restore Selected Items</AlertDialogTitle>
+            <AlertDialogDescription className="text-center text-base">
+              Are you sure you want to restore {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''}?
+              <br />
+              <span className="text-sm text-muted-foreground mt-2 block">
+                The items will be moved back to the main list and fully accessible again.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmBulkRestore}
+              className="bg-blue-600 text-white hover:bg-blue-700"
+            >
+              Restore {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Permanent Delete Confirmation Dialog */}
+      <AlertDialog open={showBulkDeleteDialog} onOpenChange={setShowBulkDeleteDialog}>
+        <AlertDialogContent>
+          <div className="flex items-center justify-center w-20 h-20 mx-auto mb-4 rounded-full bg-red-200 animate-pulse">
+            <Trash2 className="h-10 w-10 text-red-700" />
+          </div>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-center text-red-700 text-2xl">
+              ⚠️ Permanently Delete Selected Items
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-center text-base pt-2">
+              <div className="bg-red-50 border-2 border-red-200 rounded-lg p-4 mb-3">
+                <strong className="text-red-700 text-lg">WARNING:</strong>
+                <br />
+                <span className="text-red-600">
+                  Are you sure you want to PERMANENTLY delete {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''}?
+                </span>
+              </div>
+              <strong className="text-destructive block mt-3 text-base">
+                This action CANNOT be undone!
+              </strong>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel className="w-full sm:w-auto">Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmBulkPermanentDelete}
+              className="w-full sm:w-auto bg-red-700 text-white hover:bg-red-800"
+            >
+              Delete {selectedItems.size} item{selectedItems.size !== 1 ? 's' : ''} Forever
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }

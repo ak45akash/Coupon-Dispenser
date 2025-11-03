@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Shield, UserPlus, ChevronLeft, ChevronRight, Settings2, Trash2, AlertCircle, CheckCircle } from 'lucide-react'
+import { Shield, UserPlus, ChevronLeft, ChevronRight, Settings2, Trash2, AlertCircle, CheckCircle, CheckSquare, Square } from 'lucide-react'
 import type { User, Vendor } from '@/types/database'
 import UserRoleModal from '@/components/users/UserRoleModal'
 import PartnerAccessModal from '@/components/users/PartnerAccessModal'
@@ -56,6 +56,10 @@ export default function UsersPage() {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [showErrorDialog, setShowErrorDialog] = useState(false)
   const [dialogMessage, setDialogMessage] = useState('')
+  
+  // Bulk selection state
+  const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set())
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false)
 
   // Pagination
   const {
@@ -71,6 +75,56 @@ export default function UsersPage() {
   })
 
   const paginatedUsers = getPaginatedData(users)
+
+  // Bulk selection handlers (must be after paginatedUsers is defined)
+  const handleSelectAll = () => {
+    if (selectedUsers.size === paginatedUsers.length) {
+      setSelectedUsers(new Set())
+    } else {
+      setSelectedUsers(new Set(paginatedUsers.map(u => u.id)))
+    }
+  }
+
+  const handleSelectUser = (userId: string) => {
+    const newSelected = new Set(selectedUsers)
+    if (newSelected.has(userId)) {
+      newSelected.delete(userId)
+    } else {
+      newSelected.add(userId)
+    }
+    setSelectedUsers(newSelected)
+  }
+
+  const handleBulkDelete = () => {
+    if (selectedUsers.size === 0) return
+    setIsBulkDeleteDialogOpen(true)
+  }
+
+  const confirmBulkDelete = async () => {
+    try {
+      const promises = Array.from(selectedUsers).map(id =>
+        fetch(`/api/users/${id}`, { method: 'DELETE' })
+      )
+      const results = await Promise.all(promises)
+      const failed = results.filter(r => !r.ok).length
+      
+      if (failed === 0) {
+        setDialogMessage(`Successfully moved ${selectedUsers.size} user(s) to trash!`)
+        setShowSuccessDialog(true)
+        setSelectedUsers(new Set())
+        fetchUsers()
+      } else {
+        setDialogMessage(`Failed to delete ${failed} user(s).`)
+        setShowErrorDialog(true)
+      }
+    } catch (error) {
+      console.error('Error bulk deleting users:', error)
+      setDialogMessage('An error occurred while deleting users.')
+      setShowErrorDialog(true)
+    } finally {
+      setIsBulkDeleteDialogOpen(false)
+    }
+  }
 
   const fetchUsers = async () => {
     try {
@@ -197,10 +251,36 @@ export default function UsersPage() {
         </Button>
       </div>
 
+      {selectedUsers.size > 0 && (
+        <div className="flex items-center justify-between bg-primary/10 p-4 rounded-lg">
+          <span className="text-sm font-medium">
+            {selectedUsers.size} user{selectedUsers.size !== 1 ? 's' : ''} selected
+          </span>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleBulkDelete}
+            className="gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Delete Selected</span>
+          </Button>
+        </div>
+      )}
+
       <Card>
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12">
+                <button onClick={handleSelectAll} className="flex items-center">
+                  {selectedUsers.size === paginatedUsers.length ? (
+                    <CheckSquare className="h-5 w-5 text-primary" />
+                  ) : (
+                    <Square className="h-5 w-5" />
+                  )}
+                </button>
+              </TableHead>
               <TableHead>Email</TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Role</TableHead>
@@ -211,7 +291,7 @@ export default function UsersPage() {
           <TableBody>
             {paginatedUsers.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={5} className="text-center text-muted-foreground">
+                <TableCell colSpan={6} className="text-center text-muted-foreground">
                   No users found.
                 </TableCell>
               </TableRow>
@@ -222,6 +302,15 @@ export default function UsersPage() {
                   onClick={() => router.push(`/dashboard/users/${user.id}`)}
                   className="cursor-pointer hover:bg-accent/50 transition-colors"
                 >
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => handleSelectUser(user.id)} className="flex items-center">
+                      {selectedUsers.has(user.id) ? (
+                        <CheckSquare className="h-5 w-5 text-primary" />
+                      ) : (
+                        <Square className="h-5 w-5" />
+                      )}
+                    </button>
+                  </TableCell>
                   <TableCell className="font-medium">
                     <Link
                       href={`/dashboard/users/${user.id}`}
@@ -467,6 +556,34 @@ export default function UsersPage() {
         onOpenChange={setShowErrorDialog}
         message={dialogMessage}
       />
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-red-100">
+            <AlertCircle className="h-8 w-8 text-red-600" />
+          </div>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-center">Delete Selected Users</AlertDialogTitle>
+            <AlertDialogDescription className="text-center text-base">
+              Are you sure you want to move {selectedUsers.size} user{selectedUsers.size !== 1 ? 's' : ''} to trash?
+              <br />
+              <span className="text-sm text-muted-foreground mt-2 block">
+                You can restore them within 30 days.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmBulkDelete}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              Delete {selectedUsers.size} user{selectedUsers.size !== 1 ? 's' : ''}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
