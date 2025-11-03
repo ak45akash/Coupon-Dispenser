@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, Settings2, AlertCircle, CheckCircle } from 'lucide-react'
+import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, Settings2, AlertCircle, CheckCircle, CheckSquare, Square } from 'lucide-react'
 import type { VendorWithStats } from '@/types/database'
 import VendorModal from '@/components/vendors/VendorModal'
 import { usePagination } from '@/lib/hooks/usePagination'
@@ -51,6 +51,10 @@ export default function VendorsPage() {
   const [showSuccessDialog, setShowSuccessDialog] = useState(false)
   const [showErrorDialog, setShowErrorDialog] = useState(false)
   const [dialogMessage, setDialogMessage] = useState('')
+  
+  // Bulk selection state
+  const [selectedVendors, setSelectedVendors] = useState<Set<string>>(new Set())
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false)
 
   const fetchVendors = async () => {
     try {
@@ -128,6 +132,56 @@ export default function VendorsPage() {
   const paginatedVendors = getPaginatedData(vendors)
   const pageSizeOptions = [5, 10, 20, 50, 100]
 
+  // Bulk selection handlers (must be after paginatedVendors is defined)
+  const handleSelectAll = () => {
+    if (selectedVendors.size === paginatedVendors.length) {
+      setSelectedVendors(new Set())
+    } else {
+      setSelectedVendors(new Set(paginatedVendors.map(v => v.id)))
+    }
+  }
+
+  const handleSelectVendor = (vendorId: string) => {
+    const newSelected = new Set(selectedVendors)
+    if (newSelected.has(vendorId)) {
+      newSelected.delete(vendorId)
+    } else {
+      newSelected.add(vendorId)
+    }
+    setSelectedVendors(newSelected)
+  }
+
+  const handleBulkDelete = () => {
+    if (selectedVendors.size === 0) return
+    setIsBulkDeleteDialogOpen(true)
+  }
+
+  const confirmBulkDelete = async () => {
+    try {
+      const promises = Array.from(selectedVendors).map(id =>
+        fetch(`/api/vendors/${id}`, { method: 'DELETE' })
+      )
+      const results = await Promise.all(promises)
+      const failed = results.filter(r => !r.ok).length
+      
+      if (failed === 0) {
+        setDialogMessage(`Successfully moved ${selectedVendors.size} vendor(s) to trash!`)
+        setShowSuccessDialog(true)
+        setSelectedVendors(new Set())
+        fetchVendors()
+      } else {
+        setDialogMessage(`Failed to delete ${failed} vendor(s).`)
+        setShowErrorDialog(true)
+      }
+    } catch (error) {
+      console.error('Error bulk deleting vendors:', error)
+      setDialogMessage('An error occurred while deleting vendors.')
+      setShowErrorDialog(true)
+    } finally {
+      setIsBulkDeleteDialogOpen(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -155,10 +209,36 @@ export default function VendorsPage() {
         </Button>
       </div>
 
+      {selectedVendors.size > 0 && (
+        <div className="flex items-center justify-between bg-primary/10 p-4 rounded-lg">
+          <span className="text-sm font-medium">
+            {selectedVendors.size} vendor{selectedVendors.size !== 1 ? 's' : ''} selected
+          </span>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleBulkDelete}
+            className="gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Delete Selected</span>
+          </Button>
+        </div>
+      )}
+      
       <Card>
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12">
+                <button onClick={handleSelectAll} className="flex items-center">
+                  {selectedVendors.size === paginatedVendors.length ? (
+                    <CheckSquare className="h-5 w-5 text-primary" />
+                  ) : (
+                    <Square className="h-5 w-5" />
+                  )}
+                </button>
+              </TableHead>
               <TableHead>Name</TableHead>
               <TableHead>Contact</TableHead>
               <TableHead>Total Coupons</TableHead>
@@ -171,13 +251,22 @@ export default function VendorsPage() {
           <TableBody>
             {paginatedVendors.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground">
+                <TableCell colSpan={8} className="text-center text-muted-foreground">
                   No vendors found. Add your first vendor to get started.
                 </TableCell>
               </TableRow>
             ) : (
               paginatedVendors.map((vendor) => (
                 <TableRow key={vendor.id}>
+                  <TableCell>
+                    <button onClick={() => handleSelectVendor(vendor.id)} className="flex items-center">
+                      {selectedVendors.has(vendor.id) ? (
+                        <CheckSquare className="h-5 w-5 text-primary" />
+                      ) : (
+                        <Square className="h-5 w-5" />
+                      )}
+                    </button>
+                  </TableCell>
                   <TableCell>
                     <div>
                       <Link
@@ -354,6 +443,34 @@ export default function VendorsPage() {
         onOpenChange={setShowErrorDialog}
         message={dialogMessage}
       />
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-red-100">
+            <AlertCircle className="h-8 w-8 text-red-600" />
+          </div>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-center">Delete Selected Vendors</AlertDialogTitle>
+            <AlertDialogDescription className="text-center text-base">
+              Are you sure you want to move {selectedVendors.size} vendor{selectedVendors.size !== 1 ? 's' : ''} to trash?
+              <br />
+              <span className="text-sm text-muted-foreground mt-2 block">
+                Associated coupons will also be moved to trash. You can restore them within 30 days.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmBulkDelete}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              Delete {selectedVendors.size} vendor{selectedVendors.size !== 1 ? 's' : ''}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
