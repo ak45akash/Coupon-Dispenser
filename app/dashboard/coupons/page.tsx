@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Upload, Trash2, Filter, ChevronLeft, ChevronRight, Settings2, AlertCircle, CheckCircle, History } from 'lucide-react'
+import { Plus, Upload, Trash2, Filter, ChevronLeft, ChevronRight, Settings2, AlertCircle, CheckCircle, History, CheckSquare, Square } from 'lucide-react'
 import type { Coupon, Vendor } from '@/types/database'
 import CouponModal from '@/components/coupons/CouponModal'
 import CSVUploadModal from '@/components/coupons/CSVUploadModal'
@@ -66,6 +66,10 @@ export default function CouponsPage() {
   // Coupon detail modal state
   const [isCouponDetailModalOpen, setIsCouponDetailModalOpen] = useState(false)
   const [selectedCouponForDetail, setSelectedCouponForDetail] = useState<string | null>(null)
+  
+  // Bulk selection state
+  const [selectedCoupons, setSelectedCoupons] = useState<Set<string>>(new Set())
+  const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false)
 
   const fetchCoupons = async () => {
     try {
@@ -173,6 +177,56 @@ export default function CouponsPage() {
 
   const pageSizeOptions = [5, 10, 20, 50, 100]
 
+  // Bulk selection handlers (must be after paginatedCoupons is defined)
+  const handleSelectAll = () => {
+    if (selectedCoupons.size === paginatedCoupons.length) {
+      setSelectedCoupons(new Set())
+    } else {
+      setSelectedCoupons(new Set(paginatedCoupons.map(c => c.id)))
+    }
+  }
+
+  const handleSelectCoupon = (couponId: string) => {
+    const newSelected = new Set(selectedCoupons)
+    if (newSelected.has(couponId)) {
+      newSelected.delete(couponId)
+    } else {
+      newSelected.add(couponId)
+    }
+    setSelectedCoupons(newSelected)
+  }
+
+  const handleBulkDelete = () => {
+    if (selectedCoupons.size === 0) return
+    setIsBulkDeleteDialogOpen(true)
+  }
+
+  const confirmBulkDelete = async () => {
+    try {
+      const promises = Array.from(selectedCoupons).map(id =>
+        fetch(`/api/coupons/${id}`, { method: 'DELETE' })
+      )
+      const results = await Promise.all(promises)
+      const failed = results.filter(r => !r.ok).length
+      
+      if (failed === 0) {
+        setDialogMessage(`Successfully moved ${selectedCoupons.size} coupon(s) to trash!`)
+        setShowSuccessDialog(true)
+        setSelectedCoupons(new Set())
+        fetchCoupons()
+      } else {
+        setDialogMessage(`Failed to delete ${failed} coupon(s).`)
+        setShowErrorDialog(true)
+      }
+    } catch (error) {
+      console.error('Error bulk deleting coupons:', error)
+      setDialogMessage('An error occurred while deleting coupons.')
+      setShowErrorDialog(true)
+    } finally {
+      setIsBulkDeleteDialogOpen(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -275,10 +329,36 @@ export default function CouponsPage() {
         </div>
       </Card>
 
+      {selectedCoupons.size > 0 && (
+        <div className="flex items-center justify-between bg-primary/10 p-4 rounded-lg">
+          <span className="text-sm font-medium">
+            {selectedCoupons.size} coupon{selectedCoupons.size !== 1 ? 's' : ''} selected
+          </span>
+          <Button
+            variant="destructive"
+            size="sm"
+            onClick={handleBulkDelete}
+            className="gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            <span className="hidden sm:inline">Delete Selected</span>
+          </Button>
+        </div>
+      )}
+
       <Card>
         <Table>
           <TableHeader>
             <TableRow>
+              <TableHead className="w-12">
+                <button onClick={handleSelectAll} className="flex items-center">
+                  {selectedCoupons.size === paginatedCoupons.length ? (
+                    <CheckSquare className="h-5 w-5 text-primary" />
+                  ) : (
+                    <Square className="h-5 w-5" />
+                  )}
+                </button>
+              </TableHead>
               <TableHead>Code</TableHead>
               <TableHead>Vendor</TableHead>
               <TableHead>Description</TableHead>
@@ -292,7 +372,7 @@ export default function CouponsPage() {
           <TableBody>
             {paginatedCoupons.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground">
+                <TableCell colSpan={9} className="text-center text-muted-foreground">
                   No coupons found. Add coupons to get started.
                 </TableCell>
               </TableRow>
@@ -303,6 +383,15 @@ export default function CouponsPage() {
                   onClick={() => handleViewCouponDetail(coupon)}
                   className="cursor-pointer hover:bg-accent/50 transition-colors"
                 >
+                  <TableCell onClick={(e) => e.stopPropagation()}>
+                    <button onClick={() => handleSelectCoupon(coupon.id)} className="flex items-center">
+                      {selectedCoupons.has(coupon.id) ? (
+                        <CheckSquare className="h-5 w-5 text-primary" />
+                      ) : (
+                        <Square className="h-5 w-5" />
+                      )}
+                    </button>
+                  </TableCell>
                   <TableCell className="font-mono font-semibold">{coupon.code}</TableCell>
                   <TableCell>{getVendorName(coupon.vendor_id)}</TableCell>
                   <TableCell className="max-w-xs truncate">
@@ -487,6 +576,34 @@ export default function CouponsPage() {
         }}
         couponId={selectedCouponForDetail}
       />
+
+      {/* Bulk Delete Confirmation Dialog */}
+      <AlertDialog open={isBulkDeleteDialogOpen} onOpenChange={setIsBulkDeleteDialogOpen}>
+        <AlertDialogContent>
+          <div className="flex items-center justify-center w-16 h-16 mx-auto mb-4 rounded-full bg-red-100">
+            <AlertCircle className="h-8 w-8 text-red-600" />
+          </div>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-center">Delete Selected Coupons</AlertDialogTitle>
+            <AlertDialogDescription className="text-center text-base">
+              Are you sure you want to move {selectedCoupons.size} coupon{selectedCoupons.size !== 1 ? 's' : ''} to trash?
+              <br />
+              <span className="text-sm text-muted-foreground mt-2 block">
+                You can restore them within 30 days.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={confirmBulkDelete}
+              className="bg-destructive text-white hover:bg-destructive/90"
+            >
+              Delete {selectedCoupons.size} coupon{selectedCoupons.size !== 1 ? 's' : ''}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   )
 }
