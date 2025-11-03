@@ -22,7 +22,7 @@ WELCOME10,Welcome discount,10% off,2024-12-31`
         code: 'SAVE20',
         description: 'Get 20% off your purchase',
         discount_value: '20% off',
-        expiry_date: '2024-12-31',
+        expiry_date: '2024-12-31T23:59:59.000Z',
       })
     })
 
@@ -39,7 +39,7 @@ FREESHIP,Free shipping on orders,Free Shipping,2024-12-31`
         code: 'SAVE20',
         description: 'Get 20% off your purchase',
         discount_value: '20% off',
-        expiry_date: '2024-12-31',
+        expiry_date: '2024-12-31T23:59:59.000Z',
       })
     })
 
@@ -87,7 +87,7 @@ COUPON3,,,2025-01-01`
         code: 'COUPON3',
         description: '',
         discount_value: '',
-        expiry_date: '2025-01-01',
+        expiry_date: '2025-01-01T23:59:59.000Z',
       })
     })
 
