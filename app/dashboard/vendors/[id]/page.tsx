@@ -192,7 +192,7 @@ export default function VendorProfilePage() {
               <div>
                 <h2 className="text-xl font-bold">Vendor Not Found</h2>
                 <p className="text-muted-foreground">
-                  The vendor you're looking for doesn't exist or has been deleted.
+                  The vendor you&apos;re looking for doesn&apos;t exist or has been deleted.
                 </p>
               </div>
             </div>

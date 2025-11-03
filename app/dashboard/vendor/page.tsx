@@ -191,7 +191,7 @@ export default function VendorProfilePage() {
               <div>
                 <h2 className="text-xl font-bold">No Vendor Found</h2>
                 <p className="text-muted-foreground">
-                  You don't have a vendor associated with your account. Please contact an administrator.
+                  You don&apos;t have a vendor associated with your account. Please contact an administrator.
                 </p>
               </div>
             </div>
