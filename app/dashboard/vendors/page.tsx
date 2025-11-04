@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, Settings2, AlertCircle, CheckCircle, CheckSquare, Square } from 'lucide-react'
 import type { VendorWithStats } from '@/types/database'
 import VendorModal from '@/components/vendors/VendorModal'
@@ -36,6 +37,7 @@ import {
 import { DeleteDialog, SuccessDialog, ErrorDialog } from '@/components/ui/dialog-helpers'
 
 export default function VendorsPage() {
+  const router = useRouter()
   const [vendors, setVendors] = useState<VendorWithStats[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -257,8 +259,12 @@ export default function VendorsPage() {
               </TableRow>
             ) : (
               paginatedVendors.map((vendor) => (
-                <TableRow key={vendor.id}>
-                  <TableCell>
+                <TableRow 
+                  key={vendor.id}
+                  onClick={() => router.push(`/dashboard/vendors/${vendor.id}`)}
+                  className="cursor-pointer hover:bg-accent/50 transition-colors"
+                >
+                  <TableCell onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => handleSelectVendor(vendor.id)} className="flex items-center">
                       {selectedVendors.has(vendor.id) ? (
                         <CheckSquare className="h-5 w-5 text-primary" />
@@ -272,6 +278,7 @@ export default function VendorsPage() {
                       <Link
                         href={`/dashboard/vendors/${vendor.id}`}
                         className="font-medium text-primary hover:underline cursor-pointer"
+                        onClick={(e) => e.stopPropagation()}
                       >
                         {vendor.name}
                       </Link>
@@ -308,7 +315,7 @@ export default function VendorsPage() {
                       {vendor.active ? 'Active' : 'Inactive'}
                     </Badge>
                   </TableCell>
-                  <TableCell className="text-right">
+                  <TableCell className="text-right" onClick={(e) => e.stopPropagation()}>
                     <div className="flex justify-end gap-2">
                       <Button
                         variant="ghost"
