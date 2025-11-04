@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Upload, Trash2, Filter, ChevronLeft, ChevronRight, Settings2, AlertCircle, CheckCircle, History, CheckSquare, Square } from 'lucide-react'
 import type { Coupon, Vendor } from '@/types/database'
@@ -116,10 +116,14 @@ export default function CouponsPage() {
     router.push(`/dashboard/coupons/${coupon.id}/claims`)
   }
 
-  const handleViewCouponDetail = (coupon: Coupon) => {
+  const handleViewCouponDetail = useCallback((coupon: Coupon) => {
     setSelectedCouponForDetail(coupon.id)
     setIsCouponDetailModalOpen(true)
-  }
+  }, [])
+  
+  const handleRowClick = useCallback((coupon: Coupon) => {
+    handleViewCouponDetail(coupon)
+  }, [handleViewCouponDetail])
 
   const confirmDelete = async () => {
     if (!couponToDelete) return
@@ -378,8 +382,19 @@ export default function CouponsPage() {
               paginatedCoupons.map((coupon) => (
                 <TableRow 
                   key={coupon.id}
-                  onClick={() => handleViewCouponDetail(coupon)}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleRowClick(coupon)
+                  }}
                   className="cursor-pointer hover:bg-accent/50 transition-colors"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      handleRowClick(coupon)
+                    }
+                  }}
                 >
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => handleSelectCoupon(coupon.id)} className="flex items-center">

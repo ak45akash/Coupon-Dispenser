@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Shield, UserPlus, ChevronLeft, ChevronRight, Settings2, Trash2, AlertCircle, CheckCircle, CheckSquare, Square } from 'lucide-react'
@@ -40,6 +40,10 @@ import { DeleteDialog, SuccessDialog, ErrorDialog } from '@/components/ui/dialog
 
 export default function UsersPage() {
   const router = useRouter()
+  
+  const handleRowClick = useCallback((userId: string) => {
+    router.push(`/dashboard/users/${userId}`)
+  }, [router])
   const [users, setUsers] = useState<User[]>([])
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [loading, setLoading] = useState(true)
@@ -299,8 +303,19 @@ export default function UsersPage() {
               paginatedUsers.map((user) => (
                 <TableRow 
                   key={user.id}
-                  onClick={() => router.push(`/dashboard/users/${user.id}`)}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleRowClick(user.id)
+                  }}
                   className="cursor-pointer hover:bg-accent/50 transition-colors"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      handleRowClick(user.id)
+                    }
+                  }}
                 >
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => handleSelectUser(user.id)} className="flex items-center">

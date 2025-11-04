@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, Settings2, AlertCircle, CheckCircle, CheckSquare, Square } from 'lucide-react'
@@ -117,6 +117,10 @@ export default function VendorsPage() {
     setEditingVendor(null)
     fetchVendors()
   }
+
+  const handleRowClick = useCallback((vendorId: string) => {
+    router.push(`/dashboard/vendors/${vendorId}`)
+  }, [router])
 
   // Pagination
   const {
@@ -261,8 +265,19 @@ export default function VendorsPage() {
               paginatedVendors.map((vendor) => (
                 <TableRow 
                   key={vendor.id}
-                  onClick={() => router.push(`/dashboard/vendors/${vendor.id}`)}
+                  onClick={(e) => {
+                    e.preventDefault()
+                    handleRowClick(vendor.id)
+                  }}
                   className="cursor-pointer hover:bg-accent/50 transition-colors"
+                  role="button"
+                  tabIndex={0}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' || e.key === ' ') {
+                      e.preventDefault()
+                      handleRowClick(vendor.id)
+                    }
+                  }}
                 >
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => handleSelectVendor(vendor.id)} className="flex items-center">
