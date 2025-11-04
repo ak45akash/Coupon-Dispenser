@@ -59,10 +59,25 @@ export default function CouponModal({
     setLoading(true)
 
     try {
+      // Prepare data - convert empty strings to undefined for optional fields
+      let expiryDate: string | undefined = undefined
+      if (formData.expiry_date) {
+        // Convert date input (YYYY-MM-DD) to ISO datetime format
+        expiryDate = new Date(formData.expiry_date + 'T23:59:59Z').toISOString()
+      }
+
+      const submitData = {
+        vendor_id: formData.vendor_id,
+        code: formData.code,
+        description: formData.description,
+        discount_value: formData.discount_value || undefined,
+        expiry_date: expiryDate,
+      }
+
       const response = await fetch('/api/coupons', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        body: JSON.stringify(submitData),
       })
 
       const data = await response.json()
@@ -162,7 +177,7 @@ export default function CouponModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label htmlFor="discount_value" className="label">
-                Discount Value
+                Discount Value <span className="text-gray-500 text-xs">(optional)</span>
               </label>
               <input
                 id="discount_value"
@@ -178,7 +193,7 @@ export default function CouponModal({
 
             <div>
               <label htmlFor="expiry_date" className="label">
-                Expiry Date
+                Expiry Date <span className="text-gray-500 text-xs">(optional)</span>
               </label>
               <input
                 id="expiry_date"
@@ -189,6 +204,9 @@ export default function CouponModal({
                 }
                 className="input"
               />
+              <p className="mt-1 text-xs text-gray-500">
+                Note: If not set, expiry will be calculated when coupon is claimed (1 month from claim date)
+              </p>
             </div>
           </div>
 

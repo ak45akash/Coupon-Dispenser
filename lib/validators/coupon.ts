@@ -4,8 +4,8 @@ export const createCouponSchema = z.object({
   vendor_id: z.string().uuid('Invalid vendor ID'),
   code: z.string().min(1, 'Code is required').max(100),
   description: z.string().min(1, 'Description is required').max(500),
-  discount_value: z.string().min(1, 'Discount value is required').max(100),
-  expiry_date: z.string().datetime('Invalid expiry date format'),
+  discount_value: z.string().max(100).optional(),
+  expiry_date: z.string().datetime('Invalid expiry date format').optional(),
 })
 
 export const bulkCreateCouponsSchema = z.object({
@@ -14,14 +14,14 @@ export const bulkCreateCouponsSchema = z.object({
     z.object({
       code: z.string().min(1, 'Code is required').max(100),
       description: z.string().min(1, 'Description is required').max(500),
-      discount_value: z.string().min(1, 'Discount value is required').max(100),
-      expiry_date: z.string().datetime('Invalid expiry date format'),
+      discount_value: z.string().max(100).optional(),
+      expiry_date: z.string().datetime('Invalid expiry date format').optional(),
     })
   ).min(1, 'At least one coupon is required'),
 })
 
 export const claimCouponSchema = z.object({
-  vendor_id: z.string().uuid('Invalid vendor ID'),
+  coupon_id: z.string().uuid('Invalid coupon ID'),
   user_email: z.string().email('Invalid email').optional(),
 })
 

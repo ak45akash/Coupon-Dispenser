@@ -66,28 +66,40 @@ export async function getVendorsWithStats(limit?: number): Promise<VendorWithSta
   }
 
   // Fallback: If RPC functions don't exist, use the old method
-  if (!couponCountsResult || couponCountsResult.error || !claimCountsResult || claimCountsResult.error) {
-    // Fallback to fetching all data
-    const [couponStats, claimStats] = await Promise.all([
-      supabaseAdmin.from('coupons').select('vendor_id').is('deleted_at', null),
-      supabaseAdmin.from('claim_history').select('vendor_id'),
-    ])
+  // Updated to use is_claimed field instead of claim_history for one-time claim model
+  if (!couponCountsResult || couponCountsResult.error) {
+    // Fetch all coupons and count by vendor and claim status
+    const { data: allCoupons, error: couponsError } = await supabaseAdmin
+      .from('coupons')
+      .select('vendor_id, is_claimed')
+      .is('deleted_at', null)
+
+    if (couponsError) throw couponsError
 
     const couponCounts = new Map<string, number>()
-    couponStats.data?.forEach((c) => couponCounts.set(c.vendor_id, (couponCounts.get(c.vendor_id) || 0) + 1))
-    
-    const claimCounts = new Map<string, number>()
-    claimStats.data?.forEach((c) => claimCounts.set(c.vendor_id, (claimCounts.get(c.vendor_id) || 0) + 1))
+    const claimedCounts = new Map<string, number>()
 
-    return vendors.map((vendor) => ({
-      ...vendor,
-      total_coupons: couponCounts.get(vendor.id) || 0,
-      claimed_coupons: claimCounts.get(vendor.id) || 0,
-      available_coupons: couponCounts.get(vendor.id) || 0,
-    }))
+    allCoupons?.forEach((coupon) => {
+      const vendorId = coupon.vendor_id
+      couponCounts.set(vendorId, (couponCounts.get(vendorId) || 0) + 1)
+      if (coupon.is_claimed) {
+        claimedCounts.set(vendorId, (claimedCounts.get(vendorId) || 0) + 1)
+      }
+    })
+
+    return vendors.map((vendor) => {
+      const total = couponCounts.get(vendor.id) || 0
+      const claimed = claimedCounts.get(vendor.id) || 0
+      return {
+        ...vendor,
+        total_coupons: total,
+        claimed_coupons: claimed,
+        available_coupons: total - claimed,
+      }
+    })
   }
 
-  // Use RPC results
+  // Use RPC results for total coupons
   const couponCounts = new Map<string, number>()
   if (couponCountsResult.data) {
     couponCountsResult.data.forEach((row: any) => {
@@ -95,20 +107,31 @@ export async function getVendorsWithStats(limit?: number): Promise<VendorWithSta
     })
   }
 
-  const claimCounts = new Map<string, number>()
-  if (claimCountsResult.data) {
-    claimCountsResult.data.forEach((row: any) => {
-      claimCounts.set(row.vendor_id, row.count)
-    })
-  }
+  // Count claimed coupons from is_claimed field (not from claim_history)
+  const { data: claimedCoupons, error: claimedError } = await supabaseAdmin
+    .from('coupons')
+    .select('vendor_id')
+    .is('deleted_at', null)
+    .eq('is_claimed', true)
+
+  if (claimedError) throw claimedError
+
+  const claimedCounts = new Map<string, number>()
+  claimedCoupons?.forEach((coupon) => {
+    claimedCounts.set(coupon.vendor_id, (claimedCounts.get(coupon.vendor_id) || 0) + 1)
+  })
 
   // Map vendors with stats
-  return vendors.map((vendor) => ({
-    ...vendor,
-    total_coupons: couponCounts.get(vendor.id) || 0,
-    claimed_coupons: claimCounts.get(vendor.id) || 0,
-    available_coupons: couponCounts.get(vendor.id) || 0,
-  }))
+  return vendors.map((vendor) => {
+    const total = couponCounts.get(vendor.id) || 0
+    const claimed = claimedCounts.get(vendor.id) || 0
+    return {
+      ...vendor,
+      total_coupons: total,
+      claimed_coupons: claimed,
+      available_coupons: total - claimed,
+    }
+  })
 }
 
 export async function createVendor(

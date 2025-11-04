@@ -318,6 +318,7 @@ export default function VendorProfilePage() {
                       <TableHead>Description</TableHead>
                       <TableHead>Discount</TableHead>
                       <TableHead>Expiry Date</TableHead>
+                      <TableHead>Claimed</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
@@ -340,8 +341,17 @@ export default function VendorProfilePage() {
                             : 'No expiry'}
                         </TableCell>
                         <TableCell>
-                          <Badge variant="success">
-                            Available
+                          <div className="font-medium">
+                            {coupon.is_claimed ? (
+                              <span className="text-green-600">Yes</span>
+                            ) : (
+                              <span className="text-gray-500">No</span>
+                            )}
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant={coupon.is_claimed ? 'destructive' : 'success'}>
+                            {coupon.is_claimed ? 'Claimed' : 'Available'}
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right">

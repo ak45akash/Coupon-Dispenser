@@ -34,6 +34,9 @@ export interface Coupon {
   description: string | null
   discount_value: string | null
   expiry_date: string | null
+  is_claimed: boolean
+  claimed_by: string | null
+  claimed_at: string | null
   created_by: string | null
   created_at: string
   updated_at: string

@@ -33,7 +33,7 @@ export default function Topbar({ user }: TopbarProps) {
         <div className="flex items-center gap-3">
           <div>
             <h2 className="text-lg font-semibold">
-              Welcome back, {user.name || user.email}
+              Welcome back, {user.name || user.email.split('@')[0] || 'User'}
             </h2>
             <Badge variant={roleVariants[user.role]} className="mt-1">
               {roleLabels[user.role]}

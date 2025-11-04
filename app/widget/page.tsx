@@ -29,11 +29,31 @@ export default function WidgetPage() {
     setMessage('')
 
     try {
+      // First, get available coupons for this vendor
+      const couponsResponse = await fetch(`/api/coupons?vendor_id=${vendorId}`)
+      const couponsData = await couponsResponse.json()
+
+      if (!couponsData.success || !couponsData.data || couponsData.data.length === 0) {
+        setStatus('error')
+        setMessage('No coupons available for this vendor')
+        return
+      }
+
+      // Get the first available unclaimed coupon
+      const availableCoupon = couponsData.data.find((c: any) => !c.is_claimed)
+      
+      if (!availableCoupon) {
+        setStatus('error')
+        setMessage('No coupons available - all have been claimed')
+        return
+      }
+
+      // Claim the coupon
       const response = await fetch('/api/coupons/claim', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          vendor_id: vendorId,
+          coupon_id: availableCoupon.id,
           user_email: userEmail,
         }),
       })
@@ -44,12 +64,12 @@ export default function WidgetPage() {
         setStatus('success')
         setCoupon(data.data)
         setMessage('Coupon claimed successfully!')
-      } else if (response.status === 429) {
-        setStatus('limit')
-        setMessage(data.error || 'Monthly claim limit reached')
+      } else if (response.status === 409) {
+        setStatus('error')
+        setMessage(data.error || 'Coupon has already been claimed')
       } else if (response.status === 404) {
         setStatus('error')
-        setMessage('No coupons available')
+        setMessage('Coupon not found')
       } else {
         setStatus('error')
         setMessage(data.error || 'Failed to claim coupon')
@@ -129,12 +149,7 @@ export default function WidgetPage() {
                 </div>
               )}
 
-              {status === 'limit' && (
-                <div className="flex items-center gap-2 rounded-lg bg-yellow-50 p-4 text-sm text-yellow-800">
-                  <AlertCircle className="h-5 w-5" />
-                  {message}
-                </div>
-              )}
+
 
               <div>
                 <label htmlFor="email" className="label">

@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const coupon = await claimCoupon(userId, validatedData.vendor_id)
+    const coupon = await claimCoupon(userId, validatedData.coupon_id)
 
     return NextResponse.json({
       success: true,
@@ -51,14 +51,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (error.message === 'Monthly claim limit reached for this vendor') {
+    if (error.message === 'Coupon has already been claimed') {
       return NextResponse.json(
         { success: false, error: error.message },
-        { status: 429 }
+        { status: 409 }
       )
     }
 
-    if (error.message === 'No available coupons') {
+    if (error.message === 'Coupon not found') {
       return NextResponse.json(
         { success: false, error: error.message },
         { status: 404 }

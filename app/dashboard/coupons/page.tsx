@@ -40,13 +40,11 @@ import {
 } from '@/components/ui/alert-dialog'
 import { DeleteDialog, SuccessDialog, ErrorDialog } from '@/components/ui/dialog-helpers'
 
-interface CouponWithClaimCount extends Coupon {
-  claim_count?: number
-}
+// Removed CouponWithClaimCount interface - no longer needed as we use is_claimed directly
 
 export default function CouponsPage() {
   const router = useRouter()
-  const [coupons, setCoupons] = useState<CouponWithClaimCount[]>([])
+  const [coupons, setCoupons] = useState<Coupon[]>([])
   const [vendors, setVendors] = useState<Vendor[]>([])
   const [loading, setLoading] = useState(true)
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -364,7 +362,7 @@ export default function CouponsPage() {
               <TableHead>Description</TableHead>
               <TableHead>Discount</TableHead>
               <TableHead>Expiry Date</TableHead>
-              <TableHead>Claims</TableHead>
+              <TableHead>Claimed</TableHead>
               <TableHead>Status</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -405,12 +403,16 @@ export default function CouponsPage() {
                   </TableCell>
                   <TableCell>
                     <div className="font-medium">
-                      {(coupon as CouponWithClaimCount).claim_count ?? 0}
+                      {coupon.is_claimed ? (
+                        <span className="text-green-600">Yes</span>
+                      ) : (
+                        <span className="text-gray-500">No</span>
+                      )}
                     </div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="success">
-                      Available
+                    <Badge variant={coupon.is_claimed ? 'destructive' : 'success'}>
+                      {coupon.is_claimed ? 'Claimed' : 'Available'}
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">

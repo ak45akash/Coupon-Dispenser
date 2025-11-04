@@ -3,8 +3,8 @@ import Papa from 'papaparse'
 export interface CSVCoupon {
   code: string
   description: string
-  discount_value: string
-  expiry_date: string
+  discount_value?: string
+  expiry_date?: string
 }
 
 export function parseCSV(file: File): Promise<CSVCoupon[]> {
@@ -15,11 +15,11 @@ export function parseCSV(file: File): Promise<CSVCoupon[]> {
       complete: (results) => {
         try {
           const coupons = results.data.map((row: any, index: number) => {
-            // All fields are now required
+            // Only code and description are required
             const code = row.code || row.Code || ''
             const description = row.description || row.Description || ''
-            const discountValue = row.discount_value || row['Discount Value'] || ''
-            let expiryDate = row.expiry_date || row['Expiry Date'] || ''
+            const discountValue = row.discount_value || row['Discount Value'] || undefined
+            let expiryDate = row.expiry_date || row['Expiry Date'] || undefined
 
             // Validate required fields
             if (!code) {
@@ -28,14 +28,9 @@ export function parseCSV(file: File): Promise<CSVCoupon[]> {
             if (!description) {
               throw new Error(`Row ${index + 2}: Missing required field 'description'`)
             }
-            if (!discountValue) {
-              throw new Error(`Row ${index + 2}: Missing required field 'discount_value'`)
-            }
-            if (!expiryDate) {
-              throw new Error(`Row ${index + 2}: Missing required field 'expiry_date'`)
-            }
 
             // Parse expiry_date: if it's YYYY-MM-DD format, convert to ISO datetime
+            // Note: expiry_date is optional and will be set when coupon is claimed (1 month from claim date)
             if (expiryDate && /^\d{4}-\d{2}-\d{2}$/.test(expiryDate)) {
               // Convert YYYY-MM-DD to ISO datetime format (end of day in UTC)
               expiryDate = new Date(expiryDate + 'T23:59:59Z').toISOString()

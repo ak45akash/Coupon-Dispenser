@@ -2,12 +2,18 @@ import { supabaseAdmin } from '@/lib/supabase/server'
 import type { Coupon, CouponWithVendor, MonthlyClaimRule } from '@/types/database'
 import type { CreateCouponInput, BulkCreateCouponsInput } from '@/lib/validators/coupon'
 
-export async function getAllCoupons(limit?: number): Promise<Coupon[]> {
+export async function getAllCoupons(limit?: number, includeClaimed: boolean = true): Promise<Coupon[]> {
   let query = supabaseAdmin
     .from('coupons')
     .select('*')
     .is('deleted_at', null) // Exclude soft-deleted coupons
-    .order('created_at', { ascending: false })
+  
+  // Filter out claimed coupons unless explicitly including them
+  if (!includeClaimed) {
+    query = query.eq('is_claimed', false)
+  }
+  
+  query = query.order('created_at', { ascending: false })
   
   if (limit) {
     query = query.limit(limit)
@@ -83,12 +89,12 @@ export async function getCouponsByVendor(vendorId: string): Promise<Coupon[]> {
 export async function getAvailableCouponsByVendor(
   vendorId: string
 ): Promise<Coupon[]> {
-  // All coupons are available (shared model)
-  // Monthly limits are enforced through claim_history
+  // Only return unclaimed coupons
   const { data, error } = await supabaseAdmin
     .from('coupons')
     .select('*')
     .eq('vendor_id', vendorId)
+    .eq('is_claimed', false)
     .is('deleted_at', null) // Exclude soft-deleted coupons
     .order('created_at', { ascending: false })
 
@@ -150,64 +156,47 @@ export async function deleteCoupon(id: string): Promise<void> {
   if (error) throw error
 }
 
-export async function checkMonthlyClaimLimit(
-  userId: string,
-  vendorId: string
-): Promise<boolean> {
-  // Get monthly claim rule
-  const { data: config } = await supabaseAdmin
-    .from('system_config')
-    .select('value')
-    .eq('key', 'monthly_claim_rule')
-    .single()
-
-  if (!config) return true
-
-  const rule = config.value as MonthlyClaimRule
-  if (!rule.enabled) return true
-
-  // Check claims this month
-  const startOfMonth = new Date()
-  startOfMonth.setDate(1)
-  startOfMonth.setHours(0, 0, 0, 0)
-
-  const { data, error } = await supabaseAdmin
-    .from('claim_history')
-    .select('id')
-    .eq('user_id', userId)
-    .eq('vendor_id', vendorId)
-    .gte('claimed_at', startOfMonth.toISOString())
-
-  if (error) throw error
-
-  const claimCount = data?.length || 0
-  return claimCount < rule.max_claims_per_vendor
-}
-
 export async function claimCoupon(
   userId: string,
-  vendorId: string
+  couponId: string
 ): Promise<Coupon> {
-  // Check monthly limit
-  const canClaim = await checkMonthlyClaimLimit(userId, vendorId)
-  if (!canClaim) {
-    throw new Error('Monthly claim limit reached for this vendor')
-  }
-
-  // Get any coupon for this vendor (all coupons are shared/available)
+  // Get the coupon and check if it's already claimed
   const { data: coupon, error: couponError } = await supabaseAdmin
     .from('coupons')
     .select('*')
-    .eq('vendor_id', vendorId)
+    .eq('id', couponId)
     .is('deleted_at', null) // Exclude soft-deleted coupons
-    .limit(1)
     .single()
 
   if (couponError || !coupon) {
-    throw new Error('No coupons available for this vendor')
+    throw new Error('Coupon not found')
   }
 
-  // Record claim history (this is the only place we track claims now)
+  if (coupon.is_claimed) {
+    throw new Error('Coupon has already been claimed')
+  }
+
+  // Calculate expiry date: 1 month from now (when claimed)
+  const claimedAt = new Date()
+  const expiryDate = new Date(claimedAt)
+  expiryDate.setMonth(expiryDate.getMonth() + 1)
+
+  // Update coupon: mark as claimed, set claimed_by, claimed_at, and expiry_date
+  const { data: updatedCoupon, error: updateError } = await supabaseAdmin
+    .from('coupons')
+    .update({
+      is_claimed: true,
+      claimed_by: userId,
+      claimed_at: claimedAt.toISOString(),
+      expiry_date: expiryDate.toISOString(),
+    })
+    .eq('id', couponId)
+    .select()
+    .single()
+
+  if (updateError) throw updateError
+
+  // Record claim history for analytics
   const startOfMonth = new Date()
   startOfMonth.setDate(1)
   startOfMonth.setHours(0, 0, 0, 0)
@@ -216,15 +205,18 @@ export async function claimCoupon(
     .from('claim_history')
     .insert({
       user_id: userId,
-      vendor_id: vendorId,
+      vendor_id: coupon.vendor_id,
       coupon_id: coupon.id,
+      claimed_at: claimedAt.toISOString(),
       claim_month: startOfMonth.toISOString().split('T')[0],
     })
 
-  if (historyError) throw historyError
+  if (historyError) {
+    // Log error but don't fail the claim since coupon is already updated
+    console.error('Error recording claim history:', historyError)
+  }
 
-  // Return the coupon (unchanged - it's shared)
-  return coupon
+  return updatedCoupon
 }
 
 export async function getCouponsWithVendor(): Promise<CouponWithVendor[]> {
