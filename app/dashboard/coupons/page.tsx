@@ -383,7 +383,6 @@ export default function CouponsPage() {
                 <TableRow 
                   key={coupon.id}
                   onClick={(e) => {
-                    e.preventDefault()
                     handleRowClick(coupon)
                   }}
                   className="cursor-pointer hover:bg-accent/50 transition-colors"

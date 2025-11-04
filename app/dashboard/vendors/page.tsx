@@ -266,7 +266,6 @@ export default function VendorsPage() {
                 <TableRow 
                   key={vendor.id}
                   onClick={(e) => {
-                    e.preventDefault()
                     handleRowClick(vendor.id)
                   }}
                   className="cursor-pointer hover:bg-accent/50 transition-colors"

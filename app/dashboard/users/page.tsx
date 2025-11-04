@@ -304,7 +304,6 @@ export default function UsersPage() {
                 <TableRow 
                   key={user.id}
                   onClick={(e) => {
-                    e.preventDefault()
                     handleRowClick(user.id)
                   }}
                   className="cursor-pointer hover:bg-accent/50 transition-colors"
