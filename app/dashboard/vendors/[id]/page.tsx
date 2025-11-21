@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { Building2, Mail, Phone, Globe, Trash2, Plus, Upload, ArrowLeft, History, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
+import { Building2, Mail, Phone, Globe, Trash2, Plus, Upload, ArrowLeft, History, ArrowUpDown, ArrowUp, ArrowDown, Eye } from 'lucide-react'
 import type { Vendor, Coupon } from '@/types/database'
 import CouponModal from '@/components/coupons/CouponModal'
 import CSVUploadModal from '@/components/coupons/CSVUploadModal'
@@ -301,7 +301,18 @@ export default function VendorProfilePage() {
             </div>
             <div className="flex gap-2">
               {vendor && (
-                <DropdownMenu>
+                <>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={() => router.push(`/widget/template/${vendor.id}`)}
+                    title="Preview coupon widget template"
+                  >
+                    <Eye className="h-4 w-4" />
+                    Preview Template
+                  </Button>
+                  <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       variant="outline"

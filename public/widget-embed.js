@@ -284,7 +284,46 @@
     document.head.appendChild(style)
   }
 
-  async function fetchCouponsData(vendorId, userId, retries = 0) {
+  async function fetchCouponsData(vendorId, userId, previewMode = false, retries = 0) {
+    // Preview mode: return mock data without making API call
+    if (previewMode || userId === 'PREVIEW_MODE_USER_ID') {
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 300))
+      
+      // Return mock data for preview
+      return {
+        vendor: {
+          id: vendorId,
+          name: 'Preview Vendor',
+          description: 'This is a preview of your vendor widget',
+          website: '#',
+          logo_url: null,
+        },
+        coupons: [
+          {
+            id: 'preview-coupon-1',
+            code: 'PREVIEW1',
+            description: 'Preview Coupon 1 - This is how it will appear',
+            discount_value: '20% Off',
+            is_claimed: false,
+            claimed_at: null,
+            expiry_date: null,
+          },
+          {
+            id: 'preview-coupon-2',
+            code: 'PREVIEW2',
+            description: 'Preview Coupon 2 - Test the widget appearance',
+            discount_value: '15% Off',
+            is_claimed: false,
+            claimed_at: null,
+            expiry_date: null,
+          },
+        ],
+        has_active_claim: false,
+        active_claim_expiry: null,
+      }
+    }
+
     try {
       const url = userId 
         ? `${CONFIG.API_BASE_URL}/api/widget/coupons?vendor_id=${vendorId}&user_id=${userId}`
@@ -308,13 +347,27 @@
     } catch (error) {
       if (retries < CONFIG.MAX_RETRIES) {
         await new Promise((resolve) => setTimeout(resolve, CONFIG.RETRY_DELAY))
-        return fetchCouponsData(vendorId, userId, retries + 1)
+        return fetchCouponsData(vendorId, userId, previewMode, retries + 1)
       }
       throw error
     }
   }
 
-  async function claimCoupon(couponId, userId, retries = 0) {
+  async function claimCoupon(couponId, userId, previewMode = false, retries = 0) {
+    // Preview mode: return mock data without making API call
+    if (previewMode || userId === 'PREVIEW_MODE_USER_ID') {
+      // Simulate API delay
+      await new Promise((resolve) => setTimeout(resolve, 500))
+      
+      // Return mock claimed coupon data
+      return {
+        id: couponId,
+        code: 'PREVIEW-' + Math.random().toString(36).substring(2, 9).toUpperCase(),
+        description: 'Preview coupon code (not actually claimed)',
+        discount_value: 'Test Discount',
+      }
+    }
+
     try {
       const response = await fetch(`${CONFIG.API_BASE_URL}/api/widget/claim`, {
         method: 'POST',
@@ -335,7 +388,7 @@
     } catch (error) {
       if (retries < CONFIG.MAX_RETRIES) {
         await new Promise((resolve) => setTimeout(resolve, CONFIG.RETRY_DELAY))
-        return claimCoupon(couponId, userId, retries + 1)
+        return claimCoupon(couponId, userId, previewMode, retries + 1)
       }
       throw error
     }
@@ -348,6 +401,7 @@
         userId: config.userId || '',
         theme: config.theme || 'light',
         containerId: config.containerId || 'coupon-widget',
+        previewMode: config.previewMode || false, // Preview mode for testing
       }
 
       this.state = {
@@ -397,7 +451,11 @@
       }
 
       try {
-        const data = await fetchCouponsData(this.config.vendorId, this.config.userId)
+        const data = await fetchCouponsData(
+          this.config.vendorId, 
+          this.config.userId,
+          this.config.previewMode
+        )
         this.setState({
           loading: false,
           vendor: data.vendor,
@@ -434,7 +492,11 @@
       }
 
       try {
-        const claimedCoupon = await claimCoupon(couponId, this.config.userId)
+        const claimedCoupon = await claimCoupon(
+          couponId, 
+          this.config.userId,
+          this.config.previewMode
+        )
         
         // Store claimed coupon
         this.state.claimedCoupons.set(couponId, claimedCoupon)
