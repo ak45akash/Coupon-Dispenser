@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Widget Debug Test</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    .debug-section {
+      background: #f5f5f5;
+      padding: 20px;
+      margin: 20px 0;
+      border-radius: 8px;
+    }
+    .debug-section h2 {
+      margin-top: 0;
+    }
+    .status {
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+    }
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+    }
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+    }
+    .status.info {
+      background: #d1ecf1;
+      color: #0c5460;
+    }
+    code {
+      background: #f4f4f4;
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+    button {
+      background: #007bff;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      margin: 5px;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+  <h1>Coupon Widget Debug Page</h1>
+  
+  <div class="debug-section">
+    <h2>Script Loading Status</h2>
+    <div id="script-status" class="status info">Checking...</div>
+  </div>
+
+  <div class="debug-section">
+    <h2>Container Detection</h2>
+    <div id="container-status" class="status info">Checking...</div>
+  </div>
+
+  <div class="debug-section">
+    <h2>Widget Instance Status</h2>
+    <div id="instance-status" class="status info">Checking...</div>
+    <button onclick="checkInstances()">Refresh Status</button>
+    <button onclick="forceReinit()">Force Reinitialize</button>
+  </div>
+
+  <div class="debug-section">
+    <h2>Test Widget Container</h2>
+    <p>Replace the vendor ID and user ID below with your actual values:</p>
+    <div id="coupon-widget" 
+         data-vendor-id="ef47d71c-07bf-41b5-831e-96214618e7f1"
+         data-user-id="80b61da2-a30b-4c1f-a03d-dcb3584c4397"
+         data-theme="light">
+      <div class="status info">Widget container ready. Waiting for initialization...</div>
+    </div>
+  </div>
+
+  <div class="debug-section">
+    <h2>Console Output</h2>
+    <p>Open browser console (F12) to see detailed logs.</p>
+    <p>Look for messages starting with "CouponWidget:"</p>
+  </div>
+
+  <script>
+    // Check script loading
+    function checkScriptStatus() {
+      const script = document.querySelector('script[src*="widget-embed.js"]')
+      if (script) {
+        document.getElementById('script-status').innerHTML = 
+          '<strong>✓ Script loaded</strong><br>Source: <code>' + script.src + '</code>'
+        document.getElementById('script-status').className = 'status success'
+      } else {
+        document.getElementById('script-status').innerHTML = 
+          '<strong>✗ Script not found</strong><br>Make sure the script tag is present in the HTML'
+        document.getElementById('script-status').className = 'status error'
+      }
+    }
+
+    // Check container detection
+    function checkContainers() {
+      const containers = document.querySelectorAll('[data-vendor-id]')
+      if (containers.length > 0) {
+        document.getElementById('container-status').innerHTML = 
+          '<strong>✓ Found ' + containers.length + ' container(s)</strong><br>' +
+          Array.from(containers).map(c => 
+            'Container ID: <code>' + (c.id || 'no-id') + '</code>, Vendor ID: <code>' + c.getAttribute('data-vendor-id') + '</code>'
+          ).join('<br>')
+        document.getElementById('container-status').className = 'status success'
+      } else {
+        document.getElementById('container-status').innerHTML = 
+          '<strong>✗ No containers found</strong><br>Make sure you have a div with data-vendor-id attribute'
+        document.getElementById('container-status').className = 'status error'
+      }
+    }
+
+    // Check widget instances
+    function checkInstances() {
+      if (window.CouponWidget) {
+        const instances = window.CouponWidget.instances || new Map()
+        const instanceCount = instances.size || 0
+        if (instanceCount > 0) {
+          document.getElementById('instance-status').innerHTML = 
+            '<strong>✓ ' + instanceCount + ' widget instance(s) initialized</strong>'
+          document.getElementById('instance-status').className = 'status success'
+        } else {
+          document.getElementById('instance-status').innerHTML = 
+            '<strong>⚠ No instances initialized</strong><br>Try clicking "Force Reinitialize"'
+          document.getElementById('instance-status').className = 'status error'
+        }
+      } else {
+        document.getElementById('instance-status').innerHTML = 
+          '<strong>✗ CouponWidget not available</strong><br>Script may not have loaded'
+        document.getElementById('instance-status').className = 'status error'
+      }
+    }
+
+    // Force reinitialize
+    function forceReinit() {
+      if (window.CouponWidgetReinit) {
+        window.CouponWidgetReinit()
+        setTimeout(checkInstances, 500)
+        alert('Reinitialization triggered. Check the widget container above.')
+      } else {
+        alert('CouponWidgetReinit function not available. Make sure the script is loaded.')
+      }
+    }
+
+    // Run checks
+    setTimeout(() => {
+      checkScriptStatus()
+      checkContainers()
+      checkInstances()
+    }, 1000)
+
+    // Re-check periodically
+    setInterval(() => {
+      checkContainers()
+      checkInstances()
+    }, 3000)
+  </script>
+
+  <!-- Load the widget script -->
+  <script src="/widget-embed.js"></script>
+</body>
+</html>
+

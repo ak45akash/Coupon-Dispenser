@@ -631,6 +631,13 @@
         '[id^="coupon-widget"], [data-coupon-widget], [data-vendor-id]'
       )
 
+      if (containers.length === 0) {
+        console.log('CouponWidget: No containers found. Make sure you have a div with data-vendor-id attribute.')
+        return
+      }
+
+      console.log(`CouponWidget: Found ${containers.length} potential container(s)`)
+
       containers.forEach((container) => {
         // Skip if already initialized
         if (container.dataset.widgetInitialized === 'true') {
@@ -669,6 +676,7 @@
         })
 
         widgetState.instances.set(containerId, instance)
+        console.log(`CouponWidget: Initializing widget for container ${containerId}`)
         instance.init()
       })
     },
@@ -718,7 +726,11 @@
 
   // Initialize function that can be called multiple times
   function initializeWidget() {
-    CouponWidget.initFromAttributes()
+    try {
+      CouponWidget.initFromAttributes()
+    } catch (error) {
+      console.error('CouponWidget: Initialization error:', error)
+    }
   }
 
   // Initialize immediately if DOM is ready
@@ -729,39 +741,67 @@
     initializeWidget()
   }
 
-  // Also initialize after a short delay (for WordPress/Elementor dynamic content)
+  // Also initialize after delays (for WordPress/Elementor dynamic content)
   setTimeout(initializeWidget, 100)
   setTimeout(initializeWidget, 500)
   setTimeout(initializeWidget, 1000)
+  setTimeout(initializeWidget, 2000)
+  setTimeout(initializeWidget, 3000)
 
   // Support for MutationObserver to detect dynamically added containers (WordPress/Elementor)
   if (typeof MutationObserver !== 'undefined') {
+    let reinitTimeout = null
+    
     const observer = new MutationObserver((mutations) => {
       let shouldReinit = false
       mutations.forEach((mutation) => {
         mutation.addedNodes.forEach((node) => {
           if (node.nodeType === 1) { // Element node
             // Check if added node or its children contain widget containers
-            if (node.id && node.id.includes('coupon-widget')) {
+            if (node.id && (node.id.includes('coupon-widget') || node.hasAttribute('data-vendor-id'))) {
               shouldReinit = true
-            } else if (node.querySelectorAll && node.querySelectorAll('[id*="coupon-widget"], [data-vendor-id]').length > 0) {
+            } else if (node.querySelectorAll && (
+              node.querySelectorAll('[id*="coupon-widget"]').length > 0 ||
+              node.querySelectorAll('[data-vendor-id]').length > 0
+            )) {
               shouldReinit = true
             }
           }
         })
       })
       if (shouldReinit) {
-        setTimeout(initializeWidget, 100)
+        // Debounce reinit calls
+        if (reinitTimeout) {
+          clearTimeout(reinitTimeout)
+        }
+        reinitTimeout = setTimeout(initializeWidget, 200)
       }
     })
 
-    // Start observing
-    observer.observe(document.body, {
-      childList: true,
-      subtree: true,
-    })
+    // Start observing when body is available
+    if (document.body) {
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+      })
+    } else {
+      // Wait for body if not available yet
+      document.addEventListener('DOMContentLoaded', () => {
+        if (document.body) {
+          observer.observe(document.body, {
+            childList: true,
+            subtree: true,
+          })
+        }
+      })
+    }
   }
 
   // Expose reinit function for manual initialization (useful for WordPress/Elementor)
   window.CouponWidgetReinit = initializeWidget
+  
+  // Also expose on window load (for very late loading)
+  window.addEventListener('load', () => {
+    setTimeout(initializeWidget, 500)
+  })
 })(window, document)

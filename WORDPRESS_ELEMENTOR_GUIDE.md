@@ -1,38 +1,88 @@
 # WordPress/Elementor Integration Guide
 
+## ⚠️ IMPORTANT: Use HTML Widget, NOT Code Highlight
+
+**The "Code Highlight" widget only displays code - it does NOT execute it!**
+
+You MUST use the **"HTML" widget** in Elementor for the widget to work.
+
 ## Quick Setup for WordPress/Elementor
 
-### Method 1: Using HTML Widget (Recommended)
+### Method 1: Using HTML Widget (REQUIRED)
 
-1. **Copy the Widget Script** from your vendor dashboard
+1. **Copy the Widget Script** from your vendor dashboard (button above coupons table)
 2. **In Elementor:**
-   - Add an "HTML" widget to your page
-   - Paste the copied script code
-   - Replace `USER_ID_FROM_YOUR_SYSTEM` with your user ID
-   - Save and publish
+   - Click "+" to add a widget
+   - Search for and select **"HTML"** widget (NOT "Code Highlight")
+   - Paste the complete copied script code into the HTML widget
+   - Replace `USER_ID_FROM_YOUR_SYSTEM` with your actual user ID
+   - Click "Update" and "Publish"
+3. **The widget will automatically load when the page is viewed**
 
-### Method 2: Using Code Block
+### Step-by-Step Elementor Instructions:
+
+1. **In Elementor Editor:**
+   - Click the "+" icon to add a widget
+   - Type "HTML" in the search box
+   - Select the **"HTML"** widget (it has a `</>` icon)
+
+2. **Paste Your Code:**
+   - Copy the script from your vendor dashboard
+   - Paste it into the HTML widget's text area
+   - Make sure BOTH the `<script>` tag AND the `<div>` tag are included
+
+3. **Replace User ID:**
+   - Find `USER_ID_FROM_YOUR_SYSTEM` in the pasted code
+   - Replace it with your actual user ID from your system
+
+4. **Save:**
+   - Click "Update" in Elementor
+   - Click "Publish" to make it live
+
+### Method 2: Using WordPress Custom HTML Block (Gutenberg)
 
 1. **Copy the Widget Script** from your vendor dashboard
-2. **In WordPress:**
-   - Edit your page/post
-   - Add a "Custom HTML" block
-   - Paste the script code
+2. **In WordPress Editor:**
+   - Click "+" to add a block
+   - Search for "Custom HTML"
+   - Paste the complete script code
    - Replace `USER_ID_FROM_YOUR_SYSTEM` with your user ID
    - Update the page
 
-### Method 3: Using Theme Footer/Header
+### Method 3: Using Shortcode (Advanced)
 
-1. **Copy the script tag only:**
-   ```html
-   <script src="https://your-domain.com/widget-embed.js"></script>
+If Elementor HTML widget doesn't work, you can create a WordPress shortcode:
+
+1. **Add to functions.php or a plugin:**
+   ```php
+   function coupon_widget_shortcode($atts) {
+       $atts = shortcode_atts(array(
+           'vendor_id' => '',
+           'user_id' => '',
+           'theme' => 'light'
+       ), $atts);
+       
+       if (empty($atts['vendor_id'])) {
+           return '<!-- Vendor ID required -->';
+       }
+       
+       $script_url = 'https://your-domain.com/widget-embed.js';
+       
+       return "
+       <script src=\"{$script_url}\"></script>
+       <div id=\"coupon-widget\" 
+            data-vendor-id=\"{$atts['vendor_id']}\" 
+            data-user-id=\"{$atts['user_id']}\"
+            data-theme=\"{$atts['theme']}\">
+       </div>
+       ";
+   }
+   add_shortcode('coupon_widget', 'coupon_widget_shortcode');
    ```
 
-2. **Add to WordPress:**
-   - Go to Appearance → Theme Editor
-   - Or use a plugin like "Insert Headers and Footers"
-   - Add the script tag to the footer
-   - Add the widget div where you want it to appear
+2. **Use in Elementor:**
+   - Add "Shortcode" widget
+   - Use: `[coupon_widget vendor_id="YOUR_VENDOR_ID" user_id="YOUR_USER_ID"]`
 
 ## Important Notes for WordPress/Elementor
 
@@ -48,10 +98,11 @@
 - Get the user ID from your authentication system
 - The widget will not work without a valid user ID
 
-### Elementor HTML Widget
-- Use the "HTML" widget (not "Code Highlight")
+### Elementor HTML Widget - CRITICAL
+- **MUST use "HTML" widget** (NOT "Code Highlight" - that only displays code!)
 - Paste the complete script including both `<script>` and `<div>` tags
 - The widget will automatically initialize when the page loads
+- If widget doesn't appear, check browser console and try calling `CouponWidgetReinit()`
 
 ### Troubleshooting
 
@@ -67,9 +118,16 @@
 3. Ensure WordPress/Elementor isn't blocking external scripts
 
 **Widget not initializing:**
-1. Open browser console and check for errors
-2. Try calling `CouponWidgetReinit()` manually in console
-3. Verify the container div has the correct data attributes
+1. **VERIFY you're using HTML widget, NOT Code Highlight**
+2. Open browser console (F12) and check for errors
+3. Verify the script tag is actually executing (check Network tab)
+4. Try calling `CouponWidgetReinit()` manually in console:
+   ```javascript
+   CouponWidgetReinit()
+   ```
+5. Verify the container div has the correct data attributes
+6. Check that vendor ID is a valid UUID format
+7. Ensure user ID is provided (not "USER_ID_FROM_YOUR_SYSTEM")
 
 ### Manual Initialization (if needed)
 
