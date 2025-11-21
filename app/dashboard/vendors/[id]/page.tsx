@@ -30,6 +30,7 @@ import {
 import { DeleteDialog, SuccessDialog, ErrorDialog } from '@/components/ui/dialog-helpers'
 import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
+import WidgetEmbedCode from '@/components/vendors/WidgetEmbedCode'
 
 export default function VendorProfilePage() {
   const params = useParams()
@@ -257,6 +258,11 @@ export default function VendorProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Widget Embed Code */}
+      {vendor && (
+        <WidgetEmbedCode vendorId={vendor.id} vendorName={vendor.name} />
+      )}
 
       {/* Coupon Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

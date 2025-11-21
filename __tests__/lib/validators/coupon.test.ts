@@ -80,10 +80,19 @@ describe('Coupon Validators', () => {
   })
 
   describe('claimCouponSchema', () => {
-    it('should validate claim request', () => {
+    it('should validate claim request with coupon_id and user_email', () => {
       const claimRequest = {
-        vendor_id: '123e4567-e89b-12d3-a456-426614174000',
+        coupon_id: '123e4567-e89b-12d3-a456-426614174000',
         user_email: 'user@example.com',
+      }
+
+      expect(() => claimCouponSchema.parse(claimRequest)).not.toThrow()
+    })
+
+    it('should validate claim request with coupon_id and user_id', () => {
+      const claimRequest = {
+        coupon_id: '123e4567-e89b-12d3-a456-426614174000',
+        user_id: '123e4567-e89b-12d3-a456-426614174001',
       }
 
       expect(() => claimCouponSchema.parse(claimRequest)).not.toThrow()
@@ -91,16 +100,24 @@ describe('Coupon Validators', () => {
 
     it('should validate email format', () => {
       const invalidRequest = {
-        vendor_id: '123e4567-e89b-12d3-a456-426614174000',
+        coupon_id: '123e4567-e89b-12d3-a456-426614174000',
         user_email: 'invalid-email',
       }
 
       expect(() => claimCouponSchema.parse(invalidRequest)).toThrow()
     })
 
-    it('should allow claim without user_email', () => {
+    it('should require coupon_id', () => {
       const request = {
-        vendor_id: '123e4567-e89b-12d3-a456-426614174000',
+        user_email: 'user@example.com',
+      }
+
+      expect(() => claimCouponSchema.parse(request)).toThrow()
+    })
+
+    it('should allow claim with only coupon_id (user identification optional)', () => {
+      const request = {
+        coupon_id: '123e4567-e89b-12d3-a456-426614174000',
       }
 
       expect(() => claimCouponSchema.parse(request)).not.toThrow()

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getAvailableCouponsByVendor } from '@/lib/db/coupons'
+import { getVendorById } from '@/lib/db/vendors'
 import { z } from 'zod'
 
 const widgetCouponsSchema = z.object({
@@ -7,7 +8,7 @@ const widgetCouponsSchema = z.object({
 })
 
 /**
- * Public widget endpoint to fetch available coupons for a vendor
+ * Public widget endpoint to fetch available coupons for a vendor with vendor details
  * This endpoint is designed for external widget usage and doesn't require authentication
  */
 export async function GET(request: NextRequest) {
@@ -32,12 +33,35 @@ export async function GET(request: NextRequest) {
       )
     }
 
+    // Get vendor information
+    const vendor = await getVendorById(vendorId)
+    if (!vendor) {
+      return NextResponse.json(
+        { success: false, error: 'Vendor not found' },
+        { status: 404 }
+      )
+    }
+
     // Get available (unclaimed) coupons for this vendor
     const coupons = await getAvailableCouponsByVendor(vendorId)
 
     return NextResponse.json({
       success: true,
-      data: coupons,
+      data: {
+        vendor: {
+          id: vendor.id,
+          name: vendor.name,
+          description: vendor.description,
+          website: vendor.website,
+          logo_url: vendor.logo_url,
+        },
+        coupons: coupons.map(coupon => ({
+          id: coupon.id,
+          code: coupon.code,
+          description: coupon.description,
+          discount_value: coupon.discount_value,
+        })),
+      },
       count: coupons.length,
     })
   } catch (error) {

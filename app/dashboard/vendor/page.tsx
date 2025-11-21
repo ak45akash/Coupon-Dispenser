@@ -30,6 +30,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { DeleteDialog, SuccessDialog, ErrorDialog } from '@/components/ui/dialog-helpers'
 import { Skeleton } from '@/components/ui/skeleton'
+import WidgetEmbedCode from '@/components/vendors/WidgetEmbedCode'
 
 export default function VendorProfilePage() {
   const { data: session } = useSession()
@@ -278,6 +279,11 @@ export default function VendorProfilePage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Widget Embed Code */}
+      {vendor && (
+        <WidgetEmbedCode vendorId={vendor.id} vendorName={vendor.name} />
+      )}
 
       {/* Coupon Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

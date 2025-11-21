@@ -1,41 +1,73 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { claimCouponSchema } from '@/lib/validators/coupon'
+import { z } from 'zod'
 import { claimCoupon } from '@/lib/db/coupons'
-import { getUserByEmail } from '@/lib/db/users'
+import { getUserByEmail, getUserById } from '@/lib/db/users'
+
+const widgetClaimSchema = z.object({
+  coupon_id: z.string().uuid('Invalid coupon ID'),
+  user_id: z.string().uuid('Invalid user ID').optional(),
+  user_email: z.string().email('Invalid email').optional(),
+})
 
 /**
  * Public widget endpoint for claiming coupons
  * This endpoint is designed for external widget usage
+ * Accepts either user_id or user_email for user identification
  * Rate limiting should be implemented at the infrastructure level
  */
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const validatedData = claimCouponSchema.parse(body)
+    const validatedData = widgetClaimSchema.parse(body)
 
-    // user_email is required for widget claims
-    if (!validatedData.user_email) {
+    // Either user_id or user_email is required
+    if (!validatedData.user_id && !validatedData.user_email) {
       return NextResponse.json(
-        { success: false, error: 'user_email is required for widget claims' },
+        { success: false, error: 'user_id or user_email is required for widget claims' },
         { status: 400 }
       )
     }
 
-    // Find user by email
-    const user = await getUserByEmail(validatedData.user_email)
-    if (!user) {
+    let userId: string
+
+    if (validatedData.user_id) {
+      // Use user_id directly
+      const user = await getUserById(validatedData.user_id)
+      if (!user) {
+        return NextResponse.json(
+          { success: false, error: 'User not found' },
+          { status: 404 }
+        )
+      }
+      userId = user.id
+    } else if (validatedData.user_email) {
+      // Find user by email
+      const user = await getUserByEmail(validatedData.user_email)
+      if (!user) {
+        return NextResponse.json(
+          { success: false, error: 'User not found. Please ensure you have an account.' },
+          { status: 404 }
+        )
+      }
+      userId = user.id
+    } else {
       return NextResponse.json(
-        { success: false, error: 'User not found. Please ensure you have an account.' },
-        { status: 404 }
+        { success: false, error: 'User identification required' },
+        { status: 400 }
       )
     }
 
     // Claim the coupon
-    const coupon = await claimCoupon(user.id, validatedData.coupon_id)
+    const coupon = await claimCoupon(userId, validatedData.coupon_id)
 
     return NextResponse.json({
       success: true,
-      data: coupon,
+      data: {
+        id: coupon.id,
+        code: coupon.code,
+        description: coupon.description,
+        discount_value: coupon.discount_value,
+      },
       message: 'Coupon claimed successfully',
     })
   } catch (error: any) {

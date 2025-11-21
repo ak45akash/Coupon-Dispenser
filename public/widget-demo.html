@@ -149,10 +149,9 @@
 
         <div class="widget-container">
           <div id="coupon-widget-light" 
-               data-vendor-id="YOUR_VENDOR_ID"
-               data-theme="light"
-               data-title="Claim Your Exclusive Coupon"
-               data-description="Get amazing discounts on your next purchase">
+               data-vendor-id="ef47d71c-07bf-41b5-831e-96214618e7f1"
+               data-user-id="80b61da2-a30b-4c1f-a03d-dcb3584c4397"
+               data-theme="light">
           </div>
         </div>
       </div>
@@ -173,10 +172,9 @@
 
         <div class="widget-container">
           <div id="coupon-widget-dark" 
-               data-vendor-id="YOUR_VENDOR_ID"
-               data-theme="dark"
-               data-title="Special Offer"
-               data-description="Limited time discount available">
+               data-vendor-id="ef47d71c-07bf-41b5-831e-96214618e7f1"
+               data-user-id="80b61da2-a30b-4c1f-a03d-dcb3584c4397"
+               data-theme="dark">
           </div>
         </div>
       </div>
@@ -201,12 +199,9 @@
 
         <div class="widget-container">
           <div id="coupon-widget-custom" 
-               data-vendor-id="YOUR_VENDOR_ID"
-               data-user-id="USER_ID"
-               data-campaign-id="CAMPAIGN_123"
-               data-theme="light"
-               data-title="Welcome Bonus"
-               data-description="Claim your welcome discount now">
+               data-vendor-id="ef47d71c-07bf-41b5-831e-96214618e7f1"
+               data-user-id="80b61da2-a30b-4c1f-a03d-dcb3584c4397"
+               data-theme="light">
           </div>
         </div>
       </div>
@@ -247,25 +242,19 @@
   </div>
 
   <!-- Load the widget script -->
-  <script src="/widget-embed.js"></script>
+  <script src="/widget-embed.js" data-api-url="http://localhost:3000"></script>
 
   <!-- Example: Initialize programmatic widget -->
   <script>
     // Wait for DOM to be ready
     document.addEventListener('DOMContentLoaded', function() {
       // Example programmatic initialization
-      // Uncomment and replace with your vendor ID to test
-      /*
       CouponWidget.init({
-        vendorId: 'YOUR_VENDOR_ID',
-        userId: 'USER_ID',
-        campaignId: 'CAMPAIGN_123',
+        vendorId: 'ef47d71c-07bf-41b5-831e-96214618e7f1',
+        userId: '80b61da2-a30b-4c1f-a03d-dcb3584c4397',
         theme: 'light',
-        containerId: 'coupon-widget-programmatic',
-        title: 'Special Offer',
-        description: 'Get exclusive discounts'
+        containerId: 'coupon-widget-programmatic'
       });
-      */
     });
   </script>
 </body>

@@ -1,58 +1,44 @@
 /**
  * Coupon Dispenser Embeddable Widget
  * 
- * A lightweight, secure, embeddable widget for partner websites
+ * Card-based coupon widget for partner websites
  * 
  * Usage:
  * <script src="https://your-domain.com/widget-embed.js"></script>
  * <div id="coupon-widget" 
  *      data-vendor-id="VENDOR_ID" 
- *      data-user-id="USER_ID" 
- *      data-campaign-id="CAMPAIGN_ID"
- *      data-theme="light"
- *      data-container-id="custom-container">
+ *      data-user-id="USER_ID"
+ *      data-theme="light">
  * </div>
- * 
- * Or via JavaScript:
- * CouponWidget.init({
- *   vendorId: 'VENDOR_ID',
- *   userId: 'USER_ID',
- *   campaignId: 'CAMPAIGN_ID',
- *   theme: 'light',
- *   containerId: 'coupon-widget'
- * });
  */
 
 (function (window, document) {
   'use strict'
 
   // Configuration
+  function getApiBaseUrl() {
+    const script = document.querySelector('script[src*="widget-embed.js"]')
+    if (script && script.getAttribute('data-api-url')) {
+      return script.getAttribute('data-api-url')
+    }
+    if (window.location.origin) {
+      return window.location.origin
+    }
+    return window.COUPON_WIDGET_API_URL || 'https://your-domain.com'
+  }
+
   const CONFIG = {
-    API_BASE_URL: window.location.origin || 'https://your-domain.com',
-    RATE_LIMIT_MS: 2000, // Minimum time between clicks (2 seconds)
+    API_BASE_URL: getApiBaseUrl(),
+    RATE_LIMIT_MS: 2000,
     MAX_RETRIES: 3,
     RETRY_DELAY: 1000,
   }
 
-  // Widget state
   const widgetState = {
     instances: new Map(),
     rateLimitTimers: new Map(),
-    antiSpamTokens: new Map(),
   }
 
-  /**
-   * Generate anti-spam token
-   */
-  function generateAntiSpamToken() {
-    const timestamp = Date.now()
-    const random = Math.random().toString(36).substring(2, 15)
-    return btoa(`${timestamp}-${random}`).substring(0, 16)
-  }
-
-  /**
-   * Rate limiting check
-   */
   function checkRateLimit(instanceId) {
     const lastClick = widgetState.rateLimitTimers.get(instanceId)
     if (lastClick) {
@@ -65,55 +51,99 @@
     return true
   }
 
-  /**
-   * Sanitize HTML to prevent XSS
-   */
-  function sanitizeHTML(str) {
-    const div = document.createElement('div')
-    div.textContent = str
-    return div.innerHTML
-  }
-
-  /**
-   * Create widget styles
-   */
-  function createStyles(theme) {
-    const isDark = theme === 'dark'
-    const bgColor = isDark ? '#1a1a1a' : '#ffffff'
-    const textColor = isDark ? '#ffffff' : '#1a1a1a'
-    const primaryColor = isDark ? '#60a5fa' : '#3b82f6'
-    const borderColor = isDark ? '#333333' : '#e5e7eb'
-
+  function createStyles() {
     return `
       .coupon-widget-container {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        max-width: 400px;
+        width: 100%;
+        max-width: 1400px;
         margin: 0 auto;
-        background: ${bgColor};
-        border: 1px solid ${borderColor};
+        padding: 20px;
+      }
+      .coupon-widget-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        gap: 24px;
+        margin-top: 20px;
+      }
+      .coupon-widget-card {
+        position: relative;
+        background: #1a1a1a;
         border-radius: 12px;
-        padding: 24px;
+        overflow: hidden;
+        min-height: 400px;
+        display: flex;
+        flex-direction: column;
         box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-        transition: all 0.3s ease;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
       }
-      .coupon-widget-container.dark {
-        background: ${bgColor};
-        color: ${textColor};
+      .coupon-widget-card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
       }
-      .coupon-widget-header {
-        text-align: center;
-        margin-bottom: 20px;
+      .coupon-widget-card-image {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       }
-      .coupon-widget-title {
+      .coupon-widget-card-content {
+        padding: 24px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        color: #ffffff;
+      }
+      .coupon-widget-card-brand {
         font-size: 24px;
         font-weight: 700;
-        color: ${textColor};
-        margin: 0 0 8px 0;
+        margin-bottom: 8px;
+        color: #ffffff;
       }
-      .coupon-widget-description {
+      .coupon-widget-card-offer {
+        font-size: 18px;
+        font-weight: 600;
+        color: #ffffff;
+        margin-bottom: 12px;
+      }
+      .coupon-widget-card-description {
         font-size: 14px;
-        color: ${isDark ? '#a0a0a0' : '#6b7280'};
-        margin: 0;
+        color: #a0a0a0;
+        line-height: 1.6;
+        margin-bottom: 20px;
+        flex: 1;
+      }
+      .coupon-widget-code-section {
+        margin-top: auto;
+        padding-top: 20px;
+        border-top: 1px solid #333333;
+      }
+      .coupon-widget-code-display {
+        display: none;
+        background: #2a2a2a;
+        border: 2px dashed #444444;
+        border-radius: 8px;
+        padding: 16px;
+        margin-bottom: 12px;
+        text-align: center;
+      }
+      .coupon-widget-code-display.show {
+        display: block;
+        animation: fadeIn 0.3s ease;
+      }
+      .coupon-widget-code-value {
+        font-size: 24px;
+        font-weight: 700;
+        color: #60a5fa;
+        letter-spacing: 2px;
+        margin: 8px 0;
+        font-family: 'Monaco', 'Courier New', monospace;
+      }
+      .coupon-widget-code-label {
+        font-size: 12px;
+        color: #a0a0a0;
+        text-transform: uppercase;
+        letter-spacing: 1px;
       }
       .coupon-widget-button {
         width: 100%;
@@ -121,152 +151,126 @@
         font-size: 16px;
         font-weight: 600;
         color: #ffffff;
-        background: ${primaryColor};
+        background: #ff6b35;
         border: none;
         border-radius: 8px;
         cursor: pointer;
         transition: all 0.2s ease;
-        margin-top: 16px;
+        margin-bottom: 12px;
       }
       .coupon-widget-button:hover:not(:disabled) {
-        background: ${isDark ? '#4f9ff0' : '#2563eb'};
+        background: #e55a2b;
         transform: translateY(-1px);
-        box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
       }
       .coupon-widget-button:disabled {
         opacity: 0.6;
         cursor: not-allowed;
       }
-      .coupon-widget-button:active:not(:disabled) {
-        transform: translateY(0);
+      .coupon-widget-button.loading {
+        position: relative;
+        color: transparent;
       }
-      .coupon-widget-loading {
-        display: inline-block;
-        width: 16px;
-        height: 16px;
+      .coupon-widget-button.loading::after {
+        content: '';
+        position: absolute;
+        width: 20px;
+        height: 20px;
+        top: 50%;
+        left: 50%;
+        margin-left: -10px;
+        margin-top: -10px;
         border: 2px solid rgba(255, 255, 255, 0.3);
         border-top-color: #ffffff;
         border-radius: 50%;
         animation: spin 0.6s linear infinite;
-        margin-right: 8px;
-        vertical-align: middle;
-      }
-      @keyframes spin {
-        to { transform: rotate(360deg); }
-      }
-      .coupon-widget-success {
-        text-align: center;
-        animation: fadeIn 0.3s ease;
-      }
-      .coupon-widget-success-icon {
-        width: 64px;
-        height: 64px;
-        margin: 0 auto 16px;
-        background: #10b981;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: white;
-        font-size: 32px;
-      }
-      .coupon-widget-code {
-        background: ${isDark ? '#2a2a2a' : '#f3f4f6'};
-        border: 2px dashed ${borderColor};
-        border-radius: 8px;
-        padding: 16px;
-        margin: 16px 0;
-        text-align: center;
-      }
-      .coupon-widget-code-value {
-        font-size: 28px;
-        font-weight: 700;
-        color: ${primaryColor};
-        letter-spacing: 2px;
-        margin: 8px 0;
-      }
-      .coupon-widget-code-label {
-        font-size: 12px;
-        color: ${isDark ? '#a0a0a0' : '#6b7280'};
-        text-transform: uppercase;
-        letter-spacing: 1px;
-      }
-      .coupon-widget-error {
-        background: ${isDark ? '#7f1d1d' : '#fee2e2'};
-        border: 1px solid ${isDark ? '#991b1b' : '#fecaca'};
-        color: ${isDark ? '#fca5a5' : '#991b1b'};
-        padding: 12px;
-        border-radius: 8px;
-        margin: 16px 0;
-        font-size: 14px;
-        text-align: center;
-      }
-      .coupon-widget-out-of-stock {
-        text-align: center;
-        padding: 24px;
-        color: ${isDark ? '#a0a0a0' : '#6b7280'};
-      }
-      .coupon-widget-out-of-stock-icon {
-        font-size: 48px;
-        margin-bottom: 16px;
-        opacity: 0.5;
       }
       .coupon-widget-copy-button {
-        background: ${isDark ? '#2a2a2a' : '#f3f4f6'};
-        color: ${textColor};
-        border: 1px solid ${borderColor};
-        padding: 10px 20px;
+        width: 100%;
+        padding: 10px;
+        font-size: 14px;
+        color: #ffffff;
+        background: #2a2a2a;
+        border: 1px solid #444444;
         border-radius: 6px;
         cursor: pointer;
-        font-size: 14px;
-        margin-top: 12px;
         transition: all 0.2s ease;
+        display: none;
+      }
+      .coupon-widget-copy-button.show {
+        display: block;
       }
       .coupon-widget-copy-button:hover {
-        background: ${isDark ? '#333333' : '#e5e7eb'};
+        background: #333333;
       }
       .coupon-widget-copy-button.copied {
         background: #10b981;
-        color: white;
         border-color: #10b981;
+      }
+      .coupon-widget-link {
+        display: block;
+        text-align: center;
+        color: #a0a0a0;
+        font-size: 12px;
+        text-decoration: none;
+        margin-top: 8px;
+        transition: color 0.2s ease;
+      }
+      .coupon-widget-link:hover {
+        color: #ffffff;
+      }
+      .coupon-widget-error {
+        background: #7f1d1d;
+        border: 1px solid #991b1b;
+        color: #fca5a5;
+        padding: 12px;
+        border-radius: 8px;
+        margin: 12px 0;
+        font-size: 14px;
+        text-align: center;
+      }
+      .coupon-widget-empty {
+        text-align: center;
+        padding: 60px 20px;
+        color: #a0a0a0;
+      }
+      .coupon-widget-empty-icon {
+        font-size: 64px;
+        margin-bottom: 16px;
+        opacity: 0.5;
+      }
+      @keyframes spin {
+        to { transform: rotate(360deg); }
       }
       @keyframes fadeIn {
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
       }
-      .coupon-widget-hidden {
-        display: none;
+      @media (max-width: 768px) {
+        .coupon-widget-grid {
+          grid-template-columns: 1fr;
+        }
       }
     `
   }
 
-  /**
-   * Inject styles into the page
-   */
-  function injectStyles(theme) {
+  function injectStyles() {
     const styleId = 'coupon-widget-styles'
     if (document.getElementById(styleId)) {
       return
     }
-
     const style = document.createElement('style')
     style.id = styleId
-    style.textContent = createStyles(theme)
+    style.textContent = createStyles()
     document.head.appendChild(style)
   }
 
-  /**
-   * Fetch available coupons
-   */
-  async function fetchAvailableCoupons(vendorId, retries = 0) {
+  async function fetchCouponsData(vendorId, retries = 0) {
     try {
       const response = await fetch(
         `${CONFIG.API_BASE_URL}/api/widget/coupons?vendor_id=${vendorId}`,
         {
           method: 'GET',
-          headers: {
-            'Content-Type': 'application/json',
-          },
+          headers: { 'Content-Type': 'application/json' },
         }
       )
 
@@ -279,29 +283,24 @@
         throw new Error(data.error || 'Failed to fetch coupons')
       }
 
-      return data.data || []
+      return data.data
     } catch (error) {
       if (retries < CONFIG.MAX_RETRIES) {
         await new Promise((resolve) => setTimeout(resolve, CONFIG.RETRY_DELAY))
-        return fetchAvailableCoupons(vendorId, retries + 1)
+        return fetchCouponsData(vendorId, retries + 1)
       }
       throw error
     }
   }
 
-  /**
-   * Claim a coupon
-   */
-  async function claimCoupon(couponId, userEmail, retries = 0) {
+  async function claimCoupon(couponId, userId, retries = 0) {
     try {
       const response = await fetch(`${CONFIG.API_BASE_URL}/api/widget/claim`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           coupon_id: couponId,
-          user_email: userEmail,
+          user_id: userId,
         }),
       })
 
@@ -315,130 +314,214 @@
     } catch (error) {
       if (retries < CONFIG.MAX_RETRIES) {
         await new Promise((resolve) => setTimeout(resolve, CONFIG.RETRY_DELAY))
-        return claimCoupon(couponId, userEmail, retries + 1)
+        return claimCoupon(couponId, userId, retries + 1)
       }
       throw error
     }
   }
 
-  /**
-   * Widget instance class
-   */
   class CouponWidgetInstance {
     constructor(config) {
       this.config = {
         vendorId: config.vendorId || '',
         userId: config.userId || '',
-        campaignId: config.campaignId || '',
         theme: config.theme || 'light',
         containerId: config.containerId || 'coupon-widget',
-        title: config.title || 'Claim Your Coupon',
-        description: config.description || 'Get exclusive discounts and offers',
       }
 
       this.state = {
-        status: 'idle', // idle, loading, success, error, out-of-stock, already-claimed
-        coupon: null,
-        error: null,
-        availableCoupons: [],
+        loading: true,
+        vendor: null,
+        coupons: [],
+        claimedCoupons: new Map(), // couponId -> claimed coupon data
+        errors: new Map(), // couponId -> error message
       }
 
       this.container = null
       this.instanceId = `${this.config.containerId}-${Date.now()}`
-      this.antiSpamToken = generateAntiSpamToken()
     }
 
     init() {
-      // Find container
       this.container = document.getElementById(this.config.containerId)
       if (!this.container) {
         console.error(`CouponWidget: Container #${this.config.containerId} not found`)
         return
       }
 
-      // Inject styles
-      injectStyles(this.config.theme)
-
-      // Add theme class
-      if (this.config.theme === 'dark') {
-        this.container.classList.add('dark')
-      }
-
-      // Render initial state
+      injectStyles()
       this.render()
-
-      // Pre-fetch available coupons
-      this.loadAvailableCoupons()
+      this.loadData()
     }
 
-    async loadAvailableCoupons() {
+    async loadData() {
       if (!this.config.vendorId) {
-        this.setState({ status: 'error', error: 'Vendor ID is required' })
+        this.setState({ loading: false, error: 'Vendor ID is required. Please configure the widget with a valid vendor ID.' })
+        return
+      }
+
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+      if (!uuidRegex.test(this.config.vendorId)) {
+        // Check if it's a placeholder
+        if (this.config.vendorId.includes('YOUR_VENDOR_ID') || this.config.vendorId.includes('VENDOR_ID')) {
+          this.setState({ 
+            loading: false, 
+            error: 'Please replace YOUR_VENDOR_ID with an actual vendor ID from your dashboard. Go to Vendors page and copy a vendor ID.' 
+          })
+        } else {
+          this.setState({ loading: false, error: 'Invalid vendor ID format. Vendor ID must be a valid UUID.' })
+        }
         return
       }
 
       try {
-        const coupons = await fetchAvailableCoupons(this.config.vendorId)
+        const data = await fetchCouponsData(this.config.vendorId)
         this.setState({
-          availableCoupons: coupons,
-          status: coupons.length === 0 ? 'out-of-stock' : 'idle',
+          loading: false,
+          vendor: data.vendor,
+          coupons: data.coupons || [],
         })
       } catch (error) {
-        this.setState({ status: 'error', error: 'Failed to load coupons. Please try again.' })
+        console.error('Widget error:', error)
+        this.setState({
+          loading: false,
+          error: 'Failed to load coupons. Please try again later.',
+        })
       }
     }
 
-    async handleClaim(userEmail) {
-      // Validate email
-      if (!userEmail || !userEmail.includes('@')) {
-        this.setState({ status: 'error', error: 'Please enter a valid email address' })
+    async handleGenerateCode(couponId) {
+      if (!this.config.userId) {
+        this.showError(couponId, 'User ID is required. Please configure the widget with a user ID.')
         return
       }
 
-      // Rate limiting
-      if (!checkRateLimit(this.instanceId)) {
-        this.setState({ status: 'error', error: 'Please wait before trying again' })
+      if (!checkRateLimit(`${this.instanceId}-${couponId}`)) {
+        this.showError(couponId, 'Please wait before trying again')
         return
       }
 
-      // Check if we have available coupons
-      if (this.state.availableCoupons.length === 0) {
-        await this.loadAvailableCoupons()
-        if (this.state.availableCoupons.length === 0) {
-          this.setState({ status: 'out-of-stock' })
-          return
-        }
+      // Set loading state for this coupon
+      const button = document.querySelector(`[data-coupon-id="${couponId}"]`)
+      if (button) {
+        button.disabled = true
+        button.classList.add('loading')
+        button.textContent = ''
       }
-
-      // Get first available coupon
-      const coupon = this.state.availableCoupons[0]
-
-      this.setState({ status: 'loading' })
 
       try {
-        const claimedCoupon = await claimCoupon(coupon.id, userEmail)
-
-        // Remove claimed coupon from available list
-        this.setState({
-          status: 'success',
-          coupon: claimedCoupon,
-          availableCoupons: this.state.availableCoupons.filter((c) => c.id !== coupon.id),
-        })
+        const claimedCoupon = await claimCoupon(couponId, this.config.userId)
+        
+        // Store claimed coupon
+        this.state.claimedCoupons.set(couponId, claimedCoupon)
+        this.state.errors.delete(couponId)
+        
+        // Update UI
+        this.updateCouponCard(couponId, claimedCoupon)
       } catch (error) {
-        // Handle specific error cases
-        if (error.message.includes('already been claimed')) {
-          // Refresh available coupons
-          await this.loadAvailableCoupons()
-          if (this.state.availableCoupons.length === 0) {
-            this.setState({ status: 'out-of-stock' })
-          } else {
-            this.setState({ status: 'error', error: 'This coupon was already claimed. Please try again.' })
-          }
-        } else if (error.message.includes('User not found')) {
-          this.setState({ status: 'error', error: 'User not found. Please ensure you have an account.' })
-        } else {
-          this.setState({ status: 'error', error: error.message || 'Failed to claim coupon. Please try again.' })
+        console.error('Claim error:', error)
+        this.showError(couponId, error.message || 'Failed to generate code. Please try again.')
+        
+        // Reset button
+        if (button) {
+          button.disabled = false
+          button.classList.remove('loading')
+          button.textContent = 'Generate Code'
         }
+      }
+    }
+
+    showError(couponId, message) {
+      this.state.errors.set(couponId, message)
+      this.updateCouponCard(couponId)
+    }
+
+    updateCouponCard(couponId, claimedCoupon = null) {
+      const card = document.querySelector(`[data-coupon-card-id="${couponId}"]`)
+      if (!card) return
+
+      const codeDisplay = card.querySelector('.coupon-widget-code-display')
+      const codeValue = card.querySelector('.coupon-widget-code-value')
+      const button = card.querySelector('[data-coupon-id]')
+      const copyButton = card.querySelector('.coupon-widget-copy-button')
+      const errorDiv = card.querySelector('.coupon-widget-error')
+
+      // Clear error
+      if (errorDiv) {
+        errorDiv.remove()
+      }
+
+      if (claimedCoupon) {
+        // Show code
+        if (codeDisplay) {
+          codeDisplay.classList.add('show')
+        }
+        if (codeValue) {
+          codeValue.textContent = claimedCoupon.code
+        }
+        if (button) {
+          button.style.display = 'none'
+        }
+        if (copyButton) {
+          copyButton.classList.add('show')
+          copyButton.textContent = 'Copy Code'
+        }
+      } else {
+        // Show error if any
+        const error = this.state.errors.get(couponId)
+        if (error && card) {
+          const errorEl = document.createElement('div')
+          errorEl.className = 'coupon-widget-error'
+          errorEl.textContent = error
+          if (button) {
+            button.parentNode.insertBefore(errorEl, button)
+          }
+        }
+      }
+    }
+
+    copyCode(couponId) {
+      const claimedCoupon = this.state.claimedCoupons.get(couponId)
+      if (!claimedCoupon) return
+
+      const code = claimedCoupon.code
+      const copyButton = document.querySelector(`[data-copy-coupon-id="${couponId}"]`)
+
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(code).then(() => {
+          if (copyButton) {
+            copyButton.textContent = '✓ Copied!'
+            copyButton.classList.add('copied')
+            setTimeout(() => {
+              copyButton.textContent = 'Copy Code'
+              copyButton.classList.remove('copied')
+            }, 2000)
+          }
+        }).catch(() => {
+          // Fallback
+          this.fallbackCopy(code, copyButton)
+        })
+      } else {
+        this.fallbackCopy(code, copyButton)
+      }
+    }
+
+    fallbackCopy(text, button) {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+      
+      if (button) {
+        button.textContent = '✓ Copied!'
+        button.classList.add('copied')
+        setTimeout(() => {
+          button.textContent = 'Copy Code'
+          button.classList.remove('copied')
+        }, 2000)
       }
     }
 
@@ -450,92 +533,86 @@
     render() {
       if (!this.container) return
 
-      const { status, coupon, error, availableCoupons } = this.state
-      const isDark = this.config.theme === 'dark'
+      const { loading, vendor, coupons, error } = this.state
 
-      let html = ''
-
-      if (status === 'success' && coupon) {
-        html = `
-          <div class="coupon-widget-success">
-            <div class="coupon-widget-success-icon">✓</div>
-            <h3 class="coupon-widget-title" style="color: ${isDark ? '#ffffff' : '#1a1a1a'}; margin-bottom: 8px;">
-              Coupon Claimed Successfully!
-            </h3>
-            <div class="coupon-widget-code">
-              <div class="coupon-widget-code-label">Your Coupon Code</div>
-              <div class="coupon-widget-code-value">${sanitizeHTML(coupon.code)}</div>
-              ${coupon.discount_value ? `<div style="font-size: 14px; color: ${isDark ? '#a0a0a0' : '#6b7280'}; margin-top: 8px;">${sanitizeHTML(coupon.discount_value)}</div>` : ''}
-              ${coupon.description ? `<div style="font-size: 12px; color: ${isDark ? '#a0a0a0' : '#6b7280'}; margin-top: 4px;">${sanitizeHTML(coupon.description)}</div>` : ''}
-            </div>
-            <button class="coupon-widget-copy-button" onclick="CouponWidget.copyCode('${this.instanceId}', '${sanitizeHTML(coupon.code)}', event)">
-              Copy Code
-            </button>
-          </div>
-        `
-      } else if (status === 'out-of-stock') {
-        html = `
-          <div class="coupon-widget-out-of-stock">
-            <div class="coupon-widget-out-of-stock-icon">📭</div>
-            <h3 class="coupon-widget-title" style="color: ${isDark ? '#a0a0a0' : '#6b7280'};">
-              Out of Stock
-            </h3>
-            <p style="font-size: 14px; margin: 0;">
-              All coupons have been claimed. Check back later for new offers!
-            </p>
-          </div>
-        `
-      } else {
-        html = `
-          <div class="coupon-widget-header">
-            <h2 class="coupon-widget-title">${sanitizeHTML(this.config.title)}</h2>
-            <p class="coupon-widget-description">${sanitizeHTML(this.config.description)}</p>
-          </div>
-          ${error ? `<div class="coupon-widget-error">${sanitizeHTML(error)}</div>` : ''}
-          <form onsubmit="CouponWidget.handleSubmit(event, '${this.instanceId}')">
-            <input
-              type="email"
-              id="${this.instanceId}-email"
-              placeholder="Enter your email"
-              required
-              style="width: 100%; padding: 12px; border: 1px solid ${isDark ? '#333333' : '#e5e7eb'}; border-radius: 8px; font-size: 14px; background: ${isDark ? '#2a2a2a' : '#ffffff'}; color: ${isDark ? '#ffffff' : '#1a1a1a'}; box-sizing: border-box;"
-            />
-            <button
-              type="submit"
-              class="coupon-widget-button"
-              ${status === 'loading' ? 'disabled' : ''}
-            >
-              ${status === 'loading' ? '<span class="coupon-widget-loading"></span>' : ''}
-              ${status === 'loading' ? 'Claiming...' : 'Claim Now'}
-            </button>
-          </form>
-          ${availableCoupons.length > 0 ? `<p style="text-align: center; font-size: 12px; color: ${isDark ? '#a0a0a0' : '#6b7280'}; margin-top: 12px;">${availableCoupons.length} coupon${availableCoupons.length > 1 ? 's' : ''} available</p>` : ''}
-        `
+      if (loading) {
+        this.container.innerHTML = '<div class="coupon-widget-empty"><div class="coupon-widget-empty-icon">⏳</div><p>Loading coupons...</p></div>'
+        return
       }
 
+      if (error) {
+        this.container.innerHTML = `<div class="coupon-widget-error">${this.escapeHtml(error)}</div>`
+        return
+      }
+
+      if (!vendor || coupons.length === 0) {
+        this.container.innerHTML = '<div class="coupon-widget-empty"><div class="coupon-widget-empty-icon">📭</div><p>No coupons available at this time.</p></div>'
+        return
+      }
+
+      let html = '<div class="coupon-widget-grid">'
+
+      coupons.forEach((coupon) => {
+        const claimedCoupon = this.state.claimedCoupons.get(coupon.id)
+        const error = this.state.errors.get(coupon.id)
+        const offerText = coupon.discount_value || 'Special Offer'
+        
+        html += `
+          <div class="coupon-widget-card" data-coupon-card-id="${coupon.id}">
+            ${vendor.logo_url ? `<img src="${this.escapeHtml(vendor.logo_url)}" alt="${this.escapeHtml(vendor.name)}" class="coupon-widget-card-image" onerror="this.style.display='none'">` : '<div class="coupon-widget-card-image"></div>'}
+            <div class="coupon-widget-card-content">
+              <div class="coupon-widget-card-brand">${this.escapeHtml(vendor.name)}</div>
+              <div class="coupon-widget-card-offer">${this.escapeHtml(offerText)}</div>
+              ${vendor.description ? `<div class="coupon-widget-card-description">${this.escapeHtml(vendor.description)}</div>` : ''}
+              <div class="coupon-widget-code-section">
+                ${error ? `<div class="coupon-widget-error">${this.escapeHtml(error)}</div>` : ''}
+                <div class="coupon-widget-code-display ${claimedCoupon ? 'show' : ''}">
+                  <div class="coupon-widget-code-label">Your Coupon Code</div>
+                  <div class="coupon-widget-code-value">${claimedCoupon ? this.escapeHtml(claimedCoupon.code) : ''}</div>
+                </div>
+                <button 
+                  class="coupon-widget-button" 
+                  data-coupon-id="${coupon.id}"
+                  data-instance-id="${this.config.containerId}"
+                  ${claimedCoupon ? 'style="display:none"' : ''}
+                  onclick="CouponWidget.handleGenerateCode('${this.config.containerId}', '${coupon.id}')">
+                  ${claimedCoupon ? '' : 'Generate Code'}
+                </button>
+                <button 
+                  class="coupon-widget-copy-button ${claimedCoupon ? 'show' : ''}"
+                  data-copy-coupon-id="${coupon.id}"
+                  data-instance-id="${this.config.containerId}"
+                  onclick="CouponWidget.copyCode('${this.config.containerId}', '${coupon.id}')">
+                  Copy Code
+                </button>
+                ${vendor.website ? `<a href="${this.escapeHtml(vendor.website)}" target="_blank" rel="noopener noreferrer" class="coupon-widget-link">VISIT WEBSITE</a>` : ''}
+              </div>
+            </div>
+          </div>
+        `
+      })
+
+      html += '</div>'
       this.container.innerHTML = html
-      this.container.className = `coupon-widget-container ${this.config.theme === 'dark' ? 'dark' : ''}`
+    }
+
+    escapeHtml(str) {
+      if (!str) return ''
+      const div = document.createElement('div')
+      div.textContent = str
+      return div.innerHTML
     }
   }
 
-  /**
-   * Main widget object
-   */
   const CouponWidget = {
-    /**
-     * Initialize widget from data attributes
-     */
     initFromAttributes() {
       const containers = document.querySelectorAll('[id^="coupon-widget"], [data-coupon-widget]')
 
       containers.forEach((container) => {
         const vendorId = container.getAttribute('data-vendor-id') || container.getAttribute('data-vendor')
         const userId = container.getAttribute('data-user-id')
-        const campaignId = container.getAttribute('data-campaign-id')
         const theme = container.getAttribute('data-theme') || 'light'
         const containerId = container.id || `coupon-widget-${Date.now()}`
-        const title = container.getAttribute('data-title')
-        const description = container.getAttribute('data-description')
 
         if (!vendorId) {
           console.error('CouponWidget: data-vendor-id is required')
@@ -549,11 +626,8 @@
         const instance = new CouponWidgetInstance({
           vendorId,
           userId,
-          campaignId,
           theme,
           containerId,
-          title,
-          description,
         })
 
         widgetState.instances.set(containerId, instance)
@@ -561,9 +635,6 @@
       })
     },
 
-    /**
-     * Initialize widget programmatically
-     */
     init(config) {
       if (!config.vendorId) {
         console.error('CouponWidget: vendorId is required')
@@ -586,62 +657,27 @@
       return instance
     },
 
-    /**
-     * Handle form submission
-     */
-    handleSubmit(event, instanceId) {
-      event.preventDefault()
-      const instance = widgetState.instances.get(instanceId)
-      if (!instance) return
-
-      const emailInput = document.getElementById(`${instanceId}-email`)
-      if (emailInput) {
-        instance.handleClaim(emailInput.value)
+    handleGenerateCode(containerId, couponId) {
+      const instance = widgetState.instances.get(containerId)
+      if (instance) {
+        instance.handleGenerateCode(couponId)
+      } else {
+        console.error('CouponWidget: Instance not found for container', containerId)
       }
     },
 
-    /**
-     * Copy coupon code to clipboard
-     */
-    copyCode(instanceId, code, event) {
-      const copyToClipboard = (text) => {
-        if (navigator.clipboard) {
-          return navigator.clipboard.writeText(text)
-        } else {
-          // Fallback for older browsers
-          const textarea = document.createElement('textarea')
-          textarea.value = text
-          textarea.style.position = 'fixed'
-          textarea.style.opacity = '0'
-          document.body.appendChild(textarea)
-          textarea.select()
-          const success = document.execCommand('copy')
-          document.body.removeChild(textarea)
-          return success ? Promise.resolve() : Promise.reject()
-        }
+    copyCode(containerId, couponId) {
+      const instance = widgetState.instances.get(containerId)
+      if (instance) {
+        instance.copyCode(couponId)
+      } else {
+        console.error('CouponWidget: Instance not found for container', containerId)
       }
-
-      copyToClipboard(code).then(() => {
-        const button = event?.target || document.querySelector(`[onclick*="${instanceId}"]`)
-        if (button) {
-          const originalText = button.textContent
-          button.textContent = '✓ Copied!'
-          button.classList.add('copied')
-          setTimeout(() => {
-            button.textContent = originalText
-            button.classList.remove('copied')
-          }, 2000)
-        }
-      }).catch(() => {
-        console.error('Failed to copy code to clipboard')
-      })
     },
   }
 
-  // Expose to global scope (namespaced)
   window.CouponWidget = CouponWidget
 
-  // Auto-initialize on DOM ready
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       CouponWidget.initFromAttributes()
@@ -650,4 +686,3 @@
     CouponWidget.initFromAttributes()
   }
 })(window, document)
-

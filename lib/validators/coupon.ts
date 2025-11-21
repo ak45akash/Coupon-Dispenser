@@ -23,6 +23,7 @@ export const bulkCreateCouponsSchema = z.object({
 export const claimCouponSchema = z.object({
   coupon_id: z.string().uuid('Invalid coupon ID'),
   user_email: z.string().email('Invalid email').optional(),
+  user_id: z.string().uuid('Invalid user ID').optional(),
 })
 
 export type CreateCouponInput = z.infer<typeof createCouponSchema>
