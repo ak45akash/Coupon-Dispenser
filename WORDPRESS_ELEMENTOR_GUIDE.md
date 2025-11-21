@@ -1,14 +1,32 @@
 # WordPress/Elementor Integration Guide
 
-## ⚠️ IMPORTANT: Use HTML Widget, NOT Code Highlight
+## ⚠️ IMPORTANT: Elementor Widget Options
 
-**The "Code Highlight" widget only displays code - it does NOT execute it!**
+**If you don't see an "HTML" widget in Elementor, use the iframe method below!**
 
-You MUST use the **"HTML" widget** in Elementor for the widget to work.
+The "Code Highlight" widget only displays code - it does NOT execute scripts.
 
 ## Quick Setup for WordPress/Elementor
 
-### Method 1: Using HTML Widget (REQUIRED)
+### Method 1: Using Iframe Embed (RECOMMENDED for Elementor)
+
+**This method works with Elementor's "Shortcode" widget - no HTML widget needed!**
+
+1. **Copy the Iframe Code** from your vendor dashboard:
+   - Click "Copy Widget" button above the coupons table
+   - Select **"Iframe Embed (Elementor)"** from the dropdown
+   - The iframe code will be copied to your clipboard
+
+2. **In Elementor:**
+   - Click "+" to add a widget
+   - Search for **"Shortcode"** widget
+   - Paste the iframe code into the shortcode widget
+   - Replace `USER_ID_FROM_YOUR_SYSTEM` with your actual user ID
+   - Click "Update" and "Publish"
+
+3. **The widget will load in an iframe - works perfectly with Elementor!**
+
+### Method 2: Using HTML Widget (If Available)
 
 1. **Copy the Widget Script** from your vendor dashboard (button above coupons table)
 2. **In Elementor:**
@@ -19,25 +37,27 @@ You MUST use the **"HTML" widget** in Elementor for the widget to work.
    - Click "Update" and "Publish"
 3. **The widget will automatically load when the page is viewed**
 
-### Step-by-Step Elementor Instructions:
+### Step-by-Step Elementor Instructions (Iframe Method):
 
 1. **In Elementor Editor:**
    - Click the "+" icon to add a widget
-   - Type "HTML" in the search box
-   - Select the **"HTML"** widget (it has a `</>` icon)
+   - Type "Shortcode" in the search box
+   - Select the **"Shortcode"** widget
 
-2. **Paste Your Code:**
-   - Copy the script from your vendor dashboard
-   - Paste it into the HTML widget's text area
-   - Make sure BOTH the `<script>` tag AND the `<div>` tag are included
+2. **Paste Your Iframe Code:**
+   - Copy the iframe code from your vendor dashboard (select "Iframe Embed" option)
+   - Paste it into the Shortcode widget's text area
+   - The iframe code looks like: `<iframe src="..."></iframe>`
 
 3. **Replace User ID:**
-   - Find `USER_ID_FROM_YOUR_SYSTEM` in the pasted code
+   - Find `USER_ID_FROM_YOUR_SYSTEM` in the iframe URL
    - Replace it with your actual user ID from your system
 
 4. **Save:**
    - Click "Update" in Elementor
    - Click "Publish" to make it live
+
+**The iframe method is easier and works with all Elementor widgets!**
 
 ### Method 2: Using WordPress Custom HTML Block (Gutenberg)
 

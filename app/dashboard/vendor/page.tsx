@@ -312,43 +312,90 @@ export default function VendorProfilePage() {
             </div>
             <div className="flex gap-2">
               {vendor && (
-                <Button
-                  onClick={async () => {
-                    const baseUrl = window.location.origin
-                    const widgetScript = `<script src="${baseUrl}/widget-embed.js"></script>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="gap-2"
+                      title="Copy widget embed code"
+                    >
+                      <Copy className="h-4 w-4" />
+                      Copy Widget
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-80">
+                    <div className="p-2">
+                      <div className="mb-2 text-xs font-semibold text-muted-foreground">
+                        Choose Embed Method:
+                      </div>
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          const baseUrl = window.location.origin
+                          const widgetScript = `<script src="${baseUrl}/widget-embed.js"></script>
 <div id="coupon-widget" 
      data-vendor-id="${vendor.id}" 
      data-user-id="USER_ID_FROM_YOUR_SYSTEM"
      data-theme="light">
 </div>
 
-<!-- Instructions: Replace USER_ID_FROM_YOUR_SYSTEM with the authenticated user's ID from your system -->
-<!-- For WordPress/Elementor: Use HTML widget and paste the code above -->`
-                    try {
-                      await navigator.clipboard.writeText(widgetScript)
-                      setCopiedScript(true)
-                      setTimeout(() => setCopiedScript(false), 2000)
-                    } catch (err) {
-                      console.error('Failed to copy:', err)
-                    }
-                  }}
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  title="Copy widget embed code"
-                >
-                  {copiedScript ? (
-                    <>
-                      <Check className="h-4 w-4" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-4 w-4" />
-                      Copy Widget Script
-                    </>
-                  )}
-                </Button>
+<!-- Instructions: Replace USER_ID_FROM_YOUR_SYSTEM with the authenticated user's ID -->`
+                          try {
+                            await navigator.clipboard.writeText(widgetScript)
+                            setCopiedScript(true)
+                            setTimeout(() => setCopiedScript(false), 2000)
+                          } catch (err) {
+                            console.error('Failed to copy:', err)
+                          }
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <div>
+                          <div className="font-medium">Script Embed (Recommended)</div>
+                          <div className="text-xs text-muted-foreground">
+                            For websites that support script tags
+                          </div>
+                        </div>
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        onClick={async () => {
+                          const baseUrl = window.location.origin
+                          const iframeCode = `<iframe 
+  src="${baseUrl}/widget/embed?vendor_id=${vendor.id}&user_id=USER_ID_FROM_YOUR_SYSTEM&theme=light"
+  width="100%" 
+  height="600" 
+  frameborder="0" 
+  style="border: none; border-radius: 8px;">
+</iframe>
+
+<!-- Instructions: Replace USER_ID_FROM_YOUR_SYSTEM with the authenticated user's ID -->
+<!-- For Elementor: Use Shortcode widget or paste iframe code directly -->`
+                          try {
+                            await navigator.clipboard.writeText(iframeCode)
+                            setCopiedScript(true)
+                            setTimeout(() => setCopiedScript(false), 2000)
+                          } catch (err) {
+                            console.error('Failed to copy:', err)
+                          }
+                        }}
+                        className="cursor-pointer"
+                      >
+                        <div>
+                          <div className="font-medium">Iframe Embed (Elementor)</div>
+                          <div className="text-xs text-muted-foreground">
+                            Works with Elementor Shortcode widget
+                          </div>
+                        </div>
+                      </DropdownMenuItem>
+                    </div>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              {copiedScript && (
+                <div className="flex items-center gap-1 text-sm text-green-600">
+                  <Check className="h-4 w-4" />
+                  Copied!
+                </div>
               )}
               <Button onClick={() => setIsCSVModalOpen(true)} variant="outline">
                 <Upload className="h-4 w-4 mr-2" />
