@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Shield, UserPlus, ChevronLeft, ChevronRight, Settings2, Trash2, AlertCircle, CheckCircle, CheckSquare, Square } from 'lucide-react'
+import { Shield, UserPlus, ChevronLeft, ChevronRight, Settings2, Trash2, AlertCircle, CheckCircle, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import type { User, Vendor } from '@/types/database'
 import UserRoleModal from '@/components/users/UserRoleModal'
 import PartnerAccessModal from '@/components/users/PartnerAccessModal'
@@ -20,6 +20,7 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 import { usePagination } from '@/lib/hooks/usePagination'
+import { useSort } from '@/lib/hooks/useSort'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,6 +66,12 @@ export default function UsersPage() {
   const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set())
   const [isBulkDeleteDialogOpen, setIsBulkDeleteDialogOpen] = useState(false)
 
+  // Sorting
+  const { sortedData: sortedUsers, sortConfig, handleSort } = useSort<User>(
+    users,
+    { key: 'created_at', direction: 'desc' }
+  )
+
   // Pagination
   const {
     currentPage,
@@ -73,12 +80,12 @@ export default function UsersPage() {
     setPageSize,
     totalPages,
     getPaginatedData,
-  } = usePagination(users, {
+  } = usePagination(sortedUsers, {
     defaultPageSize: 10,
     localStorageKey: 'users-page-size',
   })
 
-  const paginatedUsers = getPaginatedData(users)
+  const paginatedUsers = getPaginatedData(sortedUsers)
 
   // Bulk selection handlers (must be after paginatedUsers is defined)
   const handleSelectAll = () => {
@@ -285,10 +292,74 @@ export default function UsersPage() {
                   )}
                 </button>
               </TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Name</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Registered</TableHead>
+              <TableHead>
+                <button
+                  onClick={() => handleSort('email')}
+                  className="flex items-center gap-1 hover:text-primary"
+                >
+                  Email
+                  {sortConfig?.key === 'email' ? (
+                    sortConfig.direction === 'asc' ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button
+                  onClick={() => handleSort('name')}
+                  className="flex items-center gap-1 hover:text-primary"
+                >
+                  Name
+                  {sortConfig?.key === 'name' ? (
+                    sortConfig.direction === 'asc' ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button
+                  onClick={() => handleSort('role')}
+                  className="flex items-center gap-1 hover:text-primary"
+                >
+                  Role
+                  {sortConfig?.key === 'role' ? (
+                    sortConfig.direction === 'asc' ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button
+                  onClick={() => handleSort('created_at')}
+                  className="flex items-center gap-1 hover:text-primary"
+                >
+                  Registered
+                  {sortConfig?.key === 'created_at' ? (
+                    sortConfig.direction === 'asc' ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </button>
+              </TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>

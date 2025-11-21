@@ -284,15 +284,16 @@
     document.head.appendChild(style)
   }
 
-  async function fetchCouponsData(vendorId, retries = 0) {
+  async function fetchCouponsData(vendorId, userId, retries = 0) {
     try {
-      const response = await fetch(
-        `${CONFIG.API_BASE_URL}/api/widget/coupons?vendor_id=${vendorId}`,
-        {
-          method: 'GET',
-          headers: { 'Content-Type': 'application/json' },
-        }
-      )
+      const url = userId 
+        ? `${CONFIG.API_BASE_URL}/api/widget/coupons?vendor_id=${vendorId}&user_id=${userId}`
+        : `${CONFIG.API_BASE_URL}/api/widget/coupons?vendor_id=${vendorId}`
+      
+      const response = await fetch(url, {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' },
+      })
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}`)
@@ -307,7 +308,7 @@
     } catch (error) {
       if (retries < CONFIG.MAX_RETRIES) {
         await new Promise((resolve) => setTimeout(resolve, CONFIG.RETRY_DELAY))
-        return fetchCouponsData(vendorId, retries + 1)
+        return fetchCouponsData(vendorId, userId, retries + 1)
       }
       throw error
     }
@@ -355,6 +356,8 @@
         coupons: [],
         claimedCoupons: new Map(), // couponId -> claimed coupon data
         errors: new Map(), // couponId -> error message
+        hasActiveClaim: false,
+        activeClaimExpiry: null,
       }
 
       this.container = null
@@ -394,11 +397,13 @@
       }
 
       try {
-        const data = await fetchCouponsData(this.config.vendorId)
+        const data = await fetchCouponsData(this.config.vendorId, this.config.userId)
         this.setState({
           loading: false,
           vendor: data.vendor,
           coupons: data.coupons || [],
+          hasActiveClaim: data.has_active_claim || false,
+          activeClaimExpiry: data.active_claim_expiry || null,
         })
       } catch (error) {
         console.error('Widget error:', error)
@@ -553,7 +558,7 @@
     render() {
       if (!this.container) return
 
-      const { loading, vendor, coupons, error } = this.state
+      const { loading, vendor, coupons, error, hasActiveClaim, activeClaimExpiry } = this.state
 
       if (loading) {
         this.container.innerHTML = '<div class="coupon-widget-empty"><div class="coupon-widget-empty-icon">⏳</div><p>Loading coupons...</p></div>'
@@ -570,15 +575,29 @@
         return
       }
 
-      let html = '<div class="coupon-widget-grid">'
+      // Show active claim message if user has one
+      let activeClaimMessage = ''
+      if (hasActiveClaim && activeClaimExpiry) {
+        const expiryDate = new Date(activeClaimExpiry)
+        const daysLeft = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24))
+        activeClaimMessage = `<div class="coupon-widget-info" style="background: #1e3a8a; color: #dbeafe; padding: 12px; border-radius: 8px; margin-bottom: 16px; text-align: center;">
+          <strong>You have an active coupon!</strong> It expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}. Other coupons are disabled until it expires.
+        </div>`
+      }
+
+      let html = activeClaimMessage + '<div class="coupon-widget-grid">'
 
       coupons.forEach((coupon) => {
         const claimedCoupon = this.state.claimedCoupons.get(coupon.id)
         const error = this.state.errors.get(coupon.id)
         const offerText = coupon.discount_value || 'Special Offer'
         
+        // Check if this coupon is the active claim or if user has an active claim for another coupon
+        const isActiveClaim = hasActiveClaim && coupon.is_claimed && claimedCoupon
+        const isDisabled = hasActiveClaim && !isActiveClaim && !claimedCoupon
+        
         html += `
-          <div class="coupon-widget-card" data-coupon-card-id="${coupon.id}">
+          <div class="coupon-widget-card ${isDisabled ? 'opacity-60' : ''}" data-coupon-card-id="${coupon.id}" style="${isDisabled ? 'pointer-events: none;' : ''}">
             ${vendor.logo_url ? `<img src="${this.escapeHtml(vendor.logo_url)}" alt="${this.escapeHtml(vendor.name)}" class="coupon-widget-card-image" onerror="this.style.display='none'">` : '<div class="coupon-widget-card-image"></div>'}
             <div class="coupon-widget-card-content">
               <div class="coupon-widget-card-brand">${this.escapeHtml(vendor.name)}</div>
@@ -586,17 +605,19 @@
               ${vendor.description ? `<div class="coupon-widget-card-description">${this.escapeHtml(vendor.description)}</div>` : ''}
               <div class="coupon-widget-code-section">
                 ${error ? `<div class="coupon-widget-error">${this.escapeHtml(error)}</div>` : ''}
-                <div class="coupon-widget-code-display ${claimedCoupon ? 'show' : ''}">
+                ${isDisabled ? '<div class="coupon-widget-error" style="background: #7c2d12; border-color: #991b1b; color: #fca5a5;">You already have an active coupon. Please wait until it expires.</div>' : ''}
+                <div class="coupon-widget-code-display ${claimedCoupon || isActiveClaim ? 'show' : ''}">
                   <div class="coupon-widget-code-label">Your Coupon Code</div>
-                  <div class="coupon-widget-code-value">${claimedCoupon ? this.escapeHtml(claimedCoupon.code) : ''}</div>
+                  <div class="coupon-widget-code-value">${claimedCoupon ? this.escapeHtml(claimedCoupon.code) : (isActiveClaim && coupon.code ? this.escapeHtml(coupon.code) : '')}</div>
                 </div>
                 <button 
                   class="coupon-widget-button" 
                   data-coupon-id="${coupon.id}"
                   data-instance-id="${this.config.containerId}"
-                  ${claimedCoupon ? 'style="display:none"' : ''}
+                  ${claimedCoupon || isActiveClaim || isDisabled ? 'style="display:none"' : ''}
+                  ${isDisabled ? 'disabled' : ''}
                   onclick="CouponWidget.handleGenerateCode('${this.config.containerId}', '${coupon.id}')">
-                  ${claimedCoupon ? '' : 'Generate Code'}
+                  ${claimedCoupon || isActiveClaim ? '' : 'Generate Code'}
                 </button>
                 <button 
                   class="coupon-widget-copy-button ${claimedCoupon ? 'show' : ''}"

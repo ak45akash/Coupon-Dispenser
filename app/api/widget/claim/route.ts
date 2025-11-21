@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
-import { claimCoupon } from '@/lib/db/coupons'
+import { claimCoupon, getUserActiveClaim } from '@/lib/db/coupons'
 import { getUserByEmail, getUserById } from '@/lib/db/users'
+import { supabaseAdmin } from '@/lib/supabase/server'
 
 const widgetClaimSchema = z.object({
   coupon_id: z.string().uuid('Invalid coupon ID'),
@@ -54,6 +55,38 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: 'User identification required' },
         { status: 400 }
+      )
+    }
+
+    // Check if user already has an active claim for this vendor
+    // First, get the coupon to find vendor_id
+    const { data: couponData } = await supabaseAdmin
+      .from('coupons')
+      .select('vendor_id')
+      .eq('id', validatedData.coupon_id)
+      .single()
+
+    if (!couponData) {
+      return NextResponse.json(
+        { success: false, error: 'Coupon not found' },
+        { status: 404 }
+      )
+    }
+
+    // Check for active claim
+    const activeClaim = await getUserActiveClaim(userId, couponData.vendor_id)
+    if (activeClaim && activeClaim.id !== validatedData.coupon_id) {
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'You already have an active coupon. Please wait until it expires (30 days from claim date).',
+          active_coupon: {
+            id: activeClaim.id,
+            code: activeClaim.code,
+            expiry_date: activeClaim.expiry_date,
+          }
+        },
+        { status: 409 }
       )
     }
 

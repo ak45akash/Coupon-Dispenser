@@ -1,10 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getAvailableCouponsByVendor } from '@/lib/db/coupons'
+import { getAvailableCouponsByVendor, getUserActiveClaim } from '@/lib/db/coupons'
 import { getVendorById } from '@/lib/db/vendors'
+import { getUserById } from '@/lib/db/users'
 import { z } from 'zod'
 
 const widgetCouponsSchema = z.object({
   vendor_id: z.string().uuid('Invalid vendor ID'),
+  user_id: z.string().uuid('Invalid user ID').optional(),
 })
 
 /**
@@ -42,8 +44,37 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Get available (unclaimed) coupons for this vendor
-    const coupons = await getAvailableCouponsByVendor(vendorId)
+    // Get user_id from query params if provided
+    const userId = searchParams.get('user_id')
+    
+    // Validate user_id if provided
+    if (userId) {
+      try {
+        const user = await getUserById(userId)
+        if (!user) {
+          return NextResponse.json(
+            { success: false, error: 'User not found' },
+            { status: 404 }
+          )
+        }
+      } catch (error) {
+        return NextResponse.json(
+          { success: false, error: 'Invalid user ID format' },
+          { status: 400 }
+        )
+      }
+    }
+
+    // Get available coupons for this vendor (respects active claims if user_id provided)
+    const coupons = await getAvailableCouponsByVendor(vendorId, userId || undefined)
+    
+    // Check if user has an active claim
+    let activeClaim = null
+    let hasActiveClaim = false
+    if (userId) {
+      activeClaim = await getUserActiveClaim(userId, vendorId)
+      hasActiveClaim = activeClaim !== null
+    }
 
     return NextResponse.json({
       success: true,
@@ -60,7 +91,12 @@ export async function GET(request: NextRequest) {
           code: coupon.code,
           description: coupon.description,
           discount_value: coupon.discount_value,
+          is_claimed: coupon.is_claimed || false,
+          claimed_at: coupon.claimed_at || null,
+          expiry_date: coupon.expiry_date || null,
         })),
+        has_active_claim: hasActiveClaim,
+        active_claim_expiry: activeClaim?.expiry_date || null,
       },
       count: coupons.length,
     })

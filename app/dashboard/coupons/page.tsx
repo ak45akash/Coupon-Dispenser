@@ -2,13 +2,14 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Plus, Upload, Trash2, Filter, ChevronLeft, ChevronRight, Settings2, AlertCircle, CheckCircle, History, CheckSquare, Square } from 'lucide-react'
+import { Plus, Upload, Trash2, Filter, ChevronLeft, ChevronRight, Settings2, AlertCircle, CheckCircle, History, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import type { Coupon, Vendor } from '@/types/database'
 import CouponModal from '@/components/coupons/CouponModal'
 import CSVUploadModal from '@/components/coupons/CSVUploadModal'
 import CouponDetailModal from '@/components/coupons/CouponDetailModal'
 import { formatDate } from '@/lib/utils/format'
 import { usePagination } from '@/lib/hooks/usePagination'
+import { useSort } from '@/lib/hooks/useSort'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
@@ -162,6 +163,12 @@ export default function CouponsPage() {
     return true
   })
 
+  // Sorting
+  const { sortedData: sortedCoupons, sortConfig, handleSort } = useSort<Coupon>(
+    filteredCoupons,
+    { key: 'created_at', direction: 'desc' }
+  )
+
   // Pagination
   const {
     currentPage,
@@ -170,12 +177,12 @@ export default function CouponsPage() {
     setPageSize,
     totalPages,
     getPaginatedData,
-  } = usePagination(filteredCoupons, {
+  } = usePagination(sortedCoupons, {
     defaultPageSize: 10,
     localStorageKey: 'coupons-page-size',
   })
 
-  const paginatedCoupons = getPaginatedData(filteredCoupons)
+  const paginatedCoupons = getPaginatedData(sortedCoupons)
 
   const pageSizeOptions = [5, 10, 20, 50, 100]
 
@@ -273,7 +280,7 @@ export default function CouponsPage() {
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-muted-foreground">Total Coupons</p>
-              <p className="text-3xl font-bold">{filteredCoupons.length}</p>
+              <p className="text-3xl font-bold">{sortedCoupons.length}</p>
             </div>
             <div className="rounded-full bg-primary/10 p-3">
               <Plus className="h-6 w-6 text-primary" />
@@ -285,7 +292,7 @@ export default function CouponsPage() {
             <div>
               <p className="text-sm font-medium text-muted-foreground">Available</p>
               <p className="text-3xl font-bold text-green-600">
-                {filteredCoupons.length}
+                {sortedCoupons.length}
               </p>
             </div>
             <div className="rounded-full bg-green-100 p-3">
@@ -361,13 +368,125 @@ export default function CouponsPage() {
                   )}
                 </button>
               </TableHead>
-              <TableHead>Code</TableHead>
-              <TableHead>Vendor</TableHead>
-              <TableHead>Description</TableHead>
-              <TableHead>Discount</TableHead>
-              <TableHead>Expiry Date</TableHead>
-              <TableHead>Claimed</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>
+                <button
+                  onClick={() => handleSort('code')}
+                  className="flex items-center gap-1 hover:text-primary"
+                >
+                  Code
+                  {sortConfig?.key === 'code' ? (
+                    sortConfig.direction === 'asc' ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button
+                  onClick={() => handleSort('vendor_id')}
+                  className="flex items-center gap-1 hover:text-primary"
+                >
+                  Vendor
+                  {sortConfig?.key === 'vendor_id' ? (
+                    sortConfig.direction === 'asc' ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button
+                  onClick={() => handleSort('description')}
+                  className="flex items-center gap-1 hover:text-primary"
+                >
+                  Description
+                  {sortConfig?.key === 'description' ? (
+                    sortConfig.direction === 'asc' ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button
+                  onClick={() => handleSort('discount_value')}
+                  className="flex items-center gap-1 hover:text-primary"
+                >
+                  Discount
+                  {sortConfig?.key === 'discount_value' ? (
+                    sortConfig.direction === 'asc' ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button
+                  onClick={() => handleSort('expiry_date')}
+                  className="flex items-center gap-1 hover:text-primary"
+                >
+                  Expiry Date
+                  {sortConfig?.key === 'expiry_date' ? (
+                    sortConfig.direction === 'asc' ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button
+                  onClick={() => handleSort('is_claimed')}
+                  className="flex items-center gap-1 hover:text-primary"
+                >
+                  Claimed
+                  {sortConfig?.key === 'is_claimed' ? (
+                    sortConfig.direction === 'asc' ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button
+                  onClick={() => handleSort('is_claimed')}
+                  className="flex items-center gap-1 hover:text-primary"
+                >
+                  Status
+                  {sortConfig?.key === 'is_claimed' ? (
+                    sortConfig.direction === 'asc' ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </button>
+              </TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>
@@ -462,11 +581,11 @@ export default function CouponsPage() {
       </Card>
 
       {/* Pagination Controls */}
-      {filteredCoupons.length > 0 && (
+      {sortedCoupons.length > 0 && (
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <p className="text-sm text-muted-foreground">
-              Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, filteredCoupons.length)} of {filteredCoupons.length} coupons
+              Showing {((currentPage - 1) * pageSize) + 1} to {Math.min(currentPage * pageSize, sortedCoupons.length)} of {sortedCoupons.length} coupons
             </p>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

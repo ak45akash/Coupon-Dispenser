@@ -3,10 +3,11 @@
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, Settings2, AlertCircle, CheckCircle, CheckSquare, Square } from 'lucide-react'
+import { Plus, Edit, Trash2, ChevronLeft, ChevronRight, Settings2, AlertCircle, CheckCircle, CheckSquare, Square, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import type { VendorWithStats } from '@/types/database'
 import VendorModal from '@/components/vendors/VendorModal'
 import { usePagination } from '@/lib/hooks/usePagination'
+import { useSort } from '@/lib/hooks/useSort'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import {
@@ -122,6 +123,12 @@ export default function VendorsPage() {
     router.push(`/dashboard/vendors/${vendorId}`)
   }, [router])
 
+  // Sorting
+  const { sortedData: sortedVendors, sortConfig, handleSort } = useSort<VendorWithStats>(
+    vendors,
+    { key: 'created_at', direction: 'desc' }
+  )
+
   // Pagination
   const {
     currentPage,
@@ -130,12 +137,12 @@ export default function VendorsPage() {
     setPageSize,
     totalPages,
     getPaginatedData,
-  } = usePagination(vendors, {
+  } = usePagination(sortedVendors, {
     defaultPageSize: 10,
     localStorageKey: 'vendors-page-size',
   })
 
-  const paginatedVendors = getPaginatedData(vendors)
+  const paginatedVendors = getPaginatedData(sortedVendors)
   const pageSizeOptions = [5, 10, 20, 50, 100]
 
   // Bulk selection handlers (must be after paginatedVendors is defined)
@@ -245,12 +252,92 @@ export default function VendorsPage() {
                   )}
                 </button>
               </TableHead>
-              <TableHead>Name</TableHead>
+              <TableHead>
+                <button
+                  onClick={() => handleSort('name')}
+                  className="flex items-center gap-1 hover:text-primary"
+                >
+                  Name
+                  {sortConfig?.key === 'name' ? (
+                    sortConfig.direction === 'asc' ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </button>
+              </TableHead>
               <TableHead>Contact</TableHead>
-              <TableHead>Total Coupons</TableHead>
-              <TableHead>Available</TableHead>
-              <TableHead>Claimed</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead>
+                <button
+                  onClick={() => handleSort('total_coupons')}
+                  className="flex items-center gap-1 hover:text-primary"
+                >
+                  Total Coupons
+                  {sortConfig?.key === 'total_coupons' ? (
+                    sortConfig.direction === 'asc' ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button
+                  onClick={() => handleSort('available_coupons')}
+                  className="flex items-center gap-1 hover:text-primary"
+                >
+                  Available
+                  {sortConfig?.key === 'available_coupons' ? (
+                    sortConfig.direction === 'asc' ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button
+                  onClick={() => handleSort('claimed_coupons')}
+                  className="flex items-center gap-1 hover:text-primary"
+                >
+                  Claimed
+                  {sortConfig?.key === 'claimed_coupons' ? (
+                    sortConfig.direction === 'asc' ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </button>
+              </TableHead>
+              <TableHead>
+                <button
+                  onClick={() => handleSort('active')}
+                  className="flex items-center gap-1 hover:text-primary"
+                >
+                  Status
+                  {sortConfig?.key === 'active' ? (
+                    sortConfig.direction === 'asc' ? (
+                      <ArrowUp className="h-4 w-4" />
+                    ) : (
+                      <ArrowDown className="h-4 w-4" />
+                    )
+                  ) : (
+                    <ArrowUpDown className="h-4 w-4 opacity-50" />
+                  )}
+                </button>
+              </TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
           </TableHeader>

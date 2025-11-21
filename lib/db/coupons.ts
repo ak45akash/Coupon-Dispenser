@@ -87,8 +87,18 @@ export async function getCouponsByVendor(vendorId: string): Promise<Coupon[]> {
 }
 
 export async function getAvailableCouponsByVendor(
-  vendorId: string
+  vendorId: string,
+  userId?: string
 ): Promise<Coupon[]> {
+  // If userId is provided, check for active claims
+  if (userId) {
+    const activeClaim = await getUserActiveClaim(userId, vendorId)
+    if (activeClaim) {
+      // User has an active claim - return only that coupon
+      return [activeClaim]
+    }
+  }
+
   // Only return unclaimed coupons
   const { data, error } = await supabaseAdmin
     .from('coupons')
@@ -100,6 +110,55 @@ export async function getAvailableCouponsByVendor(
 
   if (error) throw error
   return data || []
+}
+
+/**
+ * Get user's active claim for a vendor (within 30 days)
+ * Returns the claimed coupon if user has an active claim, null otherwise
+ */
+export async function getUserActiveClaim(
+  userId: string,
+  vendorId: string
+): Promise<Coupon | null> {
+  const now = new Date()
+  const thirtyDaysAgo = new Date(now)
+  thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+  // Find coupons claimed by this user for this vendor within the last 30 days
+  const { data, error } = await supabaseAdmin
+    .from('coupons')
+    .select('*')
+    .eq('vendor_id', vendorId)
+    .eq('claimed_by', userId)
+    .eq('is_claimed', true)
+    .gte('claimed_at', thirtyDaysAgo.toISOString())
+    .is('deleted_at', null)
+    .order('claimed_at', { ascending: false })
+    .limit(1)
+
+  if (error) throw error
+  
+  // Check if the claim is still valid (not expired)
+  if (data && data.length > 0) {
+    const claimedCoupon = data[0]
+    if (claimedCoupon.expiry_date) {
+      const expiryDate = new Date(claimedCoupon.expiry_date)
+      if (expiryDate > now) {
+        return claimedCoupon
+      }
+    } else {
+      // If no expiry date, check if claimed within 30 days
+      if (claimedCoupon.claimed_at) {
+        const claimedAt = new Date(claimedCoupon.claimed_at)
+        const daysSinceClaim = (now.getTime() - claimedAt.getTime()) / (1000 * 60 * 60 * 24)
+        if (daysSinceClaim <= 30) {
+          return claimedCoupon
+        }
+      }
+    }
+  }
+
+  return null
 }
 
 export async function getCouponById(id: string): Promise<Coupon | null> {
@@ -176,10 +235,10 @@ export async function claimCoupon(
     throw new Error('Coupon has already been claimed')
   }
 
-  // Calculate expiry date: 1 month from now (when claimed)
+  // Calculate expiry date: 30 days from now (when claimed)
   const claimedAt = new Date()
   const expiryDate = new Date(claimedAt)
-  expiryDate.setMonth(expiryDate.getMonth() + 1)
+  expiryDate.setDate(expiryDate.getDate() + 30)
 
   // Update coupon: mark as claimed, set claimed_by, claimed_at, and expiry_date
   const { data: updatedCoupon, error: updateError } = await supabaseAdmin

@@ -3,13 +3,14 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
-import { Building2, Mail, Phone, Globe, Trash2, Plus, Upload, ArrowLeft, History } from 'lucide-react'
+import { Building2, Mail, Phone, Globe, Trash2, Plus, Upload, ArrowLeft, History, ArrowUpDown, ArrowUp, ArrowDown } from 'lucide-react'
 import type { Vendor, Coupon } from '@/types/database'
 import CouponModal from '@/components/coupons/CouponModal'
 import CSVUploadModal from '@/components/coupons/CSVUploadModal'
 import CouponDetailModal from '@/components/coupons/CouponDetailModal'
 import { formatDate } from '@/lib/utils/format'
 import { usePagination } from '@/lib/hooks/usePagination'
+import { useSort } from '@/lib/hooks/useSort'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import {
@@ -155,6 +156,12 @@ export default function VendorProfilePage() {
     return true // All coupons are available
   })
 
+  // Sorting
+  const { sortedData: sortedCoupons, sortConfig, handleSort } = useSort<Coupon>(
+    filteredCoupons,
+    { key: 'created_at', direction: 'desc' }
+  )
+
   // Pagination
   const {
     currentPage,
@@ -163,12 +170,12 @@ export default function VendorProfilePage() {
     setPageSize,
     totalPages,
     getPaginatedData,
-  } = usePagination(filteredCoupons, {
+  } = usePagination(sortedCoupons, {
     defaultPageSize: 10,
     localStorageKey: 'vendor-profile-coupons-page-size',
   })
 
-  const paginatedCoupons = getPaginatedData(filteredCoupons)
+  const paginatedCoupons = getPaginatedData(sortedCoupons)
   const pageSizeOptions = [5, 10, 20, 50, 100]
 
   // Calculate stats - all coupons are available (shared model)
@@ -404,12 +411,108 @@ export default function VendorProfilePage() {
                 <Table>
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Code</TableHead>
-                      <TableHead>Description</TableHead>
-                      <TableHead>Discount</TableHead>
-                      <TableHead>Expiry Date</TableHead>
-                      <TableHead>Claimed</TableHead>
-                      <TableHead>Status</TableHead>
+                      <TableHead>
+                        <button
+                          onClick={() => handleSort('code')}
+                          className="flex items-center gap-1 hover:text-primary"
+                        >
+                          Code
+                          {sortConfig?.key === 'code' ? (
+                            sortConfig.direction === 'asc' ? (
+                              <ArrowUp className="h-4 w-4" />
+                            ) : (
+                              <ArrowDown className="h-4 w-4" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-4 w-4 opacity-50" />
+                          )}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          onClick={() => handleSort('description')}
+                          className="flex items-center gap-1 hover:text-primary"
+                        >
+                          Description
+                          {sortConfig?.key === 'description' ? (
+                            sortConfig.direction === 'asc' ? (
+                              <ArrowUp className="h-4 w-4" />
+                            ) : (
+                              <ArrowDown className="h-4 w-4" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-4 w-4 opacity-50" />
+                          )}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          onClick={() => handleSort('discount_value')}
+                          className="flex items-center gap-1 hover:text-primary"
+                        >
+                          Discount
+                          {sortConfig?.key === 'discount_value' ? (
+                            sortConfig.direction === 'asc' ? (
+                              <ArrowUp className="h-4 w-4" />
+                            ) : (
+                              <ArrowDown className="h-4 w-4" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-4 w-4 opacity-50" />
+                          )}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          onClick={() => handleSort('expiry_date')}
+                          className="flex items-center gap-1 hover:text-primary"
+                        >
+                          Expiry Date
+                          {sortConfig?.key === 'expiry_date' ? (
+                            sortConfig.direction === 'asc' ? (
+                              <ArrowUp className="h-4 w-4" />
+                            ) : (
+                              <ArrowDown className="h-4 w-4" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-4 w-4 opacity-50" />
+                          )}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          onClick={() => handleSort('is_claimed')}
+                          className="flex items-center gap-1 hover:text-primary"
+                        >
+                          Claimed
+                          {sortConfig?.key === 'is_claimed' ? (
+                            sortConfig.direction === 'asc' ? (
+                              <ArrowUp className="h-4 w-4" />
+                            ) : (
+                              <ArrowDown className="h-4 w-4" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-4 w-4 opacity-50" />
+                          )}
+                        </button>
+                      </TableHead>
+                      <TableHead>
+                        <button
+                          onClick={() => handleSort('is_claimed')}
+                          className="flex items-center gap-1 hover:text-primary"
+                        >
+                          Status
+                          {sortConfig?.key === 'is_claimed' ? (
+                            sortConfig.direction === 'asc' ? (
+                              <ArrowUp className="h-4 w-4" />
+                            ) : (
+                              <ArrowDown className="h-4 w-4" />
+                            )
+                          ) : (
+                            <ArrowUpDown className="h-4 w-4 opacity-50" />
+                          )}
+                        </button>
+                      </TableHead>
                       <TableHead className="text-right">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
