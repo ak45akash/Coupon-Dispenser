@@ -30,7 +30,7 @@ import {
 import { DeleteDialog, SuccessDialog, ErrorDialog } from '@/components/ui/dialog-helpers'
 import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
-import WidgetEmbedCode from '@/components/vendors/WidgetEmbedCode'
+import { Copy, Check, Code } from 'lucide-react'
 
 export default function VendorProfilePage() {
   const params = useParams()
@@ -57,6 +57,9 @@ export default function VendorProfilePage() {
   // Coupon detail modal state
   const [isCouponDetailModalOpen, setIsCouponDetailModalOpen] = useState(false)
   const [selectedCouponForDetail, setSelectedCouponForDetail] = useState<string | null>(null)
+  
+  // Widget script copy state
+  const [copiedScript, setCopiedScript] = useState(false)
 
   useEffect(() => {
     if (!session) {
@@ -259,11 +262,6 @@ export default function VendorProfilePage() {
         </CardContent>
       </Card>
 
-      {/* Widget Embed Code */}
-      {vendor && (
-        <WidgetEmbedCode vendorId={vendor.id} vendorName={vendor.name} />
-      )}
-
       {/* Coupon Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card>
@@ -295,6 +293,45 @@ export default function VendorProfilePage() {
               <CardDescription>Manage coupons for this vendor</CardDescription>
             </div>
             <div className="flex gap-2">
+              {vendor && (
+                <Button
+                  onClick={async () => {
+                    const baseUrl = window.location.origin
+                    const widgetScript = `<script src="${baseUrl}/widget-embed.js"></script>
+<div id="coupon-widget" 
+     data-vendor-id="${vendor.id}" 
+     data-user-id="USER_ID_FROM_YOUR_SYSTEM"
+     data-theme="light">
+</div>
+
+<!-- Instructions: Replace USER_ID_FROM_YOUR_SYSTEM with the authenticated user's ID from your system -->
+<!-- For WordPress/Elementor: Use HTML widget and paste the code above -->`
+                    try {
+                      await navigator.clipboard.writeText(widgetScript)
+                      setCopiedScript(true)
+                      setTimeout(() => setCopiedScript(false), 2000)
+                    } catch (err) {
+                      console.error('Failed to copy:', err)
+                    }
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  title="Copy widget embed code"
+                >
+                  {copiedScript ? (
+                    <>
+                      <Check className="h-4 w-4" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4" />
+                      Copy Widget Script
+                    </>
+                  )}
+                </Button>
+              )}
               <Button onClick={() => setIsCSVModalOpen(true)} variant="outline">
                 <Upload className="h-4 w-4 mr-2" />
                 Upload CSV

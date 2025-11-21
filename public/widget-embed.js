@@ -17,14 +17,34 @@
 
   // Configuration
   function getApiBaseUrl() {
+    // Check for data attribute on script tag
     const script = document.querySelector('script[src*="widget-embed.js"]')
     if (script && script.getAttribute('data-api-url')) {
       return script.getAttribute('data-api-url')
     }
-    if (window.location.origin) {
+    
+    // Check for global configuration
+    if (window.COUPON_WIDGET_API_URL) {
+      return window.COUPON_WIDGET_API_URL
+    }
+    
+    // Try to extract from script src URL (for production)
+    if (script && script.src) {
+      try {
+        const scriptUrl = new URL(script.src)
+        return scriptUrl.origin
+      } catch (e) {
+        // Invalid URL, continue
+      }
+    }
+    
+    // Fallback to current origin (for same-domain embedding)
+    if (window.location && window.location.origin) {
       return window.location.origin
     }
-    return window.COUPON_WIDGET_API_URL || 'https://your-domain.com'
+    
+    // Last resort fallback
+    return 'https://your-domain.com'
   }
 
   const CONFIG = {
@@ -606,22 +626,40 @@
 
   const CouponWidget = {
     initFromAttributes() {
-      const containers = document.querySelectorAll('[id^="coupon-widget"], [data-coupon-widget]')
+      // Find all potential widget containers
+      const containers = document.querySelectorAll(
+        '[id^="coupon-widget"], [data-coupon-widget], [data-vendor-id]'
+      )
 
       containers.forEach((container) => {
+        // Skip if already initialized
+        if (container.dataset.widgetInitialized === 'true') {
+          return
+        }
+
         const vendorId = container.getAttribute('data-vendor-id') || container.getAttribute('data-vendor')
         const userId = container.getAttribute('data-user-id')
         const theme = container.getAttribute('data-theme') || 'light'
-        const containerId = container.id || `coupon-widget-${Date.now()}`
+        const containerId = container.id || `coupon-widget-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
 
         if (!vendorId) {
-          console.error('CouponWidget: data-vendor-id is required')
+          // Skip containers without vendor-id (might be other elements)
+          return
+        }
+
+        // Validate vendor ID format
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+        if (!uuidRegex.test(vendorId)) {
+          console.warn('CouponWidget: Invalid vendor ID format:', vendorId)
           return
         }
 
         if (!container.id) {
           container.id = containerId
         }
+
+        // Mark as initialized to prevent duplicate initialization
+        container.dataset.widgetInitialized = 'true'
 
         const instance = new CouponWidgetInstance({
           vendorId,
@@ -678,11 +716,52 @@
 
   window.CouponWidget = CouponWidget
 
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', () => {
-      CouponWidget.initFromAttributes()
-    })
-  } else {
+  // Initialize function that can be called multiple times
+  function initializeWidget() {
     CouponWidget.initFromAttributes()
   }
+
+  // Initialize immediately if DOM is ready
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', initializeWidget)
+  } else {
+    // DOM already ready, initialize immediately
+    initializeWidget()
+  }
+
+  // Also initialize after a short delay (for WordPress/Elementor dynamic content)
+  setTimeout(initializeWidget, 100)
+  setTimeout(initializeWidget, 500)
+  setTimeout(initializeWidget, 1000)
+
+  // Support for MutationObserver to detect dynamically added containers (WordPress/Elementor)
+  if (typeof MutationObserver !== 'undefined') {
+    const observer = new MutationObserver((mutations) => {
+      let shouldReinit = false
+      mutations.forEach((mutation) => {
+        mutation.addedNodes.forEach((node) => {
+          if (node.nodeType === 1) { // Element node
+            // Check if added node or its children contain widget containers
+            if (node.id && node.id.includes('coupon-widget')) {
+              shouldReinit = true
+            } else if (node.querySelectorAll && node.querySelectorAll('[id*="coupon-widget"], [data-vendor-id]').length > 0) {
+              shouldReinit = true
+            }
+          }
+        })
+      })
+      if (shouldReinit) {
+        setTimeout(initializeWidget, 100)
+      }
+    })
+
+    // Start observing
+    observer.observe(document.body, {
+      childList: true,
+      subtree: true,
+    })
+  }
+
+  // Expose reinit function for manual initialization (useful for WordPress/Elementor)
+  window.CouponWidgetReinit = initializeWidget
 })(window, document)
