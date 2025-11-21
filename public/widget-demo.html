@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Coupon Widget Demo - Coupon Dispenser</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      padding: 40px 20px;
+      color: #333;
+    }
+
+    .demo-container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .demo-header {
+      text-align: center;
+      color: white;
+      margin-bottom: 60px;
+    }
+
+    .demo-header h1 {
+      font-size: 48px;
+      font-weight: 700;
+      margin-bottom: 16px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+    }
+
+    .demo-header p {
+      font-size: 20px;
+      opacity: 0.9;
+    }
+
+    .demo-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 40px;
+      margin-bottom: 60px;
+    }
+
+    .demo-card {
+      background: white;
+      border-radius: 16px;
+      padding: 32px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+    }
+
+    .demo-card h2 {
+      font-size: 24px;
+      margin-bottom: 8px;
+      color: #1a1a1a;
+    }
+
+    .demo-card p {
+      font-size: 14px;
+      color: #6b7280;
+      margin-bottom: 24px;
+    }
+
+    .widget-container {
+      margin-top: 24px;
+    }
+
+    .code-example {
+      background: #1a1a1a;
+      color: #10b981;
+      padding: 20px;
+      border-radius: 8px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      overflow-x: auto;
+      margin-top: 16px;
+    }
+
+    .code-example code {
+      color: #10b981;
+    }
+
+    .code-example .comment {
+      color: #6b7280;
+    }
+
+    .code-example .string {
+      color: #fbbf24;
+    }
+
+    .code-example .attribute {
+      color: #60a5fa;
+    }
+
+    .demo-footer {
+      text-align: center;
+      color: white;
+      margin-top: 60px;
+      opacity: 0.8;
+    }
+
+    .demo-footer a {
+      color: white;
+      text-decoration: underline;
+    }
+
+    @media (max-width: 768px) {
+      .demo-header h1 {
+        font-size: 32px;
+      }
+
+      .demo-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="demo-container">
+    <div class="demo-header">
+      <h1>🎟️ Coupon Widget Demo</h1>
+      <p>Embeddable coupon widget for partner websites</p>
+    </div>
+
+    <div class="demo-grid">
+      <!-- Light Theme Widget -->
+      <div class="demo-card">
+        <h2>Light Theme Widget</h2>
+        <p>Standard light theme widget with default styling</p>
+        
+        <div class="code-example">
+          <code>
+            <span class="comment">&lt;!-- Add this to your HTML --&gt;</span><br>
+            &lt;<span class="attribute">script</span> <span class="string">src</span>=<span class="string">"https://your-domain.com/widget-embed.js"</span>&gt;&lt;/<span class="attribute">script</span>&gt;<br>
+            &lt;<span class="attribute">div</span> <span class="string">id</span>=<span class="string">"coupon-widget"</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">data-vendor-id</span>=<span class="string">"YOUR_VENDOR_ID"</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">data-theme</span>=<span class="string">"light"</span>&gt;<br>
+            &lt;/<span class="attribute">div</span>&gt;
+          </code>
+        </div>
+
+        <div class="widget-container">
+          <div id="coupon-widget-light" 
+               data-vendor-id="YOUR_VENDOR_ID"
+               data-theme="light"
+               data-title="Claim Your Exclusive Coupon"
+               data-description="Get amazing discounts on your next purchase">
+          </div>
+        </div>
+      </div>
+
+      <!-- Dark Theme Widget -->
+      <div class="demo-card">
+        <h2>Dark Theme Widget</h2>
+        <p>Dark theme widget perfect for dark websites</p>
+        
+        <div class="code-example">
+          <code>
+            &lt;<span class="attribute">div</span> <span class="string">id</span>=<span class="string">"coupon-widget-dark"</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">data-vendor-id</span>=<span class="string">"YOUR_VENDOR_ID"</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">data-theme</span>=<span class="string">"dark"</span>&gt;<br>
+            &lt;/<span class="attribute">div</span>&gt;
+          </code>
+        </div>
+
+        <div class="widget-container">
+          <div id="coupon-widget-dark" 
+               data-vendor-id="YOUR_VENDOR_ID"
+               data-theme="dark"
+               data-title="Special Offer"
+               data-description="Limited time discount available">
+          </div>
+        </div>
+      </div>
+
+      <!-- Custom Configuration -->
+      <div class="demo-card">
+        <h2>Custom Configuration</h2>
+        <p>Widget with custom title, description, and campaign tracking</p>
+        
+        <div class="code-example">
+          <code>
+            &lt;<span class="attribute">div</span> <span class="string">id</span>=<span class="string">"coupon-widget-custom"</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">data-vendor-id</span>=<span class="string">"YOUR_VENDOR_ID"</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">data-user-id</span>=<span class="string">"USER_ID"</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">data-campaign-id</span>=<span class="string">"CAMPAIGN_123"</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">data-theme</span>=<span class="string">"light"</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">data-title</span>=<span class="string">"Welcome Bonus"</span><br>
+            &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="string">data-description</span>=<span class="string">"Claim your welcome discount now"</span>&gt;<br>
+            &lt;/<span class="attribute">div</span>&gt;
+          </code>
+        </div>
+
+        <div class="widget-container">
+          <div id="coupon-widget-custom" 
+               data-vendor-id="YOUR_VENDOR_ID"
+               data-user-id="USER_ID"
+               data-campaign-id="CAMPAIGN_123"
+               data-theme="light"
+               data-title="Welcome Bonus"
+               data-description="Claim your welcome discount now">
+          </div>
+        </div>
+      </div>
+
+      <!-- Programmatic Initialization -->
+      <div class="demo-card">
+        <h2>Programmatic Initialization</h2>
+        <p>Initialize widget using JavaScript API</p>
+        
+        <div class="code-example">
+          <code>
+            <span class="comment">// Initialize widget programmatically</span><br>
+            <span class="attribute">CouponWidget</span>.<span class="string">init</span>({<br>
+            &nbsp;&nbsp;<span class="string">vendorId</span>: <span class="string">'YOUR_VENDOR_ID'</span>,<br>
+            &nbsp;&nbsp;<span class="string">userId</span>: <span class="string">'USER_ID'</span>,<br>
+            &nbsp;&nbsp;<span class="string">campaignId</span>: <span class="string">'CAMPAIGN_123'</span>,<br>
+            &nbsp;&nbsp;<span class="string">theme</span>: <span class="string">'light'</span>,<br>
+            &nbsp;&nbsp;<span class="string">containerId</span>: <span class="string">'my-coupon-widget'</span>,<br>
+            &nbsp;&nbsp;<span class="string">title</span>: <span class="string">'Special Offer'</span>,<br>
+            &nbsp;&nbsp;<span class="string">description</span>: <span class="string">'Get exclusive discounts'</span><br>
+            });
+          </code>
+        </div>
+
+        <div class="widget-container">
+          <div id="coupon-widget-programmatic"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="demo-footer">
+      <p>Powered by <strong>Coupon Dispenser</strong></p>
+      <p style="margin-top: 8px; font-size: 14px;">
+        Replace <code style="background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 4px;">YOUR_VENDOR_ID</code> 
+        with your actual vendor ID to test the widget
+      </p>
+    </div>
+  </div>
+
+  <!-- Load the widget script -->
+  <script src="/widget-embed.js"></script>
+
+  <!-- Example: Initialize programmatic widget -->
+  <script>
+    // Wait for DOM to be ready
+    document.addEventListener('DOMContentLoaded', function() {
+      // Example programmatic initialization
+      // Uncomment and replace with your vendor ID to test
+      /*
+      CouponWidget.init({
+        vendorId: 'YOUR_VENDOR_ID',
+        userId: 'USER_ID',
+        campaignId: 'CAMPAIGN_123',
+        theme: 'light',
+        containerId: 'coupon-widget-programmatic',
+        title: 'Special Offer',
+        description: 'Get exclusive discounts'
+      });
+      */
+    });
+  </script>
+</body>
+</html>
+
