@@ -620,7 +620,7 @@
                   ${claimedCoupon || isActiveClaim ? '' : 'Generate Code'}
                 </button>
                 <button 
-                  class="coupon-widget-copy-button ${claimedCoupon ? 'show' : ''}"
+                  class="coupon-widget-copy-button ${claimedCoupon || isActiveClaim ? 'show' : ''}"
                   data-copy-coupon-id="${coupon.id}"
                   data-instance-id="${this.config.containerId}"
                   onclick="CouponWidget.copyCode('${this.config.containerId}', '${coupon.id}')">
