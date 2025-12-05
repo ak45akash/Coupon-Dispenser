@@ -178,14 +178,16 @@ export default function VendorProfilePage() {
 
   // Helper function to generate Python code with proper @ escaping
   const getPythonCode = () => {
-    const decorator = String.fromCharCode(64) // '@'
-    const secret = partnerSecret && partnerSecret !== 'exists' ? partnerSecret : 'YOUR_PARTNER_SECRET'
-    return `from flask import Flask, jsonify
+    try {
+      const decorator = String.fromCharCode(64) // '@'
+      const secret = partnerSecret && partnerSecret !== 'exists' ? partnerSecret : 'YOUR_PARTNER_SECRET'
+      const vendor = vendorId || 'YOUR_VENDOR_ID'
+      return `from flask import Flask, jsonify
 import jwt
 import time
 import secrets
 
-VENDOR_ID = '${vendorId}'
+VENDOR_ID = '${vendor}'
 PARTNER_SECRET = '${secret}'
 
 ${decorator}app.route('/api/coupon-token', methods=['GET'])
@@ -207,6 +209,10 @@ def generate_coupon_token():
         return jsonify({'token': token})
     except Exception as e:
         return jsonify({'error': 'Failed to generate token'}), 500`
+    } catch (error) {
+      console.error('Error generating Python code:', error)
+      return `# Error generating code. Please check the console.`
+    }
   }
 
   const handleDelete = (coupon: Coupon) => {
