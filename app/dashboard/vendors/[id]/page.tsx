@@ -426,6 +426,441 @@ export default function VendorProfilePage() {
         </CardContent>
       </Card>
 
+      {/* Partner Integration Code Examples */}
+      {(partnerSecret && partnerSecret !== 'exists' && showPartnerSecret) || partnerSecret === 'exists' ? (
+        <Card className="mb-6">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <FileCode className="h-5 w-5" />
+              Integration Code Examples
+            </CardTitle>
+            <CardDescription>
+              Copy these code examples and share with your partner. Replace placeholders with actual values from above.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Platform Selector */}
+            <div className="flex gap-2 border-b pb-4">
+              <Button
+                variant={selectedPlatform === 'wordpress' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedPlatform('wordpress')}
+              >
+                WordPress (PHP)
+              </Button>
+              <Button
+                variant={selectedPlatform === 'nodejs' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedPlatform('nodejs')}
+              >
+                Node.js / Express
+              </Button>
+              <Button
+                variant={selectedPlatform === 'python' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedPlatform('python')}
+              >
+                Python / Flask
+              </Button>
+            </div>
+
+            {/* WordPress Code Example */}
+            {selectedPlatform === 'wordpress' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold mb-1">WordPress Integration</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Add this to your theme&apos;s <code className="bg-muted px-1 rounded">functions.php</code> file
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const code = `<?php
+/**
+ * Coupon Widget Token Generator for WordPress
+ * Add this to your theme's functions.php file
+ */
+
+use Firebase\\JWT\\JWT;
+use Firebase\\JWT\\Key;
+
+function generate_coupon_widget_token() {
+    // Configuration - Replace with your values
+    $vendor_id = '${vendorId}';
+    $partner_secret = '${partnerSecret && partnerSecret !== 'exists' ? partnerSecret : 'YOUR_PARTNER_SECRET'}';
+    
+    // Only generate token for logged-in users
+    if (!is_user_logged_in()) {
+        return;
+    }
+    
+    $external_user_id = get_current_user_id();
+    $jti = 'jti-' . time() . '-' . wp_generate_password(12, false);
+    
+    $payload = [
+        'vendor' => $vendor_id,
+        'external_user_id' => (string)$external_user_id,
+        'jti' => $jti,
+        'iat' => time(),
+        'exp' => time() + 180, // 3 minutes
+    ];
+    
+    try {
+        $token = JWT::encode($payload, $partner_secret, 'HS256');
+        
+        // Send token to widget
+        echo '<script>';
+        echo 'if (typeof window.sendCouponToken === "function") {';
+        echo '  window.sendCouponToken("' . esc_js($token) . '");';
+        echo '}';
+        echo '</script>';
+    } catch (Exception $e) {
+        // Log error but don't break the page
+        error_log('Coupon widget token generation failed: ' . $e->getMessage());
+    }
+}
+
+// Hook into wp_footer to inject token
+add_action('wp_footer', 'generate_coupon_widget_token');
+
+// Note: Install Firebase JWT library via Composer:
+// composer require firebase/php-jwt`
+                      navigator.clipboard.writeText(code)
+                      setCopiedCodeIndex(0)
+                      setTimeout(() => setCopiedCodeIndex(null), 2000)
+                    }}
+                  >
+                    {copiedCodeIndex === 0 ? (
+                      <>
+                        <Check className="h-4 w-4 mr-2" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy Code
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <div className="bg-muted p-4 rounded-lg overflow-x-auto">
+                  <pre className="text-xs font-mono">
+                    <code>{`<?php
+use Firebase\\JWT\\JWT;
+
+function generate_coupon_widget_token() {
+    $vendor_id = '${vendorId}';
+    $partner_secret = '${partnerSecret && partnerSecret !== 'exists' ? partnerSecret : 'YOUR_PARTNER_SECRET'}';
+    
+    if (!is_user_logged_in()) return;
+    
+    $external_user_id = get_current_user_id();
+    $jti = 'jti-' . time() . '-' . wp_generate_password(12, false);
+    
+    $payload = [
+        'vendor' => $vendor_id,
+        'external_user_id' => (string)$external_user_id,
+        'jti' => $jti,
+        'iat' => time(),
+        'exp' => time() + 180,
+    ];
+    
+    try {
+        $token = JWT::encode($payload, $partner_secret, 'HS256');
+        echo '<script>';
+        echo 'if (typeof window.sendCouponToken === "function") {';
+        echo '  window.sendCouponToken("' . esc_js($token) . '");';
+        echo '}';
+        echo '</script>';
+    } catch (Exception $e) {
+        error_log('Coupon widget token generation failed: ' . $e->getMessage());
+    }
+}
+
+add_action('wp_footer', 'generate_coupon_widget_token');`}</code>
+                  </pre>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                  <p className="font-semibold text-blue-900 mb-1">Installation Steps:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-blue-800">
+                    <li>Install Firebase JWT: <code className="bg-blue-100 px-1 rounded">composer require firebase/php-jwt</code></li>
+                    <li>Copy the code above to your theme&apos;s <code className="bg-blue-100 px-1 rounded">functions.php</code></li>
+                    <li>Replace <code className="bg-blue-100 px-1 rounded">YOUR_PARTNER_SECRET</code> with the secret from above</li>
+                    <li>Embed the widget script on pages where you want coupons displayed</li>
+                  </ol>
+                </div>
+              </div>
+            )}
+
+            {/* Node.js Code Example */}
+            {selectedPlatform === 'nodejs' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold mb-1">Node.js / Express Integration</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Add this route to your Express application
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const code = `const jwt = require('jsonwebtoken');
+
+// Configuration
+const vendorId = '${vendorId}';
+const partnerSecret = '${partnerSecret && partnerSecret !== 'exists' ? partnerSecret : 'YOUR_PARTNER_SECRET'}';
+
+app.get('/api/coupon-token', authenticateUser, (req, res) => {
+  try {
+    const externalUserId = req.user.id.toString();
+    const jti = \`jti-\${Date.now()}-\${Math.random().toString(36).substring(2, 15)}\`;
+    
+    const token = jwt.sign(
+      {
+        vendor: vendorId,
+        external_user_id: externalUserId,
+        jti: jti,
+      },
+      partnerSecret,
+      {
+        algorithm: 'HS256',
+        expiresIn: '3m',
+      }
+    );
+    
+    res.json({ token });
+  } catch (error) {
+    console.error('Error generating coupon token:', error);
+    res.status(500).json({ error: 'Failed to generate token' });
+  }
+});
+
+// Frontend: Fetch token and send to widget
+async function loadCouponWidget() {
+  try {
+    const response = await fetch('/api/coupon-token', {
+      credentials: 'include',
+    });
+    const data = await response.json();
+    
+    if (data.token && typeof window.sendCouponToken === 'function') {
+      window.sendCouponToken(data.token);
+    }
+  } catch (error) {
+    console.error('Failed to load coupon widget token:', error);
+  }
+}
+
+loadCouponWidget();`
+                      navigator.clipboard.writeText(code)
+                      setCopiedCodeIndex(1)
+                      setTimeout(() => setCopiedCodeIndex(null), 2000)
+                    }}
+                  >
+                    {copiedCodeIndex === 1 ? (
+                      <>
+                        <Check className="h-4 w-4 mr-2" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy Code
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <div className="bg-muted p-4 rounded-lg overflow-x-auto">
+                  <pre className="text-xs font-mono">
+                    <code>{`const jwt = require('jsonwebtoken');
+
+const vendorId = '${vendorId}';
+const partnerSecret = '${partnerSecret && partnerSecret !== 'exists' ? partnerSecret : 'YOUR_PARTNER_SECRET'}';
+
+app.get('/api/coupon-token', authenticateUser, (req, res) => {
+  try {
+    const externalUserId = req.user.id.toString();
+    const jti = \`jti-\${Date.now()}-\${Math.random().toString(36).substring(2, 15)}\`;
+    
+    const token = jwt.sign(
+      {
+        vendor: vendorId,
+        external_user_id: externalUserId,
+        jti: jti,
+      },
+      partnerSecret,
+      { algorithm: 'HS256', expiresIn: '3m' }
+    );
+    
+    res.json({ token });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to generate token' });
+  }
+});`}</code>
+                  </pre>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                  <p className="font-semibold text-blue-900 mb-1">Installation Steps:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-blue-800">
+                    <li>Install jsonwebtoken: <code className="bg-blue-100 px-1 rounded">npm install jsonwebtoken</code></li>
+                    <li>Add the route to your Express app</li>
+                    <li>Replace <code className="bg-blue-100 px-1 rounded">authenticateUser</code> with your auth middleware</li>
+                    <li>Add the frontend code to load the token when page loads</li>
+                  </ol>
+                </div>
+              </div>
+            )}
+
+            {/* Python Code Example */}
+            {selectedPlatform === 'python' && (
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h4 className="font-semibold mb-1">Python / Flask Integration</h4>
+                    <p className="text-sm text-muted-foreground">
+                      Add this route to your Flask application
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const code = `from flask import Flask, jsonify
+import jwt
+import time
+import secrets
+
+app = Flask(__name__)
+
+# Configuration
+VENDOR_ID = '${vendorId}'
+PARTNER_SECRET = '${partnerSecret && partnerSecret !== 'exists' ? partnerSecret : 'YOUR_PARTNER_SECRET}'
+
+@app.route('/api/coupon-token', methods=['GET'])
+@require_auth  # Add your auth decorator
+def generate_coupon_token():
+    try:
+        external_user_id = str(get_current_user().id)
+        jti = f"jti-{int(time.time())}-{secrets.token_urlsafe(12)}"
+        
+        payload = {
+            'vendor': VENDOR_ID,
+            'external_user_id': external_user_id,
+            'jti': jti,
+            'iat': int(time.time()),
+            'exp': int(time.time()) + 180,
+        }
+        
+        token = jwt.encode(payload, PARTNER_SECRET, algorithm='HS256')
+        return jsonify({'token': token})
+    except Exception as e:
+        return jsonify({'error': 'Failed to generate token'}), 500`
+                      navigator.clipboard.writeText(code)
+                      setCopiedCodeIndex(2)
+                      setTimeout(() => setCopiedCodeIndex(null), 2000)
+                    }}
+                  >
+                    {copiedCodeIndex === 2 ? (
+                      <>
+                        <Check className="h-4 w-4 mr-2" />
+                        Copied!
+                      </>
+                    ) : (
+                      <>
+                        <Copy className="h-4 w-4 mr-2" />
+                        Copy Code
+                      </>
+                    )}
+                  </Button>
+                </div>
+                <div className="bg-muted p-4 rounded-lg overflow-x-auto">
+                  <pre className="text-xs font-mono">
+                    <code>{`from flask import Flask, jsonify
+import jwt
+import time
+import secrets
+
+VENDOR_ID = '${vendorId}'
+PARTNER_SECRET = '${partnerSecret && partnerSecret !== 'exists' ? partnerSecret : 'YOUR_PARTNER_SECRET}'
+
+@app.route('/api/coupon-token', methods=['GET'])
+@require_auth
+def generate_coupon_token():
+    try:
+        external_user_id = str(get_current_user().id)
+        jti = f"jti-{int(time.time())}-{secrets.token_urlsafe(12)}"
+        
+        payload = {
+            'vendor': VENDOR_ID,
+            'external_user_id': external_user_id,
+            'jti': jti,
+            'iat': int(time.time()),
+            'exp': int(time.time()) + 180,
+        }
+        
+        token = jwt.encode(payload, PARTNER_SECRET, algorithm='HS256')
+        return jsonify({'token': token})
+    except Exception as e:
+        return jsonify({'error': 'Failed to generate token'}), 500`}</code>
+                  </pre>
+                </div>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                  <p className="font-semibold text-blue-900 mb-1">Installation Steps:</p>
+                  <ol className="list-decimal list-inside space-y-1 text-blue-800">
+                    <li>Install PyJWT: <code className="bg-blue-100 px-1 rounded">pip install PyJWT</code></li>
+                    <li>Add the route to your Flask app</li>
+                    <li>Replace <code className="bg-blue-100 px-1 rounded">@require_auth</code> with your auth decorator</li>
+                    <li>Add frontend JavaScript to load token when page loads</li>
+                  </ol>
+                </div>
+              </div>
+            )}
+
+            {/* Widget Embed Code */}
+            <div className="border-t pt-4 mt-4">
+              <h4 className="font-semibold mb-2">Widget Embed Code</h4>
+              <p className="text-sm text-muted-foreground mb-3">
+                Add this to your HTML pages where you want the coupon widget to appear:
+              </p>
+              <div className="flex items-center gap-2 mb-2">
+                <code className="flex-1 p-3 bg-muted rounded-lg font-mono text-xs">
+                  {`<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'}/widget-embed.js"></script>
+<div id="coupon-widget" data-vendor-id="${vendorId}"></div>`}
+                </code>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    const code = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'}/widget-embed.js"></script>
+<div id="coupon-widget" data-vendor-id="${vendorId}"></div>`
+                    navigator.clipboard.writeText(code)
+                    setCopiedCodeIndex(3)
+                    setTimeout(() => setCopiedCodeIndex(null), 2000)
+                  }}
+                >
+                  {copiedCodeIndex === 3 ? (
+                    <>
+                      <Check className="h-4 w-4 mr-2" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
+
       {/* Coupon Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
         <Card>
