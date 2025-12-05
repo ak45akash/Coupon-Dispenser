@@ -20,7 +20,21 @@ export default async function DashboardPage() {
     redirect('/dashboard/analytics')
   }
   
-  const analytics = await getAnalyticsOverview()
+  let analytics
+  try {
+    analytics = await getAnalyticsOverview()
+  } catch (error) {
+    console.error('Error fetching analytics:', error)
+    // Return default values on error
+    analytics = {
+      total_vendors: 0,
+      total_coupons: 0,
+      claimed_coupons: 0,
+      available_coupons: 0,
+      total_users: 0,
+      claims_this_month: 0,
+    }
+  }
 
   const claimedPercentage = analytics.total_coupons > 0
     ? (analytics.claimed_coupons / analytics.total_coupons) * 100

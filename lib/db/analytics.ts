@@ -8,33 +8,63 @@ import type {
 import { startOfMonth, format } from 'date-fns'
 
 export async function getAnalyticsOverview(): Promise<AnalyticsOverview> {
-  // Get counts in parallel
-  const [vendorsResult, couponsResult, usersResult, claimsResult, totalClaimsResult] =
-    await Promise.all([
-      supabaseAdmin.from('vendors').select('id', { count: 'exact' }),
-      supabaseAdmin.from('coupons').select('id', { count: 'exact' }),
-      supabaseAdmin.from('users').select('id', { count: 'exact' }),
-      supabaseAdmin
-        .from('claim_history')
-        .select('id', { count: 'exact' })
-        .gte('claimed_at', startOfMonth(new Date()).toISOString()),
-      supabaseAdmin.from('claim_history').select('id', { count: 'exact' }),
-    ])
+  try {
+    // Get counts in parallel
+    const [vendorsResult, couponsResult, usersResult, claimsResult, totalClaimsResult] =
+      await Promise.all([
+        supabaseAdmin.from('vendors').select('id', { count: 'exact' }),
+        supabaseAdmin.from('coupons').select('id', { count: 'exact' }),
+        supabaseAdmin.from('users').select('id', { count: 'exact' }),
+        supabaseAdmin
+          .from('claim_history')
+          .select('id', { count: 'exact' })
+          .gte('claimed_at', startOfMonth(new Date()).toISOString()),
+        supabaseAdmin.from('claim_history').select('id', { count: 'exact' }),
+      ])
 
-  const total_vendors = vendorsResult.count || 0
-  const total_coupons = couponsResult.count || 0
-  const claimed_coupons = totalClaimsResult.count || 0 // Total claims ever made
-  const available_coupons = total_coupons // All coupons are available (shared)
-  const total_users = usersResult.count || 0
-  const claims_this_month = claimsResult.count || 0
+    // Check for errors
+    if (vendorsResult.error) {
+      console.error('Error fetching vendors count:', vendorsResult.error)
+    }
+    if (couponsResult.error) {
+      console.error('Error fetching coupons count:', couponsResult.error)
+    }
+    if (usersResult.error) {
+      console.error('Error fetching users count:', usersResult.error)
+    }
+    if (claimsResult.error) {
+      console.error('Error fetching claims count:', claimsResult.error)
+    }
+    if (totalClaimsResult.error) {
+      console.error('Error fetching total claims count:', totalClaimsResult.error)
+    }
 
-  return {
-    total_vendors,
-    total_coupons,
-    claimed_coupons,
-    available_coupons,
-    total_users,
-    claims_this_month,
+    const total_vendors = vendorsResult.count || 0
+    const total_coupons = couponsResult.count || 0
+    const claimed_coupons = totalClaimsResult.count || 0 // Total claims ever made
+    const available_coupons = total_coupons // All coupons are available (shared)
+    const total_users = usersResult.count || 0
+    const claims_this_month = claimsResult.count || 0
+
+    return {
+      total_vendors,
+      total_coupons,
+      claimed_coupons,
+      available_coupons,
+      total_users,
+      claims_this_month,
+    }
+  } catch (error) {
+    console.error('Error in getAnalyticsOverview:', error)
+    // Return default values on error
+    return {
+      total_vendors: 0,
+      total_coupons: 0,
+      claimed_coupons: 0,
+      available_coupons: 0,
+      total_users: 0,
+      claims_this_month: 0,
+    }
   }
 }
 
