@@ -30,7 +30,7 @@
     "ioredis": "^5.8.2",
     "jsonwebtoken": "^9.0.3",
     "lucide-react": "^0.303.0",
-    "next": "^15.0.2",
+    "next": "^15.5.7",
     "next-auth": "^4.24.5",
     "papaparse": "^5.4.1",
     "react": "^18.3.1",
