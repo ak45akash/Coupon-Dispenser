@@ -30,8 +30,9 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { DeleteDialog, SuccessDialog, ErrorDialog } from '@/components/ui/dialog-helpers'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
 import Link from 'next/link'
-import { Copy, Check, Key, RefreshCw, AlertTriangle, Code, FileCode } from 'lucide-react'
+import { Copy, Check, Key, RefreshCw, AlertTriangle, Code, FileCode, Download, Sparkles } from 'lucide-react'
 
 export default function VendorProfilePage() {
   const params = useParams()
@@ -70,6 +71,16 @@ export default function VendorProfilePage() {
   const [selectedPlatform, setSelectedPlatform] = useState<'wordpress' | 'nodejs' | 'python'>('wordpress')
   const [copiedCodeIndex, setCopiedCodeIndex] = useState<number | null>(null)
 
+  // API key state
+  const [apiKey, setApiKey] = useState<string | null>(null)
+  const [showApiKey, setShowApiKey] = useState(false)
+  const [copiedApiKey, setCopiedApiKey] = useState(false)
+  const [generatingApiKey, setGeneratingApiKey] = useState(false)
+  const [selectedApiKeyPlatform, setSelectedApiKeyPlatform] = useState<'wordpress' | 'nodejs' | 'python'>('nodejs')
+
+  // Integration method tab
+  const [activeIntegrationTab, setActiveIntegrationTab] = useState<'wordpress' | 'api-key' | 'jwt'>('api-key')
+
   useEffect(() => {
     if (!session) {
       router.push('/login')
@@ -99,6 +110,8 @@ export default function VendorProfilePage() {
         setVendor(data.data)
         // Fetch partner secret status
         fetchPartnerSecretStatus()
+        // Fetch API key status
+        fetchApiKeyStatus()
       } else {
         setDialogMessage(data.error || 'Failed to fetch vendor information')
         setShowErrorDialog(true)
@@ -176,6 +189,58 @@ export default function VendorProfilePage() {
     }
   }
 
+  // API Key Management Functions
+  const fetchApiKeyStatus = async () => {
+    try {
+      const response = await fetch(`/api/vendors/${vendorId}/api-key`)
+      const data = await response.json()
+      if (data.success) {
+        // Track if API key exists (don't store the actual key until generated)
+        setApiKey(data.data.has_key ? 'exists' : null)
+      }
+    } catch (error) {
+      console.error('Error fetching API key status:', error)
+    }
+  }
+
+  const generateApiKey = async () => {
+    if (!confirm('Are you sure you want to generate a new API key? This will invalidate the old one and partners will need to update their code.')) {
+      return
+    }
+
+    setGeneratingApiKey(true)
+    try {
+      const response = await fetch(`/api/vendors/${vendorId}/api-key`, {
+        method: 'POST',
+      })
+      const data = await response.json()
+      
+      if (data.success) {
+        setApiKey(data.data.api_key)
+        setShowApiKey(true)
+        setDialogMessage('API key generated successfully! Make sure to copy it now - it will not be shown again.')
+        setShowSuccessDialog(true)
+      } else {
+        setDialogMessage(data.error || 'Failed to generate API key')
+        setShowErrorDialog(true)
+      }
+    } catch (error) {
+      console.error('Error generating API key:', error)
+      setDialogMessage('An error occurred while generating API key')
+      setShowErrorDialog(true)
+    } finally {
+      setGeneratingApiKey(false)
+    }
+  }
+
+  const copyApiKey = () => {
+    if (apiKey && apiKey !== 'exists') {
+      navigator.clipboard.writeText(apiKey)
+      setCopiedApiKey(true)
+      setTimeout(() => setCopiedApiKey(false), 2000)
+    }
+  }
+
   // Helper function to generate Python code with proper @ escaping
   const getPythonCode = () => {
     try {
@@ -213,6 +278,83 @@ def generate_coupon_token():
       console.error('Error generating Python code:', error)
       return `# Error generating code. Please check the console.`
     }
+  }
+
+  // Helper function to generate API Key Python code
+  const getApiKeyPythonCode = () => {
+    const apiKeyValue = apiKey && apiKey !== 'exists' ? apiKey : 'YOUR_API_KEY'
+    const vendor = vendorId || 'YOUR_VENDOR_ID'
+    const decorator = String.fromCharCode(64) // '@'
+    return `from flask import Flask, jsonify, request
+import requests
+
+VENDOR_ID = '${vendor}'
+API_KEY = '${apiKeyValue}'
+WIDGET_SESSION_URL = 'https://your-domain.com/api/widget-session'
+
+${decorator}app.route('/api/coupon-token', methods=['GET'])
+${decorator}require_auth
+def generate_coupon_token():
+    try:
+        # Get user ID from your authentication system
+        user_id = str(get_current_user().id)
+        # Or use email: user_email = get_current_user().email
+        
+        # Call our API to get widget session token
+        response = requests.post(WIDGET_SESSION_URL, json={
+            'api_key': API_KEY,
+            'vendor_id': VENDOR_ID,
+            'user_id': user_id,  # or 'user_email': user_email
+        })
+        
+        if response.status_code == 200:
+            data = response.json()
+            return jsonify({'token': data['data']['session_token']})
+        else:
+            return jsonify({'error': 'Failed to generate token'}), 500
+    except Exception as e:
+        return jsonify({'error': 'Failed to generate token'}), 500`
+  }
+
+  // Helper function to generate API Key Node.js code
+  const getApiKeyNodeCode = () => {
+    const apiKeyValue = apiKey && apiKey !== 'exists' ? apiKey : 'YOUR_API_KEY'
+    const vendor = vendorId || 'YOUR_VENDOR_ID'
+    return `const fetch = require('node-fetch'); // or use built-in fetch in Node 18+
+
+const VENDOR_ID = '${vendor}';
+const API_KEY = '${apiKeyValue}';
+const WIDGET_SESSION_URL = 'https://your-domain.com/api/widget-session';
+
+app.get('/api/coupon-token', authenticateUser, async (req, res) => {
+  try {
+    // Get user ID from your authentication system
+    const userId = req.user.id.toString();
+    // Or use email: const userEmail = req.user.email;
+    
+    // Call our API to get widget session token
+    const response = await fetch(WIDGET_SESSION_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        api_key: API_KEY,
+        vendor_id: VENDOR_ID,
+        user_id: userId,  // or user_email: userEmail
+      }),
+    });
+    
+    const data = await response.json();
+    
+    if (data.success) {
+      res.json({ token: data.data.session_token });
+    } else {
+      res.status(500).json({ error: 'Failed to generate token' });
+    }
+  } catch (error) {
+    console.error('Error generating coupon token:', error);
+    res.status(500).json({ error: 'Failed to generate token' });
+  }
+});`
   }
 
   const handleDelete = (coupon: Coupon) => {
@@ -374,139 +516,647 @@ def generate_coupon_token():
         </CardContent>
       </Card>
 
-      {/* Partner Secret Management */}
+      {/* Integration Methods - Tabbed Interface */}
       <Card className="mb-6">
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <CardTitle className="flex items-center gap-2">
-              <Key className="h-5 w-5" />
-              Partner Secret (for JWT Token Signing)
-            </CardTitle>
-            <Button
-              onClick={generatePartnerSecret}
-              variant="outline"
-              size="sm"
-              disabled={generatingSecret}
-            >
-              {generatingSecret ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
-                  Generating...
-                </>
-              ) : partnerSecret ? (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  Regenerate
-                </>
-              ) : (
-                <>
-                  <Key className="h-4 w-4 mr-2" />
-                  Generate Secret
-                </>
-              )}
-            </Button>
-          </div>
+          <CardTitle className="flex items-center gap-2">
+            <Code className="h-5 w-5" />
+            Integration Methods
+          </CardTitle>
           <CardDescription>
-            Partner secret is used to sign JWT tokens for widget authentication. Keep this secure and share only with the vendor.
+            Choose the integration method that best fits your partner&apos;s technical capabilities
           </CardDescription>
         </CardHeader>
         <CardContent>
-          {partnerSecret && partnerSecret !== 'exists' && showPartnerSecret ? (
-            <div className="space-y-4">
-              <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                <AlertTriangle className="h-5 w-5 text-yellow-600" />
-                <p className="text-sm text-yellow-800">
-                  <strong>Important:</strong> Copy this secret now. It will not be displayed again for security reasons.
-                </p>
-              </div>
-              <div className="flex items-center gap-2">
-                <code className="flex-1 p-3 bg-gray-100 rounded-lg font-mono text-sm break-all">
-                  {partnerSecret}
-                </code>
-                <Button
-                  onClick={copyPartnerSecret}
-                  variant="outline"
-                  size="sm"
-                >
-                  {copiedSecret ? (
-                    <>
-                      <Check className="h-4 w-4 mr-2" />
-                      Copied!
-                    </>
-                  ) : (
-                    <>
-                      <Copy className="h-4 w-4 mr-2" />
-                      Copy
-                    </>
-                  )}
-                </Button>
-              </div>
-            </div>
-          ) : partnerSecret === 'exists' ? (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                Partner secret is configured. Click &quot;Regenerate&quot; to create a new one (this will invalidate the old secret).
-              </p>
-              <Button
-                onClick={() => {
-                  if (confirm('This will show the current secret. Are you sure?')) {
-                    fetchPartnerSecretStatus()
-                  }
-                }}
-                variant="outline"
-                size="sm"
-              >
-                <Eye className="h-4 w-4 mr-2" />
-                View Secret (Last 4 chars only)
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
-                No partner secret configured. Generate one to enable partner token authentication.
-              </p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          <Tabs value={activeIntegrationTab} onValueChange={(value) => setActiveIntegrationTab(value as 'wordpress' | 'api-key' | 'jwt')}>
+            <TabsList className="grid w-full grid-cols-3">
+              <TabsTrigger value="wordpress">
+                <Sparkles className="h-4 w-4 mr-2" />
+                WordPress Plugin
+              </TabsTrigger>
+              <TabsTrigger value="api-key">
+                <Key className="h-4 w-4 mr-2" />
+                API Key Method
+              </TabsTrigger>
+              <TabsTrigger value="jwt">
+                <Code className="h-4 w-4 mr-2" />
+                JWT Method
+              </TabsTrigger>
+            </TabsList>
 
-      {/* Partner Integration Code Examples */}
-      {(partnerSecret && partnerSecret !== 'exists' && showPartnerSecret) || partnerSecret === 'exists' ? (
-        <Card className="mb-6">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <FileCode className="h-5 w-5" />
-              Integration Code Examples
-            </CardTitle>
-            <CardDescription>
-              Copy these code examples and share with your partner. Replace placeholders with actual values from above.
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            {/* Platform Selector */}
-            <div className="flex gap-2 border-b pb-4">
-              <Button
-                variant={selectedPlatform === 'wordpress' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedPlatform('wordpress')}
-              >
-                WordPress (PHP)
-              </Button>
-              <Button
-                variant={selectedPlatform === 'nodejs' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedPlatform('nodejs')}
-              >
-                Node.js / Express
-              </Button>
-              <Button
-                variant={selectedPlatform === 'python' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedPlatform('python')}
-              >
-                Python / Flask
-              </Button>
-            </div>
+            {/* Tab 1: WordPress Plugin */}
+            <TabsContent value="wordpress" className="space-y-4 mt-6">
+              <div className="bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg p-6">
+                <div className="flex items-start gap-4">
+                  <Sparkles className="h-8 w-8 text-blue-600 mt-1" />
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-blue-900 mb-2">WordPress Plugin - Zero Code Solution</h3>
+                    <p className="text-blue-800 mb-4">
+                      Perfect for WordPress users! Install our plugin and you&apos;re done. No coding required.
+                    </p>
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-2 text-sm text-blue-700">
+                        <Check className="h-4 w-4" />
+                        <span>Automatic user detection</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-blue-700">
+                        <Check className="h-4 w-4" />
+                        <span>One-click installation</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-sm text-blue-700">
+                        <Check className="h-4 w-4" />
+                        <span>Works with any WordPress theme</span>
+                      </div>
+                    </div>
+                    <div className="mt-4 pt-4 border-t border-blue-200">
+                      <p className="text-sm text-blue-600 mb-2">
+                        Download the plugin ZIP file pre-configured with your vendor ID and API key. Simply upload and activate in WordPress.
+                      </p>
+                      <Button 
+                        onClick={() => {
+                          window.location.href = `/api/vendors/${vendorId}/wordpress-plugin`
+                        }}
+                        variant="outline" 
+                        size="sm"
+                        disabled={!apiKey || apiKey === 'exists'}
+                      >
+                        <Download className="h-4 w-4 mr-2" />
+                        {(!apiKey || apiKey === 'exists') ? 'Generate API Key First' : 'Download Plugin'}
+                      </Button>
+                      {(!apiKey || apiKey === 'exists') && (
+                        <p className="text-xs text-blue-500 mt-2">
+                          You need to generate an API key first. Go to the &quot;API Key Method&quot; tab to generate one.
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Widget Embed Code - Coming Soon */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <FileCode className="h-5 w-5" />
+                    Widget Embed Code
+                  </CardTitle>
+                  <CardDescription>
+                    Once the WordPress plugin is available, you&apos;ll be able to embed the widget using a simple shortcode.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="bg-muted p-4 rounded-lg">
+                    <code className="text-sm font-mono">
+                      [coupon_widget vendor_id=&quot;{vendorId}&quot;]
+                    </code>
+                  </div>
+                  <p className="text-sm text-muted-foreground mt-3">
+                    <strong>Coming Soon:</strong> The WordPress plugin will handle all authentication and widget embedding automatically.
+                  </p>
+                </CardContent>
+              </Card>
+            </TabsContent>
+
+            {/* Tab 2: API Key Method */}
+            <TabsContent value="api-key" className="space-y-6 mt-6">
+              {/* API Key Management */}
+              <Card>
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-2">
+                      <Key className="h-5 w-5" />
+                      API Key (Simple Method)
+                    </CardTitle>
+                    <Button
+                      onClick={generateApiKey}
+                      variant="outline"
+                      size="sm"
+                      disabled={generatingApiKey}
+                    >
+                      {generatingApiKey ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                          Generating...
+                        </>
+                      ) : apiKey ? (
+                        <>
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Regenerate
+                        </>
+                      ) : (
+                        <>
+                          <Key className="h-4 w-4 mr-2" />
+                          Generate API Key
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  <CardDescription>
+                    API key is used for simple widget authentication. Partners make a backend call instead of signing JWT tokens. Keep this secure.
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  {apiKey && apiKey !== 'exists' && showApiKey ? (
+                    <div className="space-y-4">
+                      <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                        <p className="text-sm text-yellow-800">
+                          <strong>Important:</strong> Copy this API key now. It will not be displayed again for security reasons.
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <code className="flex-1 p-3 bg-gray-100 rounded-lg font-mono text-sm break-all">
+                          {apiKey}
+                        </code>
+                        <Button
+                          onClick={copyApiKey}
+                          variant="outline"
+                          size="sm"
+                        >
+                          {copiedApiKey ? (
+                            <>
+                              <Check className="h-4 w-4 mr-2" />
+                              Copied!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-4 w-4 mr-2" />
+                              Copy
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  ) : apiKey === 'exists' ? (
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">
+                        API key is configured. Click &quot;Regenerate&quot; to create a new one (this will invalidate the old key).
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <p className="text-sm text-muted-foreground">
+                        No API key configured. Generate one to enable simple API key authentication.
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* API Key Code Examples */}
+              {apiKey && (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileCode className="h-5 w-5" />
+                      Integration Code Examples
+                    </CardTitle>
+                    <CardDescription>
+                      Copy these code examples for the simple API key method. Your backend makes a direct API call instead of signing JWT tokens.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Platform Selector */}
+                    <div className="flex gap-2 border-b pb-4">
+                      <Button
+                        variant={selectedApiKeyPlatform === 'wordpress' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedApiKeyPlatform('wordpress')}
+                      >
+                        WordPress (PHP)
+                      </Button>
+                      <Button
+                        variant={selectedApiKeyPlatform === 'nodejs' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedApiKeyPlatform('nodejs')}
+                      >
+                        Node.js / Express
+                      </Button>
+                      <Button
+                        variant={selectedApiKeyPlatform === 'python' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedApiKeyPlatform('python')}
+                      >
+                        Python / Flask
+                      </Button>
+                    </div>
+
+                    {/* WordPress Code Example */}
+                    {selectedApiKeyPlatform === 'wordpress' && (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold mb-1">WordPress Integration (API Key Method)</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Add this to your theme&apos;s <code className="bg-muted px-1 rounded">functions.php</code> file
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const apiKeyValue = apiKey && apiKey !== 'exists' ? apiKey : 'YOUR_API_KEY'
+                              const vendorIdValue = vendorId || 'YOUR_VENDOR_ID'
+                              const widgetSessionUrl = typeof window !== 'undefined' ? `${window.location.origin}/api/widget-session` : 'https://your-domain.com/api/widget-session'
+                              const code = `<?php
+/**
+ * Coupon Widget Token Generator - API Key Method
+ * Add this to your theme's functions.php file
+ */
+
+function generate_coupon_widget_token() {
+    // Configuration
+    $vendor_id = '${vendorIdValue}';
+    $api_key = '${apiKeyValue}';
+    $widget_session_url = '${widgetSessionUrl}';
+    
+    // Only generate token for logged-in users
+    if (!is_user_logged_in()) {
+        return;
+    }
+    
+    $user_id = get_current_user_id();
+    
+    // Call our API to get widget session token
+    $response = wp_remote_post($widget_session_url, [
+        'headers' => ['Content-Type' => 'application/json'],
+        'body' => json_encode([
+            'api_key' => $api_key,
+            'vendor_id' => $vendor_id,
+            'user_id' => (string)$user_id,
+        ]),
+    ]);
+    
+    if (is_wp_error($response)) {
+        error_log('Coupon widget token generation failed: ' . $response->get_error_message());
+        return;
+    }
+    
+    $body = wp_remote_retrieve_body($response);
+    $data = json_decode($body, true);
+    
+    if (isset($data['success']) && $data['success'] && isset($data['data']['session_token'])) {
+        $token = $data['data']['session_token'];
+        
+        // Send token to widget
+        echo '<script>';
+        echo 'if (typeof window.sendCouponToken === "function") {';
+        echo '  window.sendCouponToken("' . esc_js($token) . '");';
+        echo '}';
+        echo '</script>';
+    }
+}
+
+// Hook into wp_footer to inject token
+add_action('wp_footer', 'generate_coupon_widget_token');`
+                              navigator.clipboard.writeText(code)
+                              setCopiedCodeIndex(0)
+                              setTimeout(() => setCopiedCodeIndex(null), 2000)
+                            }}
+                          >
+                            {copiedCodeIndex === 0 ? (
+                              <>
+                                <Check className="h-4 w-4 mr-2" />
+                                Copied!
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-4 w-4 mr-2" />
+                                Copy Code
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                        <div className="bg-muted p-4 rounded-lg overflow-x-auto">
+                          <pre className="text-xs font-mono">
+                            <code>{`<?php
+function generate_coupon_widget_token() {
+    $vendor_id = '${vendorId}';
+    $api_key = '${apiKey && apiKey !== 'exists' ? apiKey : 'YOUR_API_KEY'}';
+    $widget_session_url = '${typeof window !== 'undefined' ? `${window.location.origin}/api/widget-session` : 'https://your-domain.com/api/widget-session'}';
+    
+    if (!is_user_logged_in()) return;
+    
+    $user_id = get_current_user_id();
+    
+    $response = wp_remote_post($widget_session_url, [
+        'headers' => ['Content-Type' => 'application/json'],
+        'body' => json_encode([
+            'api_key' => $api_key,
+            'vendor_id' => $vendor_id,
+            'user_id' => (string)$user_id,
+        ]),
+    ]);
+    
+    if (is_wp_error($response)) return;
+    
+    $data = json_decode(wp_remote_retrieve_body($response), true);
+    
+    if (isset($data['success']) && $data['success']) {
+        $token = $data['data']['session_token'];
+        echo '<script>';
+        echo 'if (typeof window.sendCouponToken === "function") {';
+        echo '  window.sendCouponToken("' . esc_js($token) . '");';
+        echo '}';
+        echo '</script>';
+    }
+}
+
+add_action('wp_footer', 'generate_coupon_widget_token');`}</code>
+                          </pre>
+                        </div>
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                          <p className="font-semibold text-blue-900 mb-1">Installation Steps:</p>
+                          <ol className="list-decimal list-inside space-y-1 text-blue-800">
+                            <li>Copy the code above to your theme&apos;s <code className="bg-blue-100 px-1 rounded">functions.php</code></li>
+                            <li>Replace <code className="bg-blue-100 px-1 rounded">YOUR_API_KEY</code> with your API key from above</li>
+                            <li>Embed the widget script on pages where you want coupons displayed</li>
+                          </ol>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Node.js Code Example */}
+                    {selectedApiKeyPlatform === 'nodejs' && (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold mb-1">Node.js / Express Integration (API Key Method)</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Add this route to your Express application
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const code = getApiKeyNodeCode()
+                              navigator.clipboard.writeText(code)
+                              setCopiedCodeIndex(1)
+                              setTimeout(() => setCopiedCodeIndex(null), 2000)
+                            }}
+                          >
+                            {copiedCodeIndex === 1 ? (
+                              <>
+                                <Check className="h-4 w-4 mr-2" />
+                                Copied!
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-4 w-4 mr-2" />
+                                Copy Code
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                        <div className="bg-muted p-4 rounded-lg overflow-x-auto">
+                          <pre className="text-xs font-mono">
+                            <code>{getApiKeyNodeCode()}</code>
+                          </pre>
+                        </div>
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                          <p className="font-semibold text-blue-900 mb-1">Installation Steps:</p>
+                          <ol className="list-decimal list-inside space-y-1 text-blue-800">
+                            <li>Install node-fetch (or use built-in fetch in Node 18+): <code className="bg-blue-100 px-1 rounded">npm install node-fetch</code></li>
+                            <li>Add the route to your Express app</li>
+                            <li>Replace <code className="bg-blue-100 px-1 rounded">authenticateUser</code> with your auth middleware</li>
+                            <li>Add the frontend code to load the token when page loads</li>
+                          </ol>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Python Code Example */}
+                    {selectedApiKeyPlatform === 'python' && (
+                      <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <h4 className="font-semibold mb-1">Python / Flask Integration (API Key Method)</h4>
+                            <p className="text-sm text-muted-foreground">
+                              Add this route to your Flask application
+                            </p>
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                              const code = getApiKeyPythonCode()
+                              navigator.clipboard.writeText(code)
+                              setCopiedCodeIndex(2)
+                              setTimeout(() => setCopiedCodeIndex(null), 2000)
+                            }}
+                          >
+                            {copiedCodeIndex === 2 ? (
+                              <>
+                                <Check className="h-4 w-4 mr-2" />
+                                Copied!
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-4 w-4 mr-2" />
+                                Copy Code
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                        <div className="bg-muted p-4 rounded-lg overflow-x-auto">
+                          <pre className="text-xs font-mono">
+                            <code>{getApiKeyPythonCode()}</code>
+                          </pre>
+                        </div>
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
+                          <p className="font-semibold text-blue-900 mb-1">Installation Steps:</p>
+                          <ol className="list-decimal list-inside space-y-1 text-blue-800">
+                            <li>Install requests: <code className="bg-blue-100 px-1 rounded">pip install requests</code></li>
+                            <li>Add the route to your Flask app</li>
+                            <li>Replace <code className="bg-blue-100 px-1 rounded">{'@'}require_auth</code> with your auth decorator</li>
+                            <li>Add frontend JavaScript to load token when page loads</li>
+                          </ol>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Widget Embed Code */}
+                    <div className="border-t pt-4 mt-4">
+                      <h4 className="font-semibold mb-2">Widget Embed Code</h4>
+                      <p className="text-sm text-muted-foreground mb-3">
+                        Add this to your HTML pages where you want the coupon widget to appear. Replace <code className="bg-muted px-1 rounded">YOUR_API_ENDPOINT</code> with your backend endpoint that calls our API:
+                      </p>
+                      <div className="flex items-center gap-2 mb-2">
+                        <code className="flex-1 p-3 bg-muted rounded-lg font-mono text-xs break-all">
+                          {`<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'}/widget-embed.js"></script>
+<div id="coupon-widget" 
+     data-vendor-id="${vendorId}"
+     data-api-key-endpoint="https://your-site.com/api/coupon-token">
+</div>`}
+                        </code>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const code = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'}/widget-embed.js"></script>
+<div id="coupon-widget" 
+     data-vendor-id="${vendorId}"
+     data-api-key-endpoint="https://your-site.com/api/coupon-token">
+</div>`
+                            navigator.clipboard.writeText(code)
+                            setCopiedCodeIndex(3)
+                            setTimeout(() => setCopiedCodeIndex(null), 2000)
+                          }}
+                        >
+                          {copiedCodeIndex === 3 ? (
+                            <>
+                              <Check className="h-4 w-4 mr-2" />
+                              Copied!
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="h-4 w-4 mr-2" />
+                              Copy
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm mt-3">
+                        <p className="font-semibold text-blue-900 mb-1">How it works:</p>
+                        <ol className="list-decimal list-inside space-y-1 text-blue-800">
+                          <li>Widget automatically calls your backend endpoint (<code className="bg-blue-100 px-1 rounded">data-api-key-endpoint</code>)</li>
+                          <li>Your backend authenticates the user and calls our <code className="bg-blue-100 px-1 rounded">/api/widget-session</code> endpoint</li>
+                          <li>Your backend returns the widget session token to the widget</li>
+                          <li>Widget uses the token to authenticate all API calls</li>
+                        </ol>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </TabsContent>
+
+            {/* Tab 3: JWT Method */}
+            <TabsContent value="jwt" className="space-y-6 mt-6">
+              {/* Partner Secret Management */}
+              {(partnerSecret && partnerSecret !== 'exists' && showPartnerSecret) || partnerSecret === 'exists' ? (
+                <Card>
+                  <CardHeader>
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="flex items-center gap-2">
+                        <Key className="h-5 w-5" />
+                        Partner Secret (JWT Method)
+                      </CardTitle>
+                      <Button
+                        onClick={generatePartnerSecret}
+                        variant="outline"
+                        size="sm"
+                        disabled={generatingSecret}
+                      >
+                        {generatingSecret ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                            Generating...
+                          </>
+                        ) : partnerSecret ? (
+                          <>
+                            <RefreshCw className="h-4 w-4 mr-2" />
+                            Regenerate
+                          </>
+                        ) : (
+                          <>
+                            <Key className="h-4 w-4 mr-2" />
+                            Generate Partner Secret
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <CardDescription>
+                      Partner secret is used for JWT token signing. Partners sign tokens with this secret on their backend. Keep this secure.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {partnerSecret && partnerSecret !== 'exists' && showPartnerSecret ? (
+                      <div className="space-y-4">
+                        <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                          <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                          <p className="text-sm text-yellow-800">
+                            <strong>Important:</strong> Copy this partner secret now. It will not be displayed again for security reasons.
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <code className="flex-1 p-3 bg-gray-100 rounded-lg font-mono text-sm break-all">
+                            {partnerSecret}
+                          </code>
+                          <Button
+                            onClick={copyPartnerSecret}
+                            variant="outline"
+                            size="sm"
+                          >
+                            {copiedSecret ? (
+                              <>
+                                <Check className="h-4 w-4 mr-2" />
+                                Copied!
+                              </>
+                            ) : (
+                              <>
+                                <Copy className="h-4 w-4 mr-2" />
+                                Copy
+                              </>
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    ) : partnerSecret === 'exists' ? (
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">
+                          Partner secret is configured. Click &quot;Regenerate&quot; to create a new one (this will invalidate the old secret).
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">
+                          No partner secret configured. Generate one to enable JWT token authentication.
+                        </p>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ) : null}
+
+              {/* JWT Code Examples */}
+              {(partnerSecret && partnerSecret !== 'exists' && showPartnerSecret) || partnerSecret === 'exists' ? (
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2">
+                      <FileCode className="h-5 w-5" />
+                      Integration Code Examples
+                    </CardTitle>
+                    <CardDescription>
+                      Copy these code examples and share with your partner. Replace placeholders with actual values from above.
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Platform Selector */}
+                    <div className="flex gap-2 border-b pb-4">
+                      <Button
+                        variant={selectedPlatform === 'wordpress' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedPlatform('wordpress')}
+                      >
+                        WordPress (PHP)
+                      </Button>
+                      <Button
+                        variant={selectedPlatform === 'nodejs' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedPlatform('nodejs')}
+                      >
+                        Node.js / Express
+                      </Button>
+                      <Button
+                        variant={selectedPlatform === 'python' ? 'default' : 'outline'}
+                        size="sm"
+                        onClick={() => setSelectedPlatform('python')}
+                      >
+                        Python / Flask
+                      </Button>
+                    </div>
 
             {/* WordPress Code Example */}
             {selectedPlatform === 'wordpress' && (
@@ -814,19 +1464,43 @@ app.get('/api/coupon-token', authenticateUser, (req, res) => {
             <div className="border-t pt-4 mt-4">
               <h4 className="font-semibold mb-2">Widget Embed Code</h4>
               <p className="text-sm text-muted-foreground mb-3">
-                Add this to your HTML pages where you want the coupon widget to appear:
+                Add this to your HTML pages. After your backend generates the JWT token, call <code className="bg-muted px-1 rounded">window.sendCouponToken()</code> to authenticate:
               </p>
               <div className="flex items-center gap-2 mb-2">
-                <code className="flex-1 p-3 bg-muted rounded-lg font-mono text-xs">
+                <code className="flex-1 p-3 bg-muted rounded-lg font-mono text-xs break-all">
                   {`<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'}/widget-embed.js"></script>
-<div id="coupon-widget" data-vendor-id="${vendorId}"></div>`}
+<div id="coupon-widget" data-vendor-id="${vendorId}"></div>
+
+<!-- After your backend generates JWT token: -->
+<script>
+  // Example: Fetch token from your backend endpoint
+  fetch('/api/coupon-token')
+    .then(response => response.json())
+    .then(data => {
+      if (data.token) {
+        window.sendCouponToken(data.token);
+      }
+    });
+</script>`}
                 </code>
                 <Button
                   variant="outline"
                   size="sm"
                   onClick={() => {
                     const code = `<script src="${typeof window !== 'undefined' ? window.location.origin : 'https://your-domain.com'}/widget-embed.js"></script>
-<div id="coupon-widget" data-vendor-id="${vendorId}"></div>`
+<div id="coupon-widget" data-vendor-id="${vendorId}"></div>
+
+<!-- After your backend generates JWT token: -->
+<script>
+  // Example: Fetch token from your backend endpoint
+  fetch('/api/coupon-token')
+    .then(response => response.json())
+    .then(data => {
+      if (data.token) {
+        window.sendCouponToken(data.token);
+      }
+    });
+</script>`
                     navigator.clipboard.writeText(code)
                     setCopiedCodeIndex(3)
                     setTimeout(() => setCopiedCodeIndex(null), 2000)
@@ -845,10 +1519,24 @@ app.get('/api/coupon-token', authenticateUser, (req, res) => {
                   )}
                 </Button>
               </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm mt-3">
+                <p className="font-semibold text-blue-900 mb-1">How it works:</p>
+                <ol className="list-decimal list-inside space-y-1 text-blue-800">
+                  <li>Include the widget script and container div</li>
+                  <li>Your backend generates a JWT token using the Partner Secret (see code examples above)</li>
+                  <li>Call <code className="bg-blue-100 px-1 rounded">window.sendCouponToken(jwtToken)</code> to authenticate</li>
+                  <li>Widget automatically exchanges the JWT token for a widget session token</li>
+                  <li>Widget uses the session token for all API calls</li>
+                </ol>
+              </div>
             </div>
-          </CardContent>
-        </Card>
-      ) : null}
+                  </CardContent>
+                </Card>
+              ) : null}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
 
       {/* Coupon Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">

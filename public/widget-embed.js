@@ -3,7 +3,26 @@
  * 
  * Card-based coupon widget for partner websites
  * 
- * Usage:
+ * Usage - JWT Method (Advanced):
+ * <script src="https://your-domain.com/widget-embed.js"></script>
+ * <div id="coupon-widget" 
+ *      data-vendor-id="VENDOR_ID" 
+ *      data-theme="light">
+ * </div>
+ * <script>
+ *   // Partner's backend generates JWT token and calls:
+ *   window.sendCouponToken('partner_jwt_token_here');
+ * </script>
+ * 
+ * Usage - API Key Method (Simple):
+ * <script src="https://your-domain.com/widget-embed.js"></script>
+ * <div id="coupon-widget" 
+ *      data-vendor-id="VENDOR_ID"
+ *      data-api-key-endpoint="https://partner-site.com/api/coupon-token"
+ *      data-theme="light">
+ * </div>
+ * 
+ * Legacy Usage (Backward Compatible):
  * <script src="https://your-domain.com/widget-embed.js"></script>
  * <div id="coupon-widget" 
  *      data-vendor-id="VENDOR_ID" 
@@ -323,6 +342,68 @@
     }
   }
 
+  /**
+   * Fetch widget session token from partner's backend (API Key Method)
+   * Partner's backend endpoint should return { token: "widget_session_token" }
+   * The partner's backend calls our /api/widget-session endpoint internally
+   */
+  async function fetchWidgetSessionFromApiKey(apiKeyEndpoint, instanceId) {
+    try {
+      if (!apiKeyEndpoint) {
+        throw new Error('API key endpoint URL is required')
+      }
+
+      console.log('CouponWidget: Fetching widget session token from partner backend:', apiKeyEndpoint)
+
+      const response = await fetch(apiKeyEndpoint, {
+        method: 'GET',
+        headers: { 
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for partner's auth
+        mode: 'cors',
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`)
+      }
+
+      const data = await response.json()
+      
+      // Partner's endpoint should return { token: "..." } or { data: { session_token: "..." } }
+      let widgetSessionToken = null
+      
+      if (data.token) {
+        widgetSessionToken = data.token
+      } else if (data.data && data.data.session_token) {
+        widgetSessionToken = data.data.session_token
+      } else if (data.session_token) {
+        widgetSessionToken = data.session_token
+      } else {
+        throw new Error('Invalid response format: token not found in partner endpoint response')
+      }
+
+      if (!widgetSessionToken) {
+        throw new Error('Widget session token not found in partner endpoint response')
+      }
+
+      // Store widget session token
+      widgetSessionTokens.set(instanceId, widgetSessionToken)
+      
+      console.log('CouponWidget: Successfully fetched widget session token from partner backend')
+      
+      return {
+        session_token: widgetSessionToken,
+        user_id: null, // User ID is managed by widget session token
+        vendor_id: null, // Vendor ID is managed by widget session token
+      }
+    } catch (error) {
+      console.error('CouponWidget: Error fetching widget session from API key endpoint:', error)
+      throw error
+    }
+  }
+
   async function fetchCouponsData(vendorId, userId, previewMode = false, retries = 0, widgetSessionToken = null) {
     // Preview mode: return mock data without making API call
     if (previewMode || userId === 'PREVIEW_MODE_USER_ID') {
@@ -518,6 +599,7 @@
         theme: config.theme || 'light',
         containerId: config.containerId || 'coupon-widget',
         previewMode: config.previewMode || false, // Preview mode for testing
+        apiKeyEndpoint: config.apiKeyEndpoint || null, // Partner's backend endpoint for API key method
       }
 
       this.state = {
@@ -528,7 +610,7 @@
         errors: new Map(), // couponId -> error message
         hasActiveClaim: false,
         activeClaimExpiry: null,
-        widgetSessionToken: null, // Widget session token from partner token
+        widgetSessionToken: null, // Widget session token from partner token or API key endpoint
       }
 
       this.container = null
@@ -567,7 +649,7 @@
       return anonymousId
     }
 
-    init() {
+    async init() {
       this.container = document.getElementById(this.config.containerId)
       if (!this.container) {
         console.error(`CouponWidget: Container #${this.config.containerId} not found`)
@@ -576,6 +658,17 @@
 
       injectStyles()
       this.render()
+
+      // If API key endpoint is configured, fetch token first
+      if (this.config.apiKeyEndpoint) {
+        try {
+          await this.fetchTokenFromApiKeyEndpoint()
+        } catch (error) {
+          // Error already handled in fetchTokenFromApiKeyEndpoint
+          return
+        }
+      }
+
       this.loadData()
     }
 
@@ -597,6 +690,31 @@
         this.setState({ 
           loading: false, 
           error: `Failed to authenticate: ${error.message}` 
+        })
+        throw error
+      }
+    }
+
+    /**
+     * Fetch widget session token from partner's backend (API Key Method)
+     * Automatically called during initialization if apiKeyEndpoint is configured
+     */
+    async fetchTokenFromApiKeyEndpoint() {
+      if (!this.config.apiKeyEndpoint) {
+        return null
+      }
+
+      try {
+        const sessionData = await fetchWidgetSessionFromApiKey(this.config.apiKeyEndpoint, this.instanceId)
+        this.state.widgetSessionToken = sessionData.session_token
+        
+        console.log('CouponWidget: Successfully fetched widget session token via API key method')
+        return sessionData
+      } catch (error) {
+        console.error('CouponWidget: Error fetching token from API key endpoint:', error)
+        this.setState({ 
+          loading: false, 
+          error: `Failed to authenticate via API key: ${error.message}` 
         })
         throw error
       }
@@ -1130,6 +1248,7 @@
         // Use data attribute if provided, otherwise try auto-detection
         let userId = container.getAttribute('data-user-id') || autoDetectedUserId
         const theme = container.getAttribute('data-theme') || 'light'
+        const apiKeyEndpoint = container.getAttribute('data-api-key-endpoint') || null
         const containerId = container.id || `coupon-widget-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
 
         if (!vendorId) {
@@ -1156,6 +1275,7 @@
           userId: userId || undefined, // Will use anonymous ID if not provided
           theme,
           containerId,
+          apiKeyEndpoint: apiKeyEndpoint || undefined, // API Key method endpoint
         })
 
         widgetState.instances.set(containerId, instance)

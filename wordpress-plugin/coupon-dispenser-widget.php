@@ -1,0 +1,242 @@
+<?php
+/**
+ * Plugin Name: Coupon Dispenser Widget
+ * Plugin URI: https://your-domain.com
+ * Description: Embed coupon widgets from Coupon Dispenser platform. Zero-code integration for WordPress.
+ * Version: 1.0.0
+ * Author: Coupon Dispenser
+ * Author URI: https://your-domain.com
+ * Text Domain: coupon-dispenser-widget
+ * Domain Path: /languages
+ * Requires at least: 5.0
+ * Requires PHP: 7.4
+ * License: GPL v2 or later
+ * License URI: https://www.gnu.org/licenses/gpl-2.0.html
+ */
+
+// Exit if accessed directly
+if (!defined('ABSPATH')) {
+    exit;
+}
+
+// Plugin constants
+define('CDW_VERSION', '1.0.0');
+define('CDW_PLUGIN_DIR', plugin_dir_path(__FILE__));
+define('CDW_PLUGIN_URL', plugin_dir_url(__FILE__));
+define('CDW_PLUGIN_BASENAME', plugin_basename(__FILE__));
+
+// Vendor configuration (pre-configured from dashboard)
+// These values are set during plugin ZIP generation
+// PLUGIN_CONFIG_VENDOR_ID and PLUGIN_CONFIG_API_KEY are replaced during ZIP generation
+if (!defined('CDW_VENDOR_ID')) {
+    define('CDW_VENDOR_ID', get_option('cdw_vendor_id', 'PLUGIN_CONFIG_VENDOR_ID'));
+}
+if (!defined('CDW_API_KEY')) {
+    define('CDW_API_KEY', get_option('cdw_api_key', 'PLUGIN_CONFIG_API_KEY'));
+}
+if (!defined('CDW_API_BASE_URL')) {
+    define('CDW_API_BASE_URL', get_option('cdw_api_base_url', 'PLUGIN_CONFIG_API_BASE_URL'));
+}
+
+/**
+ * Main plugin class
+ */
+class Coupon_Dispenser_Widget {
+    
+    private static $instance = null;
+    
+    public static function get_instance() {
+        if (null === self::$instance) {
+            self::$instance = new self();
+        }
+        return self::$instance;
+    }
+    
+    private function __construct() {
+        // Initialize plugin
+        add_action('plugins_loaded', array($this, 'init'));
+    }
+    
+    public function init() {
+        // Load plugin textdomain for translations
+        load_plugin_textdomain('coupon-dispenser-widget', false, dirname(CDW_PLUGIN_BASENAME) . '/languages');
+        
+        // Include required files
+        $this->includes();
+        
+        // Initialize components
+        $this->init_components();
+    }
+    
+    private function includes() {
+        require_once CDW_PLUGIN_DIR . 'includes/class-settings.php';
+        require_once CDW_PLUGIN_DIR . 'includes/class-shortcode.php';
+        require_once CDW_PLUGIN_DIR . 'includes/class-widget-render.php';
+    }
+    
+    private function init_components() {
+        // Initialize settings page
+        if (is_admin()) {
+            Coupon_Dispenser_Settings::get_instance();
+        }
+        
+        // Initialize shortcode
+        Coupon_Dispenser_Shortcode::get_instance();
+        
+        // Enqueue scripts
+        add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
+        
+        // Register REST API endpoint for widget session token
+        add_action('rest_api_init', array($this, 'register_rest_routes'));
+    }
+    
+    /**
+     * Enqueue widget script on frontend
+     */
+    public function enqueue_scripts() {
+        // Only enqueue if shortcode is used or setting is enabled
+        $api_base_url = CDW_API_BASE_URL;
+        $widget_script_url = $api_base_url . '/widget-embed.js';
+        
+        // Enqueue widget script
+        wp_enqueue_script(
+            'coupon-dispenser-widget',
+            $widget_script_url,
+            array(),
+            CDW_VERSION,
+            true
+        );
+        
+        // Add inline script to configure API base URL
+        wp_add_inline_script('coupon-dispenser-widget', 
+            "window.COUPON_WIDGET_API_URL = '" . esc_js($api_base_url) . "';",
+            'before'
+        );
+    }
+    
+    /**
+     * Register REST API routes
+     */
+    public function register_rest_routes() {
+        register_rest_route('coupon-dispenser/v1', '/token', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'get_widget_session_token'),
+            'permission_callback' => '__return_true', // Public endpoint, but validates user internally
+        ));
+    }
+    
+    /**
+     * Generate widget session token via API key method
+     * Called by widget to authenticate WordPress users
+     */
+    public function get_widget_session_token($request) {
+        // Check if user is logged in
+        if (!is_user_logged_in()) {
+            return new WP_Error(
+                'not_logged_in',
+                'User must be logged in to access coupons',
+                array('status' => 401)
+            );
+        }
+        
+        $vendor_id = CDW_VENDOR_ID;
+        $api_key = CDW_API_KEY;
+        
+        // Validate configuration
+        if (empty($vendor_id) || empty($api_key)) {
+            return new WP_Error(
+                'not_configured',
+                'Plugin is not configured. Please set vendor ID and API key in settings.',
+                array('status' => 500)
+            );
+        }
+        
+        // Get WordPress user ID
+        $user_id = get_current_user_id();
+        
+        // Call our API to get widget session token
+        $api_url = CDW_API_BASE_URL . '/api/widget-session';
+        
+        $response = wp_remote_post($api_url, array(
+            'headers' => array(
+                'Content-Type' => 'application/json',
+            ),
+            'body' => json_encode(array(
+                'api_key' => $api_key,
+                'vendor_id' => $vendor_id,
+                'user_id' => (string)$user_id,
+            )),
+            'timeout' => 10,
+        ));
+        
+        if (is_wp_error($response)) {
+            return new WP_Error(
+                'api_error',
+                'Failed to connect to Coupon Dispenser API: ' . $response->get_error_message(),
+                array('status' => 500)
+            );
+        }
+        
+        $response_code = wp_remote_retrieve_response_code($response);
+        $response_body = wp_remote_retrieve_body($response);
+        $data = json_decode($response_body, true);
+        
+        if ($response_code !== 200) {
+            $error_message = isset($data['error']) ? $data['error'] : 'Failed to generate widget session token';
+            return new WP_Error(
+                'api_error',
+                $error_message,
+                array('status' => $response_code)
+            );
+        }
+        
+        if (!isset($data['success']) || !$data['success']) {
+            return new WP_Error(
+                'api_error',
+                isset($data['error']) ? $data['error'] : 'Failed to generate widget session token',
+                array('status' => 500)
+            );
+        }
+        
+        // Return widget session token
+        return rest_ensure_response(array(
+            'token' => $data['data']['session_token'],
+        ));
+    }
+}
+
+/**
+ * Initialize plugin
+ */
+function coupon_dispenser_widget_init() {
+    return Coupon_Dispenser_Widget::get_instance();
+}
+
+// Start the plugin
+add_action('init', 'coupon_dispenser_widget_init');
+
+/**
+ * Activation hook
+ */
+register_activation_hook(__FILE__, 'cdw_activate');
+function cdw_activate() {
+    // Set default options if not set (pre-configured from dashboard)
+    if (!get_option('cdw_vendor_id') && defined('CDW_VENDOR_ID') && CDW_VENDOR_ID !== 'PLUGIN_CONFIG_VENDOR_ID') {
+        update_option('cdw_vendor_id', CDW_VENDOR_ID);
+    }
+    if (!get_option('cdw_api_key') && defined('CDW_API_KEY') && CDW_API_KEY !== 'PLUGIN_CONFIG_API_KEY') {
+        update_option('cdw_api_key', CDW_API_KEY);
+    }
+    if (!get_option('cdw_api_base_url') && defined('CDW_API_BASE_URL') && CDW_API_BASE_URL !== 'PLUGIN_CONFIG_API_BASE_URL') {
+        update_option('cdw_api_base_url', CDW_API_BASE_URL);
+    }
+}
+
+/**
+ * Deactivation hook
+ */
+register_deactivation_hook(__FILE__, 'cdw_deactivate');
+function cdw_deactivate() {
+    // Cleanup if needed
+}
+

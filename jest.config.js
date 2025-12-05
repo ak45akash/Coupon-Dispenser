@@ -19,6 +19,12 @@ const customJestConfig = {
     '!**/.next/**',
     '!**/coverage/**',
   ],
+  testPathIgnorePatterns: [
+    '/node_modules/',
+    '/.next/',
+    '/coverage/',
+    '._', // Ignore macOS system files
+  ],
   coverageThreshold: {
     global: {
       branches: 90,
