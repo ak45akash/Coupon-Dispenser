@@ -3,7 +3,7 @@ import { z } from 'zod'
 export const createCouponSchema = z.object({
   vendor_id: z.string().uuid('Invalid vendor ID'),
   code: z.string().min(1, 'Code is required').max(100),
-  description: z.string().min(1, 'Description is required').max(500),
+  description: z.string().max(500).optional(),
   discount_value: z.string().max(100).optional(),
   expiry_date: z.string().datetime('Invalid expiry date format').optional(),
 })
@@ -13,8 +13,8 @@ export const bulkCreateCouponsSchema = z.object({
   coupons: z.array(
     z.object({
       code: z.string().min(1, 'Code is required').max(100),
-      description: z.string().min(1, 'Description is required').max(500),
-      discount_value: z.string().max(100).optional(),
+      description: z.string().max(500).optional().transform((val) => val === '' ? undefined : val),
+      discount_value: z.string().max(100).optional().transform((val) => val === '' ? undefined : val),
       expiry_date: z.string().datetime('Invalid expiry date format').optional(),
     })
   ).min(1, 'At least one coupon is required'),

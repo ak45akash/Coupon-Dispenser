@@ -67,7 +67,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const body = await request.json()
+    let body = await request.json()
+
+    // Convert empty strings to undefined for optional fields
+    if (body.description === '') body.description = undefined
+    if (body.discount_value === '') body.discount_value = undefined
+    if (body.expiry_date === '') body.expiry_date = undefined
 
     // If partner admin, ensure they can only create coupons for their vendor
     if (isPartnerAdmin(session.user.role)) {
@@ -104,6 +109,13 @@ export async function POST(request: NextRequest) {
 
     // Check if it's a bulk create or single create
     if (body.coupons && Array.isArray(body.coupons)) {
+      // Convert empty strings to undefined for optional fields in bulk create
+      body.coupons = body.coupons.map((coupon: any) => ({
+        ...coupon,
+        description: coupon.description === '' ? undefined : coupon.description,
+        discount_value: coupon.discount_value === '' ? undefined : coupon.discount_value,
+        expiry_date: coupon.expiry_date === '' ? undefined : coupon.expiry_date,
+      }))
       const validatedData = bulkCreateCouponsSchema.parse(body)
       const coupons = await bulkCreateCoupons(validatedData, session.user.id)
 

@@ -31,7 +31,7 @@ const navItems: NavItem[] = [
     name: 'Dashboard',
     href: '/dashboard',
     icon: LayoutDashboard,
-    roles: ['super_admin', 'partner_admin', 'user'],
+    roles: ['super_admin'],
   },
   {
     name: 'Vendors',
@@ -40,7 +40,7 @@ const navItems: NavItem[] = [
     roles: ['super_admin'],
   },
   {
-    name: 'My Vendor',
+    name: 'My Vendor Profile',
     href: '/dashboard/vendor',
     icon: Building2,
     roles: ['partner_admin'],

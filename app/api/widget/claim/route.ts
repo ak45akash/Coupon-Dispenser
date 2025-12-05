@@ -6,9 +6,36 @@ import { supabaseAdmin } from '@/lib/supabase/server'
 
 const widgetClaimSchema = z.object({
   coupon_id: z.string().uuid('Invalid coupon ID'),
-  user_id: z.string().uuid('Invalid user ID').optional(),
+  user_id: z.string().refine(
+    (val) => !val || val.startsWith('anonymous-') || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val),
+    'Invalid user ID format'
+  ).optional(),
   user_email: z.string().email('Invalid email').optional(),
 })
+
+/**
+ * Helper function to add CORS headers to responses
+ */
+function addCorsHeaders(response: NextResponse): NextResponse {
+  response.headers.set('Access-Control-Allow-Origin', '*')
+  response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type')
+  return response
+}
+
+/**
+ * Handle CORS preflight requests
+ */
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  })
+}
 
 /**
  * Public widget endpoint for claiming coupons
@@ -23,38 +50,53 @@ export async function POST(request: NextRequest) {
 
     // Either user_id or user_email is required
     if (!validatedData.user_id && !validatedData.user_email) {
-      return NextResponse.json(
-        { success: false, error: 'user_id or user_email is required for widget claims' },
-        { status: 400 }
+      return addCorsHeaders(
+        NextResponse.json(
+          { success: false, error: 'user_id or user_email is required for widget claims' },
+          { status: 400 }
+        )
       )
     }
 
     let userId: string
 
     if (validatedData.user_id) {
-      // Use user_id directly
-      const user = await getUserById(validatedData.user_id)
-      if (!user) {
-        return NextResponse.json(
-          { success: false, error: 'User not found' },
-          { status: 404 }
-        )
+      // Check if it's an anonymous user ID
+      if (validatedData.user_id.startsWith('anonymous-')) {
+        // For anonymous users, we'll create a guest user or use the anonymous ID directly
+        // The claimCoupon function will handle this
+        userId = validatedData.user_id
+      } else {
+        // Use user_id directly - must exist in database
+        const user = await getUserById(validatedData.user_id)
+        if (!user) {
+          return addCorsHeaders(
+            NextResponse.json(
+              { success: false, error: 'User not found' },
+              { status: 404 }
+            )
+          )
+        }
+        userId = user.id
       }
-      userId = user.id
     } else if (validatedData.user_email) {
       // Find user by email
       const user = await getUserByEmail(validatedData.user_email)
       if (!user) {
-        return NextResponse.json(
-          { success: false, error: 'User not found. Please ensure you have an account.' },
-          { status: 404 }
+        return addCorsHeaders(
+          NextResponse.json(
+            { success: false, error: 'User not found. Please ensure you have an account.' },
+            { status: 404 }
+          )
         )
       }
       userId = user.id
     } else {
-      return NextResponse.json(
-        { success: false, error: 'User identification required' },
-        { status: 400 }
+      return addCorsHeaders(
+        NextResponse.json(
+          { success: false, error: 'User identification required' },
+          { status: 400 }
+        )
       )
     }
 
@@ -67,69 +109,100 @@ export async function POST(request: NextRequest) {
       .single()
 
     if (!couponData) {
-      return NextResponse.json(
-        { success: false, error: 'Coupon not found' },
-        { status: 404 }
+      return addCorsHeaders(
+        NextResponse.json(
+          { success: false, error: 'Coupon not found' },
+          { status: 404 }
+        )
       )
     }
 
     // Check for active claim
+    // getUserActiveClaim works for both regular users and anonymous users
+    // since it checks the claimed_by field in coupons table (which stores the userId/anonymousId)
     const activeClaim = await getUserActiveClaim(userId, couponData.vendor_id)
+    
     if (activeClaim && activeClaim.id !== validatedData.coupon_id) {
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'You already have an active coupon. Please wait until it expires (30 days from claim date).',
-          active_coupon: {
-            id: activeClaim.id,
-            code: activeClaim.code,
-            expiry_date: activeClaim.expiry_date,
-          }
-        },
-        { status: 409 }
+      return addCorsHeaders(
+        NextResponse.json(
+          { 
+            success: false, 
+            error: 'You already have an active coupon. Please wait until it expires (30 days from claim date).',
+            active_coupon: {
+              id: activeClaim.id,
+              code: activeClaim.code,
+              expiry_date: activeClaim.expiry_date,
+            }
+          },
+          { status: 409 }
+        )
       )
     }
 
     // Claim the coupon
     const coupon = await claimCoupon(userId, validatedData.coupon_id)
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        id: coupon.id,
-        code: coupon.code,
-        description: coupon.description,
-        discount_value: coupon.discount_value,
-      },
-      message: 'Coupon claimed successfully',
-    })
+    return addCorsHeaders(
+      NextResponse.json({
+        success: true,
+        data: {
+          id: coupon.id,
+          code: coupon.code,
+          description: coupon.description,
+          discount_value: coupon.discount_value,
+        },
+        message: 'Coupon claimed successfully',
+      })
+    )
   } catch (error: any) {
     console.error('Error claiming coupon via widget:', error)
+    console.error('Error details:', {
+      name: error?.name,
+      message: error?.message,
+      code: error?.code,
+      details: error?.details,
+    })
 
     if (error.name === 'ZodError') {
-      return NextResponse.json(
-        { success: false, error: 'Validation error', details: error.errors },
-        { status: 400 }
+      return addCorsHeaders(
+        NextResponse.json(
+          { success: false, error: 'Validation error', details: error.errors },
+          { status: 400 }
+        )
       )
     }
 
     if (error.message === 'Coupon has already been claimed') {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 409 }
+      return addCorsHeaders(
+        NextResponse.json(
+          { success: false, error: error.message },
+          { status: 409 }
+        )
       )
     }
 
     if (error.message === 'Coupon not found') {
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 404 }
+      return addCorsHeaders(
+        NextResponse.json(
+          { success: false, error: error.message },
+          { status: 404 }
+        )
       )
     }
 
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
+    // Provide more detailed error message for debugging
+    const errorMessage = error?.message || error?.code || 'Internal server error'
+    return addCorsHeaders(
+      NextResponse.json(
+        { 
+          success: false, 
+          error: errorMessage,
+          ...(process.env.NODE_ENV === 'development' && { 
+            details: error?.details || error?.stack 
+          })
+        },
+        { status: 500 }
+      )
     )
   }
 }

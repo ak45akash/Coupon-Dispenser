@@ -6,7 +6,6 @@ import { useSession } from 'next-auth/react'
 import { ArrowLeft, Eye, AlertCircle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Card, CardContent } from '@/components/ui/card'
 
 function WidgetTemplateContent() {
   const params = useParams()

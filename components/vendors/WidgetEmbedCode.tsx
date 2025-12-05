@@ -39,15 +39,19 @@ export default function WidgetEmbedCode({ vendorId, vendorName }: WidgetEmbedCod
     }
   }
 
-  // Complete ready-to-use script (no manual editing needed)
+  // Complete ready-to-use script (auto-detects user ID from WordPress/CMS)
   const completeWidgetScript = `<script src="${baseUrl}/widget-embed.js"></script>
 <div id="coupon-widget" 
      data-vendor-id="${vendorId}" 
-     data-user-id="USER_ID_FROM_YOUR_SYSTEM"
      data-theme="${selectedTheme}">
 </div>
 
-<!-- Instructions: Replace USER_ID_FROM_YOUR_SYSTEM with the authenticated user's ID from your system -->`
+<!-- 
+  Note: User ID is automatically detected from WordPress/CMS if available.
+  For WordPress: Add the helper code from WORDPRESS_AUTO_USER_ID.md to your functions.php
+  For other platforms: Set window.COUPON_WIDGET_USER_ID or use data-user-id attribute
+  If no user ID is found, an anonymous ID will be generated automatically.
+-->`
 
   const basicEmbedCode = `<script src="${baseUrl}/widget-embed.js"></script>
 <div id="coupon-widget" 
@@ -95,7 +99,7 @@ export default function WidgetEmbedCode({ vendorId, vendorName }: WidgetEmbedCod
               Widget Embed Script
             </CardTitle>
             <CardDescription>
-              Copy the widget script to embed on your website. No manual editing required - just replace USER_ID_FROM_YOUR_SYSTEM.
+              Copy the widget script to embed on your website. User ID is automatically detected from WordPress/CMS. No manual editing required!
             </CardDescription>
           </div>
           <div className="flex items-center gap-2">

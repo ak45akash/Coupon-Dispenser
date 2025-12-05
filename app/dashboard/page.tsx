@@ -1,3 +1,4 @@
+import { redirect } from 'next/navigation'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { getAnalyticsOverview } from '@/lib/db/analytics'
@@ -10,6 +11,15 @@ import { cn } from '@/lib/utils'
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions)
+  
+  // Redirect partner_admin and user roles to appropriate pages
+  if (session?.user.role === 'partner_admin') {
+    redirect('/dashboard/vendor')
+  }
+  if (session?.user.role === 'user') {
+    redirect('/dashboard/analytics')
+  }
+  
   const analytics = await getAnalyticsOverview()
 
   const claimedPercentage = analytics.total_coupons > 0

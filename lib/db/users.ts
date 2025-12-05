@@ -145,3 +145,74 @@ export async function getPartnerVendorAccess(
   return data?.map((item) => item.vendor_id) || []
 }
 
+/**
+ * Upsert user mapping from (vendor_id, external_user_id) to internal user_id
+ * Creates a user if it doesn't exist, or returns existing user
+ * This is used for partner token authentication
+ */
+export async function upsertUserFromExternalId(
+  vendorId: string,
+  externalUserId: string
+): Promise<User> {
+  // For now, we'll create a simple mapping
+  // In a production system, you might want a separate external_user_mappings table
+  // For simplicity, we'll use a deterministic approach: create user with email pattern
+  // or use external_user_id directly if it's a UUID
+  
+  // Check if external_user_id is already a UUID (internal user_id)
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (uuidRegex.test(externalUserId)) {
+    // It's already a UUID, check if user exists
+    const existingUser = await getUserById(externalUserId)
+    if (existingUser) {
+      return existingUser
+    }
+  }
+
+  // Generate a deterministic email for external users
+  // Format: external_{vendorId}_{externalUserId}@coupon-dispenser.local
+  // This ensures we can map back to the same user
+  const email = `external_${vendorId}_${externalUserId}@coupon-dispenser.local`
+  
+  // Check if user with this email already exists
+  let user = await getUserByEmail(email)
+  
+  if (user) {
+    return user
+  }
+
+  // Create new user in Supabase Auth
+  // Use a random password since external users won't log in directly
+  const randomPassword = `ext_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
+  
+  const { data: authData, error: authError } = await supabaseAdmin.auth.admin.createUser({
+    email,
+    password: randomPassword,
+    email_confirm: true,
+  })
+
+  if (authError || !authData.user) {
+    throw new Error(`Failed to create auth user: ${authError?.message || 'Unknown error'}`)
+  }
+
+  // Create user record in public.users
+  const { data: userData, error: userError } = await supabaseAdmin
+    .from('users')
+    .insert({
+      id: authData.user.id,
+      email,
+      name: `External User ${externalUserId}`,
+      role: 'user',
+    })
+    .select()
+    .single()
+
+  if (userError) {
+    // Cleanup: delete auth user if user table insert fails
+    await supabaseAdmin.auth.admin.deleteUser(authData.user.id)
+    throw new Error(`Failed to create user record: ${userError.message}`)
+  }
+
+  return userData
+}
+

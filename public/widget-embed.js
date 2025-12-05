@@ -54,6 +54,9 @@
     RETRY_DELAY: 1000,
   }
 
+  // Widget session token storage (in-memory, per instance)
+  const widgetSessionTokens = new Map()
+
   const widgetState = {
     instances: new Map(),
     rateLimitTimers: new Map(),
@@ -284,7 +287,43 @@
     document.head.appendChild(style)
   }
 
-  async function fetchCouponsData(vendorId, userId, previewMode = false, retries = 0) {
+  /**
+   * Convert partner token to widget session token
+   * Called when partner provides token via window.sendCouponToken() or postMessage
+   */
+  async function createWidgetSessionFromToken(partnerToken, instanceId) {
+    try {
+      const response = await fetch(`${CONFIG.API_BASE_URL}/api/session-from-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token: partnerToken }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData.error || `HTTP ${response.status}`)
+      }
+
+      const data = await response.json()
+      if (!data.success) {
+        throw new Error(data.error || 'Failed to create widget session')
+      }
+
+      // Store widget session token
+      widgetSessionTokens.set(instanceId, data.data.session_token)
+      
+      return {
+        session_token: data.data.session_token,
+        user_id: data.data.user_id,
+        vendor_id: data.data.vendor_id,
+      }
+    } catch (error) {
+      console.error('CouponWidget: Error creating widget session from partner token:', error)
+      throw error
+    }
+  }
+
+  async function fetchCouponsData(vendorId, userId, previewMode = false, retries = 0, widgetSessionToken = null) {
     // Preview mode: return mock data without making API call
     if (previewMode || userId === 'PREVIEW_MODE_USER_ID') {
       // Simulate API delay
@@ -325,17 +364,43 @@
     }
 
     try {
-      const url = userId 
-        ? `${CONFIG.API_BASE_URL}/api/widget/coupons?vendor_id=${vendorId}&user_id=${userId}`
-        : `${CONFIG.API_BASE_URL}/api/widget/coupons?vendor_id=${vendorId}`
+      // Use widget session token if available, otherwise fall back to legacy endpoint
+      let url, headers
+      
+      if (widgetSessionToken) {
+        // New endpoint with widget session authentication
+        url = `${CONFIG.API_BASE_URL}/api/available-coupons?vendor=${vendorId}`
+        headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${widgetSessionToken}`,
+        }
+      } else {
+        // Legacy endpoint (backward compatibility)
+        url = userId 
+          ? `${CONFIG.API_BASE_URL}/api/widget/coupons?vendor_id=${vendorId}&user_id=${userId}`
+          : `${CONFIG.API_BASE_URL}/api/widget/coupons?vendor_id=${vendorId}`
+        headers = { 'Content-Type': 'application/json' }
+      }
       
       const response = await fetch(url, {
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers,
+        mode: 'cors', // Explicitly enable CORS
       })
 
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`)
+        // Try to get error message from response
+        let errorMessage = `HTTP ${response.status}`
+        try {
+          const errorData = await response.json()
+          if (errorData.error) {
+            errorMessage = errorData.error
+          }
+        } catch (e) {
+          // If response is not JSON, use status text
+          errorMessage = response.statusText || `HTTP ${response.status}`
+        }
+        throw new Error(errorMessage)
       }
 
       const data = await response.json()
@@ -343,6 +408,18 @@
         throw new Error(data.error || 'Failed to fetch coupons')
       }
 
+      // Normalize response format (new endpoint uses different structure)
+      if (data.data.coupons !== undefined) {
+        // New endpoint format
+        return {
+          vendor: data.data.vendor || {},
+          coupons: data.data.coupons || [],
+          has_active_claim: data.data.user_already_claimed || false,
+          active_claim_expiry: null,
+        }
+      }
+      
+      // Legacy endpoint format
       return data.data
     } catch (error) {
       if (retries < CONFIG.MAX_RETRIES) {
@@ -353,7 +430,7 @@
     }
   }
 
-  async function claimCoupon(couponId, userId, previewMode = false, retries = 0) {
+  async function claimCoupon(couponId, userId, previewMode = false, retries = 0, widgetSessionToken = null) {
     // Preview mode: return mock data without making API call
     if (previewMode || userId === 'PREVIEW_MODE_USER_ID') {
       // Simulate API delay
@@ -369,21 +446,60 @@
     }
 
     try {
-      const response = await fetch(`${CONFIG.API_BASE_URL}/api/widget/claim`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      let url, headers, body
+      
+      if (widgetSessionToken) {
+        // New endpoint with widget session authentication
+        url = `${CONFIG.API_BASE_URL}/api/claim`
+        headers = {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${widgetSessionToken}`,
+        }
+        body = JSON.stringify({
+          coupon_id: couponId,
+        })
+      } else {
+        // Legacy endpoint (backward compatibility)
+        url = `${CONFIG.API_BASE_URL}/api/widget/claim`
+        headers = { 'Content-Type': 'application/json' }
+        body = JSON.stringify({
           coupon_id: couponId,
           user_id: userId,
-        }),
+        })
+      }
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: headers,
+        body: body,
       })
 
       const data = await response.json()
 
       if (!response.ok) {
+        // Handle specific error codes
+        if (response.status === 409) {
+          if (data.error === 'COUPON_ALREADY_CLAIMED') {
+            throw new Error('Coupon already claimed')
+          } else if (data.error === 'USER_ALREADY_CLAIMED') {
+            throw new Error('You have already claimed a coupon this month')
+          }
+        }
         throw new Error(data.error || 'Failed to claim coupon')
       }
 
+      // Normalize response format
+      if (data.coupon_code) {
+        // New endpoint format
+        return {
+          id: couponId,
+          code: data.coupon_code,
+          description: null,
+          discount_value: null,
+        }
+      }
+      
+      // Legacy endpoint format
       return data.data
     } catch (error) {
       if (retries < CONFIG.MAX_RETRIES) {
@@ -412,10 +528,43 @@
         errors: new Map(), // couponId -> error message
         hasActiveClaim: false,
         activeClaimExpiry: null,
+        widgetSessionToken: null, // Widget session token from partner token
       }
 
       this.container = null
       this.instanceId = `${this.config.containerId}-${Date.now()}`
+    }
+
+    /**
+     * Generate or retrieve an anonymous user ID for tracking
+     * Uses localStorage to persist the ID across sessions
+     */
+    getOrCreateAnonymousUserId() {
+      const storageKey = `coupon_widget_anonymous_user_${this.config.vendorId}`
+      
+      // Try to get existing ID from localStorage
+      if (typeof Storage !== 'undefined') {
+        const existingId = localStorage.getItem(storageKey)
+        if (existingId) {
+          return existingId
+        }
+      }
+
+      // Generate a new anonymous user ID
+      // Format: anonymous-{timestamp}-{random}
+      const anonymousId = `anonymous-${Date.now()}-${Math.random().toString(36).substring(2, 15)}`
+      
+      // Store in localStorage for persistence
+      if (typeof Storage !== 'undefined') {
+        try {
+          localStorage.setItem(storageKey, anonymousId)
+        } catch (e) {
+          // localStorage might be disabled, that's okay
+          console.warn('CouponWidget: Could not store anonymous user ID:', e)
+        }
+      }
+
+      return anonymousId
     }
 
     init() {
@@ -428,6 +577,29 @@
       injectStyles()
       this.render()
       this.loadData()
+    }
+
+    /**
+     * Set widget session token from partner token
+     * Called when partner provides token via window.sendCouponToken() or postMessage
+     */
+    async setPartnerToken(partnerToken) {
+      try {
+        const sessionData = await createWidgetSessionFromToken(partnerToken, this.instanceId)
+        this.state.widgetSessionToken = sessionData.session_token
+        
+        // Reload data with new session token
+        await this.loadData()
+        
+        return sessionData
+      } catch (error) {
+        console.error('CouponWidget: Error setting partner token:', error)
+        this.setState({ 
+          loading: false, 
+          error: `Failed to authenticate: ${error.message}` 
+        })
+        throw error
+      }
     }
 
     async loadData() {
@@ -454,7 +626,9 @@
         const data = await fetchCouponsData(
           this.config.vendorId, 
           this.config.userId,
-          this.config.previewMode
+          this.config.previewMode,
+          0,
+          this.state.widgetSessionToken
         )
         this.setState({
           loading: false,
@@ -465,19 +639,31 @@
         })
       } catch (error) {
         console.error('Widget error:', error)
+        // Provide more helpful error messages
+        let errorMessage = 'Failed to load coupons. Please try again later.'
+        
+        if (error.message) {
+          if (error.message.includes('Failed to fetch') || error.message.includes('NetworkError')) {
+            errorMessage = 'Network error: Unable to connect to the server. Please check your internet connection and ensure the API URL is correct.'
+          } else if (error.message.includes('CORS')) {
+            errorMessage = 'CORS error: The server is not allowing requests from this domain. Please contact support.'
+          } else if (error.message.includes('404') || error.message.includes('not found')) {
+            errorMessage = 'Vendor not found. Please check that the vendor ID is correct.'
+          } else if (error.message.includes('400') || error.message.includes('Invalid')) {
+            errorMessage = `Invalid request: ${error.message}`
+          } else {
+            errorMessage = error.message
+          }
+        }
+        
         this.setState({
           loading: false,
-          error: 'Failed to load coupons. Please try again later.',
+          error: errorMessage,
         })
       }
     }
 
     async handleGenerateCode(couponId) {
-      if (!this.config.userId) {
-        this.showError(couponId, 'User ID is required. Please configure the widget with a user ID.')
-        return
-      }
-
       if (!checkRateLimit(`${this.instanceId}-${couponId}`)) {
         this.showError(couponId, 'Please wait before trying again')
         return
@@ -492,10 +678,48 @@
       }
 
       try {
+        // Determine which user ID to use - try multiple methods
+        let userIdToUse = this.config.userId
+        
+        // Method 1: Try auto-detection (WordPress globals, meta tags, etc.)
+        if (!userIdToUse) {
+          userIdToUse = detectUserId()
+          if (userIdToUse) {
+            this.config.userId = userIdToUse
+            console.log('CouponWidget: Using auto-detected user ID:', userIdToUse)
+          }
+        }
+        
+        // Method 2: Try WordPress REST API fetch (async)
+        if (!userIdToUse) {
+          try {
+            const wpUserId = await fetchWordPressUserIdSync()
+            if (wpUserId) {
+              userIdToUse = wpUserId
+              this.config.userId = userIdToUse
+              console.log('CouponWidget: Fetched WordPress user ID from REST API:', userIdToUse)
+            }
+          } catch (e) {
+            console.debug('CouponWidget: WordPress REST API fetch failed:', e)
+          }
+        }
+        
+        // Method 3: Fallback to anonymous ID (per-browser, not ideal)
+        if (!userIdToUse) {
+          userIdToUse = this.getOrCreateAnonymousUserId()
+          console.warn('CouponWidget: No user ID detected, using anonymous ID:', userIdToUse)
+          console.warn('CouponWidget: ⚠️ Anonymous IDs are per-browser. Same user in different browsers = different IDs')
+          console.warn('CouponWidget: 💡 To fix: Add WordPress helper code to functions.php (see WORDPRESS_AUTO_USER_ID.md)')
+        }
+        
+        console.log('CouponWidget: Attempting to claim coupon with user ID:', userIdToUse)
+        
         const claimedCoupon = await claimCoupon(
           couponId, 
-          this.config.userId,
-          this.config.previewMode
+          userIdToUse,
+          this.config.previewMode,
+          0,
+          this.state.widgetSessionToken
         )
         
         // Store claimed coupon
@@ -707,6 +931,160 @@
     }
   }
 
+  /**
+   * Automatically detect user ID from various CMS platforms
+   * Supports: WordPress, WooCommerce, custom implementations
+   */
+  function detectUserId() {
+    // Priority 1: Check for custom user ID in global variable (set by WordPress helper code)
+    // This is the most reliable method and doesn't require REST API
+    if (typeof window.COUPON_WIDGET_USER_ID !== 'undefined') {
+      if (window.COUPON_WIDGET_USER_ID) {
+        console.log('CouponWidget: ✅ Detected WordPress user ID from helper code:', window.COUPON_WIDGET_USER_ID)
+        return String(window.COUPON_WIDGET_USER_ID)
+      } else {
+        // Helper code exists but user is not logged in
+        console.log('CouponWidget: ℹ️ Helper code detected but user is not logged in (COUPON_WIDGET_USER_ID is empty)')
+      }
+    } else {
+      // Helper code not detected - show helpful message
+      console.warn('CouponWidget: ⚠️ WordPress helper code not detected!')
+      console.warn('CouponWidget: 💡 Add this to your theme\'s functions.php:')
+      console.warn('CouponWidget: function expose_user_id_to_coupon_widget() {')
+      console.warn('CouponWidget:   if (is_user_logged_in()) {')
+      console.warn('CouponWidget:     $user_id = get_current_user_id();')
+      console.warn('CouponWidget:     echo "<script>window.COUPON_WIDGET_USER_ID = \'".$user_id."\';</script>";')
+      console.warn('CouponWidget:   }')
+      console.warn('CouponWidget: }')
+      console.warn('CouponWidget: add_action(\'wp_footer\', \'expose_user_id_to_coupon_widget\');')
+    }
+
+    // Priority 2: Check for user ID in data attribute on body or html (set by helper code)
+    const bodyUserId = document.body?.getAttribute('data-user-id') || document.documentElement?.getAttribute('data-user-id')
+    if (bodyUserId) {
+      console.log('CouponWidget: ✅ Detected WordPress user ID from data attribute:', bodyUserId)
+      return bodyUserId
+    }
+
+    // Priority 3: Check for WordPress user data in meta tags (set by helper code)
+    const wpUserIdMeta = document.querySelector('meta[name="wp-user-id"]')
+    if (wpUserIdMeta && wpUserIdMeta.content) {
+      console.log('CouponWidget: ✅ Detected WordPress user ID from meta tag:', wpUserIdMeta.content)
+      return wpUserIdMeta.content
+    }
+
+    // Priority 4: Check WordPress global variables (if available)
+    if (typeof window.wpApiSettings !== 'undefined' && window.wpApiSettings.currentUser) {
+      const wpUser = window.wpApiSettings.currentUser
+      if (wpUser.id) {
+        console.log('CouponWidget: ✅ Detected WordPress user ID from wpApiSettings:', wpUser.id)
+        return String(wpUser.id)
+      }
+    }
+
+    // Priority 5: Check WordPress REST API user object
+    if (typeof window.wp !== 'undefined' && window.wp.api && window.wp.api.models) {
+      try {
+        const currentUser = window.wp.api.models.User.currentUser
+        if (currentUser && currentUser.id) {
+          console.log('CouponWidget: ✅ Detected WordPress REST API user ID:', currentUser.id)
+          return String(currentUser.id)
+        }
+      } catch (e) {
+        // Ignore errors
+      }
+    }
+
+    // Priority 6: Check for WooCommerce user data
+    if (typeof window.wc_add_to_cart_params !== 'undefined' && window.wc_add_to_cart_params.current_user_id) {
+      console.log('CouponWidget: ✅ Detected WooCommerce user ID:', window.wc_add_to_cart_params.current_user_id)
+      return String(window.wc_add_to_cart_params.current_user_id)
+    }
+
+    // 7. Try to fetch from WordPress REST API synchronously (if possible)
+    // Note: This is a best-effort attempt, full async fetch happens later
+    try {
+      if (typeof window.wpApiSettings !== 'undefined' && window.wpApiSettings.root) {
+        // We'll try async fetch, but for now return null
+        // The async fetch will update the widget later
+      }
+    } catch (e) {
+      // Ignore
+    }
+
+    return null
+  }
+
+  /**
+   * Try to fetch user ID from WordPress REST API
+   * This is called as a last resort - helper code in functions.php is preferred
+   * Note: This often returns 401 if REST API authentication isn't configured
+   */
+  async function fetchWordPressUserIdSync() {
+    // Skip REST API fetch if helper code should have set the user ID
+    // This prevents unnecessary 401 errors
+    if (typeof window.COUPON_WIDGET_USER_ID !== 'undefined') {
+      return null // Helper code should have set it, but it's empty/undefined
+    }
+    
+    try {
+      // Try multiple WordPress REST API endpoints
+      const endpoints = []
+      
+      // Method 1: Use wpApiSettings if available
+      if (typeof window.wpApiSettings !== 'undefined' && window.wpApiSettings.root) {
+        endpoints.push(window.wpApiSettings.root + 'wp/v2/users/me')
+      }
+      
+      // Method 2: Try common WordPress REST API paths
+      const currentOrigin = window.location.origin
+      endpoints.push(
+        currentOrigin + '/wp-json/wp/v2/users/me',
+        currentOrigin + '/?rest_route=/wp/v2/users/me'
+      )
+      
+      // Try each endpoint
+      for (const apiUrl of endpoints) {
+        try {
+          const response = await fetch(apiUrl, {
+            credentials: 'include', // Include cookies for authentication
+            method: 'GET',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+          })
+
+          if (response.ok) {
+            const user = await response.json()
+            if (user.id) {
+              console.log('CouponWidget: ✅ Fetched WordPress user ID from REST API:', user.id)
+              return String(user.id)
+            }
+          } else if (response.status === 401) {
+            // 401 is expected if REST API auth isn't configured - don't log as error
+            console.debug('CouponWidget: WordPress REST API requires authentication (401). Use helper code in functions.php instead.')
+            break // Don't try other endpoints if auth is required
+          }
+        } catch (e) {
+          // Continue to next endpoint
+          continue
+        }
+      }
+    } catch (error) {
+      // Silently fail - REST API is optional
+      console.debug('CouponWidget: Could not fetch WordPress user ID from REST API:', error)
+    }
+    return null
+  }
+
+  /**
+   * Try to fetch user ID from WordPress REST API (async version)
+   * This is called asynchronously and updates the widget if user is found
+   */
+  async function fetchWordPressUserId() {
+    return await fetchWordPressUserIdSync()
+  }
+
   const CouponWidget = {
     initFromAttributes() {
       // Find all potential widget containers
@@ -721,6 +1099,27 @@
 
       console.log(`CouponWidget: Found ${containers.length} potential container(s)`)
 
+      // Try to auto-detect user ID once for all containers
+      let autoDetectedUserId = detectUserId()
+      
+      // If not found, try async WordPress REST API fetch
+      if (!autoDetectedUserId) {
+        fetchWordPressUserIdSync().then((wpUserId) => {
+          if (wpUserId) {
+            console.log('CouponWidget: Fetched WordPress user ID asynchronously:', wpUserId)
+            // Update all instances with the detected user ID
+            containers.forEach((container) => {
+              const containerId = container.id || container.getAttribute('id')
+              const instance = widgetState.instances.get(containerId)
+              if (instance && instance.config) {
+                instance.config.userId = wpUserId
+                console.log('CouponWidget: Updated instance with WordPress user ID')
+              }
+            })
+          }
+        })
+      }
+
       containers.forEach((container) => {
         // Skip if already initialized
         if (container.dataset.widgetInitialized === 'true') {
@@ -728,7 +1127,8 @@
         }
 
         const vendorId = container.getAttribute('data-vendor-id') || container.getAttribute('data-vendor')
-        const userId = container.getAttribute('data-user-id')
+        // Use data attribute if provided, otherwise try auto-detection
+        let userId = container.getAttribute('data-user-id') || autoDetectedUserId
         const theme = container.getAttribute('data-theme') || 'light'
         const containerId = container.id || `coupon-widget-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
 
@@ -753,14 +1153,24 @@
 
         const instance = new CouponWidgetInstance({
           vendorId,
-          userId,
+          userId: userId || undefined, // Will use anonymous ID if not provided
           theme,
           containerId,
         })
 
         widgetState.instances.set(containerId, instance)
-        console.log(`CouponWidget: Initializing widget for container ${containerId}`)
+        console.log(`CouponWidget: Initializing widget for container ${containerId}${userId ? ` with user ID: ${userId}` : ' (will use anonymous ID)'}`)
         instance.init()
+
+        // Try to fetch WordPress user ID asynchronously and update if found
+        if (!userId) {
+          fetchWordPressUserId().then((wpUserId) => {
+            if (wpUserId && instance.config) {
+              instance.config.userId = wpUserId
+              console.log('CouponWidget: Updated widget with WordPress user ID:', wpUserId)
+            }
+          })
+        }
       })
     },
 
@@ -768,6 +1178,15 @@
       if (!config.vendorId) {
         console.error('CouponWidget: vendorId is required')
         return
+      }
+
+      // Auto-detect user ID if not provided
+      if (!config.userId) {
+        const autoDetectedUserId = detectUserId()
+        if (autoDetectedUserId) {
+          config.userId = autoDetectedUserId
+          console.log('CouponWidget: Auto-detected user ID:', autoDetectedUserId)
+        }
       }
 
       const containerId = config.containerId || 'coupon-widget'
@@ -780,6 +1199,16 @@
       }
 
       const instance = new CouponWidgetInstance(config)
+      
+      // Try to fetch WordPress user ID asynchronously and update if found
+      if (!config.userId) {
+        fetchWordPressUserId().then((wpUserId) => {
+          if (wpUserId && instance.config) {
+            instance.config.userId = wpUserId
+            console.log('CouponWidget: Updated widget with WordPress user ID:', wpUserId)
+          }
+        })
+      }
       widgetState.instances.set(containerId, instance)
       instance.init()
 
@@ -882,6 +1311,34 @@
 
   // Expose reinit function for manual initialization (useful for WordPress/Elementor)
   window.CouponWidgetReinit = initializeWidget
+
+  /**
+   * Global function for partners to send coupon token
+   * Usage: window.sendCouponToken(token)
+   */
+  window.sendCouponToken = function(partnerToken) {
+    if (!partnerToken) {
+      console.error('CouponWidget: Partner token is required')
+      return
+    }
+
+    // Find all widget instances and set the token
+    widgetState.instances.forEach((instance) => {
+      instance.setPartnerToken(partnerToken).catch((error) => {
+        console.error('CouponWidget: Error setting partner token on instance:', error)
+      })
+    })
+  }
+
+  // Listen for postMessage from parent window (for iframe embedding)
+  window.addEventListener('message', function(event) {
+    // Security: validate origin if needed
+    // if (event.origin !== 'https://trusted-partner.com') return;
+
+    if (event.data && event.data.type === 'COUPON_TOKEN' && event.data.token) {
+      window.sendCouponToken(event.data.token)
+    }
+  })
   
   // Also expose on window load (for very late loading)
   window.addEventListener('load', () => {

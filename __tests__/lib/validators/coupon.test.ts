@@ -35,14 +35,25 @@ describe('Coupon Validators', () => {
       expect(() => createCouponSchema.parse(invalidCoupon)).toThrow()
     })
 
-    it('should require all fields (description, discount_value, expiry_date)', () => {
-      const incompleteCoupon = {
+    it('should allow optional fields (description, discount_value, expiry_date)', () => {
+      const couponWithoutOptionalFields = {
         vendor_id: '123e4567-e89b-12d3-a456-426614174000',
         code: 'SAVE20',
-        expiry_date: '',
       }
 
-      expect(() => createCouponSchema.parse(incompleteCoupon)).toThrow()
+      expect(() => createCouponSchema.parse(couponWithoutOptionalFields)).not.toThrow()
+    })
+
+    it('should allow empty string for optional fields', () => {
+      const couponWithEmptyOptionalFields = {
+        vendor_id: '123e4567-e89b-12d3-a456-426614174000',
+        code: 'SAVE20',
+        description: '',
+        discount_value: '',
+      }
+
+      // Empty strings should be converted to undefined by API route
+      expect(() => createCouponSchema.parse(couponWithEmptyOptionalFields)).not.toThrow()
     })
   })
 

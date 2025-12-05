@@ -86,7 +86,13 @@ export default function CouponModal({
         setFormData(resetForm())
         onClose()
       } else {
-        setError(data.error || 'An error occurred')
+        // Show detailed validation errors if available
+        if (data.details && Array.isArray(data.details)) {
+          const errorMessages = data.details.map((err: any) => `${err.path.join('.')}: ${err.message}`).join(', ')
+          setError(`Validation error: ${errorMessages}`)
+        } else {
+          setError(data.error || 'An error occurred')
+        }
       }
     } catch (err) {
       setError('An error occurred. Please try again.')

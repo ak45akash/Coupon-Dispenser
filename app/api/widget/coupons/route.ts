@@ -10,6 +10,20 @@ const widgetCouponsSchema = z.object({
 })
 
 /**
+ * Handle CORS preflight requests
+ */
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+    },
+  })
+}
+
+/**
  * Public widget endpoint to fetch available coupons for a vendor with vendor details
  * This endpoint is designed for external widget usage and doesn't require authentication
  */
@@ -76,7 +90,7 @@ export async function GET(request: NextRequest) {
       hasActiveClaim = activeClaim !== null
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       data: {
         vendor: {
@@ -100,12 +114,24 @@ export async function GET(request: NextRequest) {
       },
       count: coupons.length,
     })
+
+    // Add CORS headers
+    response.headers.set('Access-Control-Allow-Origin', '*')
+    response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
+    response.headers.set('Access-Control-Allow-Headers', 'Content-Type')
+
+    return response
   } catch (error) {
     console.error('Error fetching widget coupons:', error)
-    return NextResponse.json(
+    const errorResponse = NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
     )
+    // Add CORS headers even for errors
+    errorResponse.headers.set('Access-Control-Allow-Origin', '*')
+    errorResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
+    errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type')
+    return errorResponse
   }
 }
 

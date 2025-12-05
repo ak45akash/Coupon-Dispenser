@@ -49,12 +49,26 @@ cp .env.example .env
 
 Fill in your environment variables:
 ```env
+# Supabase Configuration
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 SUPABASE_SERVICE_ROLE_KEY=your_supabase_service_role_key
+DATABASE_URL=your_postgres_connection_string
+
+# NextAuth Configuration
 NEXTAUTH_URL=http://localhost:3000
 NEXTAUTH_SECRET=generate_with_openssl_rand_base64_32
-DATABASE_URL=your_postgres_connection_string
+
+# Redis Configuration (for jti replay protection)
+REDIS_URL=redis://localhost:6379
+# Or for Redis Cloud: redis://default:password@host:port
+
+# Widget Session JWT Configuration
+JWT_SECRET_WIDGET=generate_with_openssl_rand_base64_32
+WIDGET_SESSION_TTL_SECONDS=604800  # Default: 7 days
+
+# Partner Token Configuration
+PARTNER_TOKEN_EXP_SECONDS=180  # Default: 3 minutes
 ```
 
 ### 3. Database Setup
@@ -62,12 +76,16 @@ DATABASE_URL=your_postgres_connection_string
 1. Create a Supabase project
 2. Go to SQL Editor in Supabase dashboard
 3. Copy and run the contents of `supabase/schema.sql`
+4. Run the migration files in order:
+   - `supabase/migrations/add_partner_secret.sql` - Adds `partner_secret` column to vendors
+   - `supabase/migrations/add_claim_constraints.sql` - Adds unique constraints for claim limits
 
 This creates:
 - All necessary tables with proper indexes
 - Row Level Security (RLS) policies
 - Database triggers for timestamps
 - Default system configuration
+- Unique constraints for monthly claim limits
 
 ### 4. Create Test Users
 
@@ -174,7 +192,12 @@ See [TESTING.md](./TESTING.md) for detailed testing documentation.
 - `POST /api/coupons` - Create coupon(s) (single or bulk)
 - `GET /api/coupons/:id` - Get coupon details
 - `DELETE /api/coupons/:id` - Delete coupon
-- `POST /api/coupons/claim` - Claim a coupon
+- `POST /api/coupons/claim` - Claim a coupon (legacy endpoint)
+
+### Widget API (Partner Token Flow)
+- `POST /api/session-from-token` - Convert partner token to widget session token
+- `GET /api/available-coupons?vendor={vendor_id}` - Get available coupons (requires widget session)
+- `POST /api/claim` - Atomically claim a coupon (requires widget session)
 
 ### Users
 - `GET /api/users` - List users (Super Admin only)
@@ -200,6 +223,98 @@ Add to any HTML page:
 ```
 
 See [WIDGET_INTEGRATION.md](./WIDGET_INTEGRATION.md) for advanced usage.
+
+## 🔐 Partner Token Authentication
+
+Partners can sign JWT tokens to authenticate widget users. The widget converts these tokens into secure session tokens.
+
+### Partner Token Format
+
+Partners sign tokens with HS256 using their `partner_secret` (stored in `vendors.partner_secret`):
+
+```json
+{
+  "vendor": "vendor-uuid",
+  "external_user_id": "partner-user-id",
+  "jti": "unique-jwt-id",
+  "iat": 1234567890,
+  "exp": 1234568070
+}
+```
+
+### Partner Token Examples
+
+#### Node.js / Express
+
+```javascript
+const jwt = require('jsonwebtoken');
+
+const partnerSecret = 'your-partner-secret-from-vendor-table';
+const vendorId = 'your-vendor-uuid';
+const externalUserId = 'partner-user-123';
+const jti = `jti-${Date.now()}-${Math.random()}`;
+
+const token = jwt.sign(
+  {
+    vendor: vendorId,
+    external_user_id: externalUserId,
+    jti: jti,
+  },
+  partnerSecret,
+  {
+    algorithm: 'HS256',
+    expiresIn: '3m', // 3 minutes (configurable)
+  }
+);
+
+// Send token to widget via window.sendCouponToken(token) or postMessage
+```
+
+#### WordPress (PHP)
+
+```php
+<?php
+use Firebase\JWT\JWT;
+use Firebase\JWT\Key;
+
+function generate_coupon_token($vendor_id, $external_user_id) {
+    $partner_secret = get_option('coupon_dispenser_partner_secret'); // Store securely
+    $jti = 'jti-' . time() . '-' . wp_generate_password(12, false);
+    
+    $payload = [
+        'vendor' => $vendor_id,
+        'external_user_id' => $external_user_id,
+        'jti' => $jti,
+        'iat' => time(),
+        'exp' => time() + 180, // 3 minutes
+    ];
+    
+    return JWT::encode($payload, $partner_secret, 'HS256');
+}
+
+// In your template or shortcode:
+$user_id = get_current_user_id();
+if ($user_id) {
+    $token = generate_coupon_token('your-vendor-uuid', $user_id);
+    echo '<script>window.sendCouponToken("' . esc_js($token) . '");</script>';
+}
+?>
+```
+
+### Widget Session Flow
+
+1. Partner generates signed token with `vendor`, `external_user_id`, and `jti`
+2. Widget calls `POST /api/session-from-token` with partner token
+3. Server verifies token signature, checks `jti` replay protection, upserts user mapping
+4. Server returns widget session token (valid for 7 days by default)
+5. Widget uses session token for subsequent API calls (`GET /api/available-coupons`, `POST /api/claim`)
+
+### Security Notes
+
+- Partner tokens expire in 3 minutes (configurable via `PARTNER_TOKEN_EXP_SECONDS`)
+- `jti` (JWT ID) prevents replay attacks via Redis with TTL matching token expiration
+- Widget session tokens are signed by the app (not partners) and have longer TTL (7 days default)
+- Never expose `partner_secret` in client-side code
 
 ## 🚢 Deployment
 

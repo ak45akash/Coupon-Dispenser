@@ -5,8 +5,6 @@ const nextConfig = {
     serverActions: {
       allowedOrigins: ['localhost:3000'],
     },
-    // Disable devtools to avoid React Server Components bundler issues
-    devtools: false,
   },
   async headers() {
     return [

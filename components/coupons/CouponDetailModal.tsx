@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { X, Calendar, Tag, Store, FileText, DollarSign, Clock, Users, History } from 'lucide-react'
+import { X, Calendar, Tag, Store, FileText, DollarSign, Clock, Users, History, RefreshCw } from 'lucide-react'
 import { formatDate, formatDateTime } from '@/lib/utils/format'
 import {
   Dialog,
@@ -62,6 +62,18 @@ export default function CouponDetailModal({
       setError(null)
     }
   }, [isOpen, couponId])
+
+  // Refetch when modal is opened (even if already open with same couponId)
+  // This ensures fresh data when reopening after a claim
+  useEffect(() => {
+    if (isOpen && couponId && !loading) {
+      // Small delay to ensure any updates have propagated
+      const timer = setTimeout(() => {
+        fetchCouponDetails()
+      }, 100)
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen])
 
   const fetchCouponDetails = async () => {
     if (!couponId) return
@@ -138,10 +150,23 @@ export default function CouponDetailModal({
       <Dialog open={isOpen} onOpenChange={onClose}>
         <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Tag className="h-5 w-5" />
-              Coupon Details
-            </DialogTitle>
+            <div className="flex items-center justify-between">
+              <DialogTitle className="flex items-center gap-2">
+                <Tag className="h-5 w-5" />
+                Coupon Details
+              </DialogTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={fetchCouponDetails}
+                disabled={loading}
+                className="gap-2"
+                title="Refresh coupon details"
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+                Refresh
+              </Button>
+            </div>
           </DialogHeader>
 
           {loading && (

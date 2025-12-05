@@ -56,6 +56,9 @@ export default function VendorProfilePage() {
   // Coupon detail modal state
   const [isCouponDetailModalOpen, setIsCouponDetailModalOpen] = useState(false)
   const [selectedCouponForDetail, setSelectedCouponForDetail] = useState<string | null>(null)
+  
+  // Widget script copy state
+  const [copiedScript, setCopiedScript] = useState(false)
 
   useEffect(() => {
     if (!session) {
@@ -330,18 +333,19 @@ export default function VendorProfilePage() {
                     <Eye className="h-4 w-4" />
                     Preview Template
                   </Button>
-                  <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-2"
-                      title="Copy widget embed code"
-                    >
-                      <Copy className="h-4 w-4" />
-                      Copy Widget
-                    </Button>
-                  </DropdownMenuTrigger>
+                  {coupons.length > 0 && (
+                    <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-2"
+                        title="Copy widget embed code"
+                      >
+                        <Copy className="h-4 w-4" />
+                        Copy Widget
+                      </Button>
+                    </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-80">
                     <div className="p-2">
                       <div className="mb-2 text-xs font-semibold text-muted-foreground">
@@ -408,6 +412,8 @@ export default function VendorProfilePage() {
                     </div>
                   </DropdownMenuContent>
                 </DropdownMenu>
+                  )}
+                </>
               )}
               {copiedScript && (
                 <div className="flex items-center gap-1 text-sm text-green-600">
