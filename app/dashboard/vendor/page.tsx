@@ -31,7 +31,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { DeleteDialog, SuccessDialog, ErrorDialog } from '@/components/ui/dialog-helpers'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, Key, RefreshCw, AlertTriangle, Code, FileCode } from 'lucide-react'
 
 export default function VendorProfilePage() {
   const { data: session } = useSession()
@@ -59,6 +59,14 @@ export default function VendorProfilePage() {
   
   // Widget script copy state
   const [copiedScript, setCopiedScript] = useState(false)
+  
+  // Partner secret state
+  const [partnerSecret, setPartnerSecret] = useState<string | null>(null)
+  const [showPartnerSecret, setShowPartnerSecret] = useState(false)
+  const [copiedSecret, setCopiedSecret] = useState(false)
+  const [generatingSecret, setGeneratingSecret] = useState(false)
+  const [selectedPlatform, setSelectedPlatform] = useState<'wordpress' | 'nodejs' | 'python'>('wordpress')
+  const [copiedCodeIndex, setCopiedCodeIndex] = useState<number | null>(null)
 
   useEffect(() => {
     if (!session) {
@@ -92,6 +100,60 @@ export default function VendorProfilePage() {
       setShowErrorDialog(true)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const fetchPartnerSecretStatus = async (vendorId: string) => {
+    try {
+      const response = await fetch(`/api/vendors/${vendorId}/partner-secret`)
+      const data = await response.json()
+      if (data.success) {
+        setPartnerSecret(data.data.has_secret ? 'exists' : null)
+      }
+    } catch (error) {
+      console.error('Error fetching partner secret status:', error)
+    }
+  }
+
+  const generatePartnerSecret = async () => {
+    if (!vendor) return
+    
+    if (!confirm('Are you sure you want to generate a new partner secret? This will invalidate the old one and you will need to update your integration code.')) {
+      return
+    }
+
+    setGeneratingSecret(true)
+    try {
+      const response = await fetch(`/api/vendors/${vendor.id}/partner-secret`, {
+        method: 'POST',
+      })
+      const data = await response.json()
+      
+      if (data.success) {
+        const newSecret = data.data.partner_secret
+        setPartnerSecret(newSecret)
+        setShowPartnerSecret(true)
+        setDialogMessage('Partner secret generated successfully! Make sure to copy it now - it will not be shown again.')
+        setShowSuccessDialog(true)
+        await fetchPartnerSecretStatus(vendor.id)
+      } else {
+        setDialogMessage(data.error || 'Failed to generate partner secret')
+        setShowErrorDialog(true)
+      }
+    } catch (error) {
+      console.error('Error generating partner secret:', error)
+      setDialogMessage('An error occurred while generating partner secret')
+      setShowErrorDialog(true)
+    } finally {
+      setGeneratingSecret(false)
+    }
+  }
+
+  const copyPartnerSecret = () => {
+    if (partnerSecret && partnerSecret !== 'exists') {
+      navigator.clipboard.writeText(partnerSecret)
+      setCopiedSecret(true)
+      setTimeout(() => setCopiedSecret(false), 2000)
     }
   }
 

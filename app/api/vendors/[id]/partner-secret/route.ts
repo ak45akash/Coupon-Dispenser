@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
-import { canManageVendors } from '@/lib/auth/permissions'
-import { getVendorById, updateVendor } from '@/lib/db/vendors'
+import { canManageVendors, isSuperAdmin, isPartnerAdmin } from '@/lib/auth/permissions'
+import { getVendorById, updateVendor, hasVendorAccess } from '@/lib/db/vendors'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import crypto from 'crypto'
 
@@ -16,10 +16,10 @@ export async function GET(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || !canManageVendors(session.user.role)) {
+    if (!session) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
-        { status: 403 }
+        { status: 401 }
       )
     }
 
@@ -30,6 +30,25 @@ export async function GET(
       return NextResponse.json(
         { success: false, error: 'Vendor not found' },
         { status: 404 }
+      )
+    }
+
+    // Check permissions: Super admin can access any vendor, partner admin only their own
+    if (isSuperAdmin(session.user.role)) {
+      // Super admin has access to all vendors
+    } else if (isPartnerAdmin(session.user.role)) {
+      // Partner admin can only access their assigned vendor
+      const hasAccess = await hasVendorAccess(session.user.id, id)
+      if (!hasAccess) {
+        return NextResponse.json(
+          { success: false, error: 'You do not have access to this vendor' },
+          { status: 403 }
+        )
+      }
+    } else {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 403 }
       )
     }
 
@@ -66,10 +85,10 @@ export async function POST(
 ) {
   try {
     const session = await getServerSession(authOptions)
-    if (!session || !canManageVendors(session.user.role)) {
+    if (!session) {
       return NextResponse.json(
         { success: false, error: 'Unauthorized' },
-        { status: 403 }
+        { status: 401 }
       )
     }
 
@@ -80,6 +99,25 @@ export async function POST(
       return NextResponse.json(
         { success: false, error: 'Vendor not found' },
         { status: 404 }
+      )
+    }
+
+    // Check permissions: Super admin can access any vendor, partner admin only their own
+    if (isSuperAdmin(session.user.role)) {
+      // Super admin has access to all vendors
+    } else if (isPartnerAdmin(session.user.role)) {
+      // Partner admin can only access their assigned vendor
+      const hasAccess = await hasVendorAccess(session.user.id, id)
+      if (!hasAccess) {
+        return NextResponse.json(
+          { success: false, error: 'You do not have access to this vendor' },
+          { status: 403 }
+        )
+      }
+    } else {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 403 }
       )
     }
 

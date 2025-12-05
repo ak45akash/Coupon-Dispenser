@@ -76,8 +76,13 @@ export default function VendorProfilePage() {
       return
     }
 
-    // Only super_admin can access this page
-    if (session.user.role !== 'super_admin') {
+    // Super admin can access any vendor, partner admin only their assigned vendor
+    if (session.user.role === 'super_admin') {
+      // Super admin has access to all vendors
+    } else if (session.user.role === 'partner_admin') {
+      // Partner admin - check if they have access to this vendor
+      // We'll verify access on the backend, but we can still show the page
+    } else {
       router.push('/dashboard')
       return
     }
@@ -169,6 +174,39 @@ export default function VendorProfilePage() {
       setCopiedSecret(true)
       setTimeout(() => setCopiedSecret(false), 2000)
     }
+  }
+
+  // Helper function to generate Python code with proper @ escaping
+  const getPythonCode = () => {
+    const decorator = String.fromCharCode(64) // '@'
+    const secret = partnerSecret && partnerSecret !== 'exists' ? partnerSecret : 'YOUR_PARTNER_SECRET'
+    return `from flask import Flask, jsonify
+import jwt
+import time
+import secrets
+
+VENDOR_ID = '${vendorId}'
+PARTNER_SECRET = '${secret}'
+
+${decorator}app.route('/api/coupon-token', methods=['GET'])
+${decorator}require_auth
+def generate_coupon_token():
+    try:
+        external_user_id = str(get_current_user().id)
+        jti = f"jti-{int(time.time())}-{secrets.token_urlsafe(12)}"
+        
+        payload = {
+            'vendor': VENDOR_ID,
+            'external_user_id': external_user_id,
+            'jti': jti,
+            'iat': int(time.time()),
+            'exp': int(time.time()) + 180,
+        }
+        
+        token = jwt.encode(payload, PARTNER_SECRET, algorithm='HS256')
+        return jsonify({'token': token})
+    except Exception as e:
+        return jsonify({'error': 'Failed to generate token'}), 500`
   }
 
   const handleDelete = (coupon: Coupon) => {
@@ -730,36 +768,7 @@ app.get('/api/coupon-token', authenticateUser, (req, res) => {
                     variant="outline"
                     size="sm"
                     onClick={() => {
-                      const code = `from flask import Flask, jsonify
-import jwt
-import time
-import secrets
-
-app = Flask(__name__)
-
-# Configuration
-VENDOR_ID = '${vendorId}'
-PARTNER_SECRET = '${partnerSecret && partnerSecret !== 'exists' ? partnerSecret : 'YOUR_PARTNER_SECRET}'
-
-@app.route('/api/coupon-token', methods=['GET'])
-@require_auth  # Add your auth decorator
-def generate_coupon_token():
-    try:
-        external_user_id = str(get_current_user().id)
-        jti = f"jti-{int(time.time())}-{secrets.token_urlsafe(12)}"
-        
-        payload = {
-            'vendor': VENDOR_ID,
-            'external_user_id': external_user_id,
-            'jti': jti,
-            'iat': int(time.time()),
-            'exp': int(time.time()) + 180,
-        }
-        
-        token = jwt.encode(payload, PARTNER_SECRET, algorithm='HS256')
-        return jsonify({'token': token})
-    except Exception as e:
-        return jsonify({'error': 'Failed to generate token'}), 500`
+                      const code = getPythonCode()
                       navigator.clipboard.writeText(code)
                       setCopiedCodeIndex(2)
                       setTimeout(() => setCopiedCodeIndex(null), 2000)
@@ -780,33 +789,7 @@ def generate_coupon_token():
                 </div>
                 <div className="bg-muted p-4 rounded-lg overflow-x-auto">
                   <pre className="text-xs font-mono">
-                    <code>{`from flask import Flask, jsonify
-import jwt
-import time
-import secrets
-
-VENDOR_ID = '${vendorId}'
-PARTNER_SECRET = '${partnerSecret && partnerSecret !== 'exists' ? partnerSecret : 'YOUR_PARTNER_SECRET}'
-
-@app.route('/api/coupon-token', methods=['GET'])
-@require_auth
-def generate_coupon_token():
-    try:
-        external_user_id = str(get_current_user().id)
-        jti = f"jti-{int(time.time())}-{secrets.token_urlsafe(12)}"
-        
-        payload = {
-            'vendor': VENDOR_ID,
-            'external_user_id': external_user_id,
-            'jti': jti,
-            'iat': int(time.time()),
-            'exp': int(time.time()) + 180,
-        }
-        
-        token = jwt.encode(payload, PARTNER_SECRET, algorithm='HS256')
-        return jsonify({'token': token})
-    except Exception as e:
-        return jsonify({'error': 'Failed to generate token'}), 500`}</code>
+                    <code>{getPythonCode()}</code>
                   </pre>
                 </div>
                 <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-sm">
@@ -814,7 +797,7 @@ def generate_coupon_token():
                   <ol className="list-decimal list-inside space-y-1 text-blue-800">
                     <li>Install PyJWT: <code className="bg-blue-100 px-1 rounded">pip install PyJWT</code></li>
                     <li>Add the route to your Flask app</li>
-                    <li>Replace <code className="bg-blue-100 px-1 rounded">@require_auth</code> with your auth decorator</li>
+                    <li>Replace <code className="bg-blue-100 px-1 rounded">{'@'}require_auth</code> with your auth decorator</li>
                     <li>Add frontend JavaScript to load token when page loads</li>
                   </ol>
                 </div>
