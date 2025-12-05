@@ -25,6 +25,7 @@ export interface Vendor {
   updated_at: string
   deleted_at: string | null
   deleted_by: string | null
+  partner_secret?: string | null
 }
 
 export interface Coupon {

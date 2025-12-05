@@ -31,7 +31,7 @@ import {
 import { DeleteDialog, SuccessDialog, ErrorDialog } from '@/components/ui/dialog-helpers'
 import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
-import { Copy, Check } from 'lucide-react'
+import { Copy, Check, Key, RefreshCw, AlertTriangle } from 'lucide-react'
 
 export default function VendorProfilePage() {
   const params = useParams()
@@ -61,6 +61,12 @@ export default function VendorProfilePage() {
   
   // Widget script copy state
   const [copiedScript, setCopiedScript] = useState(false)
+  
+  // Partner secret state
+  const [partnerSecret, setPartnerSecret] = useState<string | null>(null)
+  const [showPartnerSecret, setShowPartnerSecret] = useState(false)
+  const [copiedSecret, setCopiedSecret] = useState(false)
+  const [generatingSecret, setGeneratingSecret] = useState(false)
 
   useEffect(() => {
     if (!session) {
@@ -84,6 +90,8 @@ export default function VendorProfilePage() {
       const data = await response.json()
       if (data.success) {
         setVendor(data.data)
+        // Fetch partner secret status
+        fetchPartnerSecretStatus()
       } else {
         setDialogMessage(data.error || 'Failed to fetch vendor information')
         setShowErrorDialog(true)
@@ -107,6 +115,57 @@ export default function VendorProfilePage() {
       }
     } catch (error) {
       console.error('Error fetching coupons:', error)
+    }
+  }
+
+  const fetchPartnerSecretStatus = async () => {
+    try {
+      const response = await fetch(`/api/vendors/${vendorId}/partner-secret`)
+      const data = await response.json()
+      if (data.success) {
+        // Don't store the actual secret, just track if it exists
+        setPartnerSecret(data.data.has_secret ? 'exists' : null)
+      }
+    } catch (error) {
+      console.error('Error fetching partner secret status:', error)
+    }
+  }
+
+  const generatePartnerSecret = async () => {
+    if (!confirm('Are you sure you want to generate a new partner secret? This will invalidate the old one and partners will need to update their code.')) {
+      return
+    }
+
+    setGeneratingSecret(true)
+    try {
+      const response = await fetch(`/api/vendors/${vendorId}/partner-secret`, {
+        method: 'POST',
+      })
+      const data = await response.json()
+      
+      if (data.success) {
+        setPartnerSecret(data.data.partner_secret)
+        setShowPartnerSecret(true)
+        setDialogMessage('Partner secret generated successfully! Make sure to copy it now - it will not be shown again.')
+        setShowSuccessDialog(true)
+      } else {
+        setDialogMessage(data.error || 'Failed to generate partner secret')
+        setShowErrorDialog(true)
+      }
+    } catch (error) {
+      console.error('Error generating partner secret:', error)
+      setDialogMessage('An error occurred while generating partner secret')
+      setShowErrorDialog(true)
+    } finally {
+      setGeneratingSecret(false)
+    }
+  }
+
+  const copyPartnerSecret = () => {
+    if (partnerSecret && partnerSecret !== 'exists') {
+      navigator.clipboard.writeText(partnerSecret)
+      setCopiedSecret(true)
+      setTimeout(() => setCopiedSecret(false), 2000)
     }
   }
 
@@ -266,6 +325,102 @@ export default function VendorProfilePage() {
               </Badge>
             </div>
           </div>
+        </CardContent>
+      </Card>
+
+      {/* Partner Secret Management */}
+      <Card className="mb-6">
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <CardTitle className="flex items-center gap-2">
+              <Key className="h-5 w-5" />
+              Partner Secret (for JWT Token Signing)
+            </CardTitle>
+            <Button
+              onClick={generatePartnerSecret}
+              variant="outline"
+              size="sm"
+              disabled={generatingSecret}
+            >
+              {generatingSecret ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2 animate-spin" />
+                  Generating...
+                </>
+              ) : partnerSecret ? (
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  Regenerate
+                </>
+              ) : (
+                <>
+                  <Key className="h-4 w-4 mr-2" />
+                  Generate Secret
+                </>
+              )}
+            </Button>
+          </div>
+          <CardDescription>
+            Partner secret is used to sign JWT tokens for widget authentication. Keep this secure and share only with the vendor.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          {partnerSecret && partnerSecret !== 'exists' && showPartnerSecret ? (
+            <div className="space-y-4">
+              <div className="flex items-center gap-2 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <AlertTriangle className="h-5 w-5 text-yellow-600" />
+                <p className="text-sm text-yellow-800">
+                  <strong>Important:</strong> Copy this secret now. It will not be displayed again for security reasons.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 p-3 bg-gray-100 rounded-lg font-mono text-sm break-all">
+                  {partnerSecret}
+                </code>
+                <Button
+                  onClick={copyPartnerSecret}
+                  variant="outline"
+                  size="sm"
+                >
+                  {copiedSecret ? (
+                    <>
+                      <Check className="h-4 w-4 mr-2" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="h-4 w-4 mr-2" />
+                      Copy
+                    </>
+                  )}
+                </Button>
+              </div>
+            </div>
+          ) : partnerSecret === 'exists' ? (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Partner secret is configured. Click "Regenerate" to create a new one (this will invalidate the old secret).
+              </p>
+              <Button
+                onClick={() => {
+                  if (confirm('This will show the current secret. Are you sure?')) {
+                    fetchPartnerSecretStatus()
+                  }
+                }}
+                variant="outline"
+                size="sm"
+              >
+                <Eye className="h-4 w-4 mr-2" />
+                View Secret (Last 4 chars only)
+              </Button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                No partner secret configured. Generate one to enable partner token authentication.
+              </p>
+            </div>
+          )}
         </CardContent>
       </Card>
 
