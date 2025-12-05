@@ -67,19 +67,19 @@ export async function GET(
     )
     
     // Read settings class
-    let settingsContent = await fs.readFile(
+    const settingsContent = await fs.readFile(
       path.join(pluginDir, 'includes', 'class-settings.php'),
       'utf-8'
     )
     
     // Read shortcode class
-    let shortcodeContent = await fs.readFile(
+    const shortcodeContent = await fs.readFile(
       path.join(pluginDir, 'includes', 'class-shortcode.php'),
       'utf-8'
     )
     
     // Read widget render class
-    let widgetRenderContent = await fs.readFile(
+    const widgetRenderContent = await fs.readFile(
       path.join(pluginDir, 'includes', 'class-widget-render.php'),
       'utf-8'
     )
@@ -150,7 +150,7 @@ Initial release.
         chunks.push(chunk)
       })
 
-      archive.on('error', (err) => {
+      archive.on('error', (err: Error) => {
         console.error('Error creating ZIP:', err)
         reject(err)
       })
@@ -180,8 +180,8 @@ Initial release.
       archive.finalize()
     })
 
-  } catch (error: any) {
-    console.error('Error generating WordPress plugin ZIP:', error)
+  } catch (err: unknown) {
+    console.error('Error generating WordPress plugin ZIP:', err)
     return NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }
