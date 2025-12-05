@@ -58,7 +58,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    let userId: string
+    let userId: string | undefined
 
     if (validatedData.user_id) {
       // Check if it's an anonymous user ID

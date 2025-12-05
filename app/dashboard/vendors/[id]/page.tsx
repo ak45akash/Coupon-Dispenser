@@ -445,7 +445,7 @@ def generate_coupon_token():
           ) : partnerSecret === 'exists' ? (
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
-                Partner secret is configured. Click "Regenerate" to create a new one (this will invalidate the old secret).
+                Partner secret is configured. Click &quot;Regenerate&quot; to create a new one (this will invalidate the old secret).
               </p>
               <Button
                 onClick={() => {

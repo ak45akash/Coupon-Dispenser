@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    let body = await request.json()
+    const body = await request.json()
 
     // Convert empty strings to undefined for optional fields
     if (body.description === '') body.description = undefined

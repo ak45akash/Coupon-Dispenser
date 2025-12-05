@@ -175,10 +175,10 @@ export async function upsertUserFromExternalId(
   const email = `external_${vendorId}_${externalUserId}@coupon-dispenser.local`
   
   // Check if user with this email already exists
-  let user = await getUserByEmail(email)
+  const existingUser = await getUserByEmail(email)
   
-  if (user) {
-    return user
+  if (existingUser) {
+    return existingUser
   }
 
   // Create new user in Supabase Auth
