@@ -31,7 +31,7 @@ import {
 import { DeleteDialog, SuccessDialog, ErrorDialog } from '@/components/ui/dialog-helpers'
 import { Skeleton } from '@/components/ui/skeleton'
 import Link from 'next/link'
-import { Copy, Check, Key, RefreshCw, AlertTriangle } from 'lucide-react'
+import { Copy, Check, Key, RefreshCw, AlertTriangle, Code, FileCode } from 'lucide-react'
 
 export default function VendorProfilePage() {
   const params = useParams()
@@ -67,6 +67,8 @@ export default function VendorProfilePage() {
   const [showPartnerSecret, setShowPartnerSecret] = useState(false)
   const [copiedSecret, setCopiedSecret] = useState(false)
   const [generatingSecret, setGeneratingSecret] = useState(false)
+  const [selectedPlatform, setSelectedPlatform] = useState<'wordpress' | 'nodejs' | 'python'>('wordpress')
+  const [copiedCodeIndex, setCopiedCodeIndex] = useState<number | null>(null)
 
   useEffect(() => {
     if (!session) {
