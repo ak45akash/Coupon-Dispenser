@@ -136,21 +136,30 @@ class Coupon_Dispenser_Widget {
         register_rest_route('coupon-dispenser/v1', '/token', array(
             'methods' => 'GET',
             'callback' => array($this, 'get_widget_session_token'),
-            'permission_callback' => '__return_true', // Public endpoint, but validates user internally
+            'permission_callback' => array($this, 'check_rest_permission'), // Custom permission check
         ));
     }
     
     /**
+     * Permission callback for REST API
+     * Allows both logged-in and anonymous users
+     */
+    public function check_rest_permission() {
+        // Always allow - we handle user detection in the callback
+        return true;
+    }
+    
+    /**
      * Generate widget session token via API key method
-     * Called by widget to authenticate WordPress users
+     * Called by widget to authenticate WordPress users (or anonymous users)
      */
     public function get_widget_session_token($request) {
-        // Check if user is logged in
-        if (!is_user_logged_in()) {
+        // Ensure WordPress is loaded properly for authentication
+        if (!function_exists('is_user_logged_in')) {
             return new WP_Error(
-                'not_logged_in',
-                'User must be logged in to access coupons',
-                array('status' => 401)
+                'wordpress_not_loaded',
+                'WordPress authentication not available',
+                array('status' => 500)
             );
         }
         
@@ -175,8 +184,40 @@ class Coupon_Dispenser_Widget {
             );
         }
         
-        // Get WordPress user ID
-        $user_id = get_current_user_id();
+        // Try to determine user ID - check if user is logged in
+        // Note: REST API calls need cookies for authentication
+        $user_id = null;
+        
+        // Check if user is logged in (requires WordPress cookie authentication)
+        if (is_user_logged_in()) {
+            // Use WordPress user ID for logged-in users
+            $user_id = (string) get_current_user_id();
+        } else {
+            // For anonymous users, generate or use existing anonymous ID
+            $anonymous_id = $request->get_param('anonymous_id');
+            if (empty($anonymous_id)) {
+                // Check for existing anonymous ID cookie
+                if (isset($_COOKIE['cdw_anon_id']) && !empty($_COOKIE['cdw_anon_id'])) {
+                    $anonymous_id = sanitize_text_field($_COOKIE['cdw_anon_id']);
+                } else {
+                    // Generate a new anonymous ID
+                    $anonymous_id = 'anon_' . wp_generate_password(16, false);
+                    // Set cookie for 30 days to maintain consistency
+                    // Use httponly=false so JavaScript can access it if needed
+                    setcookie('cdw_anon_id', $anonymous_id, time() + (30 * DAY_IN_SECONDS), '/', '', is_ssl(), false);
+                    $_COOKIE['cdw_anon_id'] = $anonymous_id;
+                }
+            }
+            $user_id = $anonymous_id;
+        }
+        
+        if (empty($user_id)) {
+            return new WP_Error(
+                'user_id_required',
+                'Unable to determine user identifier',
+                array('status' => 400)
+            );
+        }
         
         // Get API base URL from options (settings override constants)
         $api_base_url = get_option('cdw_api_base_url', '');
@@ -220,7 +261,18 @@ class Coupon_Dispenser_Widget {
         $data = json_decode($response_body, true);
         
         if ($response_code !== 200) {
+            // Log the error for debugging (remove in production if needed)
+            error_log('Coupon Dispenser Plugin: API Error - Status: ' . $response_code . ', Response: ' . $response_body);
+            
             $error_message = isset($data['error']) ? $data['error'] : 'Failed to generate widget session token';
+            
+            // Provide more helpful error messages
+            if ($response_code === 401) {
+                $error_message = isset($data['error']) ? $data['error'] : 'Invalid API key or vendor ID. Please check your plugin settings.';
+            } elseif ($response_code === 404) {
+                $error_message = 'Vendor not found. Please verify your vendor ID in plugin settings.';
+            }
+            
             return new WP_Error(
                 'api_error',
                 $error_message,
