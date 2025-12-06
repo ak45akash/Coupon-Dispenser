@@ -62,6 +62,7 @@ export default function VendorProfilePage() {
   
   // Widget script copy state
   const [copiedScript, setCopiedScript] = useState(false)
+  const [copiedWidgetShortcode, setCopiedWidgetShortcode] = useState(false)
   
   // Partner secret state
   const [partnerSecret, setPartnerSecret] = useState<string | null>(null)
@@ -569,7 +570,7 @@ app.get('/api/coupon-token', authenticateUser, async (req, res) => {
                       </div>
                     </div>
                     <div className="mt-4 pt-4 border-t border-blue-200">
-                      <p className="text-sm text-blue-600 mb-2">
+                      <p className="text-sm text-blue-600 mb-3">
                         Download the plugin ZIP file pre-configured with your vendor ID and API key. Simply upload and activate in WordPress.
                       </p>
                       <Button 
@@ -588,12 +589,19 @@ app.get('/api/coupon-token', authenticateUser, async (req, res) => {
                           You need to generate an API key first. Go to the &quot;API Key Method&quot; tab to generate one.
                         </p>
                       )}
+                      {apiKey && apiKey !== 'exists' && (
+                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3">
+                          <p className="text-xs text-amber-800">
+                            <strong>Important:</strong> If you regenerate your API key, you must download a new plugin ZIP file and replace the existing plugin in WordPress to update the API key.
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Widget Embed Code - Coming Soon */}
+              {/* Widget Embed Code */}
               <Card>
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -601,18 +609,51 @@ app.get('/api/coupon-token', authenticateUser, async (req, res) => {
                     Widget Embed Code
                   </CardTitle>
                   <CardDescription>
-                    Once the WordPress plugin is available, you&apos;ll be able to embed the widget using a simple shortcode.
+                    Use this shortcode to embed the coupon widget in any WordPress page or post after installing the plugin.
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="bg-muted p-4 rounded-lg">
-                    <code className="text-sm font-mono">
-                      [coupon_widget vendor_id=&quot;{vendorId}&quot;]
-                    </code>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-2">
+                      <code className="flex-1 p-3 bg-muted rounded-lg font-mono text-sm break-all">
+                        [coupon_widget]
+                      </code>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText('[coupon_widget]')
+                            setCopiedWidgetShortcode(true)
+                            setTimeout(() => setCopiedWidgetShortcode(false), 2000)
+                          } catch (err) {
+                            console.error('Failed to copy:', err)
+                          }
+                        }}
+                        className="shrink-0"
+                      >
+                        {copiedWidgetShortcode ? (
+                          <>
+                            <Check className="h-4 w-4 mr-2" />
+                            Copied!
+                          </>
+                        ) : (
+                          <>
+                            <Copy className="h-4 w-4 mr-2" />
+                            Copy
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      <strong>Note:</strong> The plugin automatically handles authentication and widget embedding. No vendor ID needed in the shortcode as it&apos;s pre-configured.
+                    </p>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-4">
+                      <p className="text-sm text-blue-800">
+                        <strong>API Key Regeneration:</strong> If you regenerate your API key, you&apos;ll need to download a new plugin ZIP file. The new ZIP will contain your updated API key. Simply replace the old plugin with the new one in WordPress.
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-sm text-muted-foreground mt-3">
-                    <strong>Coming Soon:</strong> The WordPress plugin will handle all authentication and widget embedding automatically.
-                  </p>
                 </CardContent>
               </Card>
             </TabsContent>

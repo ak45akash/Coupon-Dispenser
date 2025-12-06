@@ -1,11 +1,11 @@
 <?php
 /**
  * Plugin Name: Coupon Dispenser Widget
- * Plugin URI: https://your-domain.com
+ * Plugin URI: https://iakash.dev
  * Description: Embed coupon widgets from Coupon Dispenser platform. Zero-code integration for WordPress.
  * Version: 1.0.0
- * Author: Coupon Dispenser
- * Author URI: https://your-domain.com
+ * Author: Akash
+ * Author URI: https://iakash.dev
  * Text Domain: coupon-dispenser-widget
  * Domain Path: /languages
  * Requires at least: 5.0

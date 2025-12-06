@@ -91,7 +91,7 @@ export async function GET(
 
     // Add README file
     const readmeContent = `=== Coupon Dispenser Widget ===
-Contributors: coupon-dispenser
+Contributors: akash
 Tags: coupons, widget, ecommerce
 Requires at least: 5.0
 Tested up to: 6.4
@@ -99,12 +99,20 @@ Requires PHP: 7.4
 Stable tag: 1.0.0
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
+Plugin URI: https://iakash.dev
+Author: Akash
+Author URI: https://iakash.dev
 
 Embed coupon widgets from Coupon Dispenser platform. Zero-code integration for WordPress.
 
 == Description ==
 
 This plugin allows you to embed coupon widgets from the Coupon Dispenser platform directly into your WordPress site. The plugin is pre-configured with your vendor ID and API key, so you can start using it immediately after installation.
+
+== Important Notes ==
+
+* **API Key Regeneration:** If you regenerate your API key in the dashboard, you must download a new plugin ZIP file and replace the existing plugin in WordPress. The new ZIP will contain your updated API key.
+* **One Plugin Per Vendor:** Each plugin is pre-configured with one vendor ID and API key. Use separate plugin installations for different vendors.
 
 == Installation ==
 
