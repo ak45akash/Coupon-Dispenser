@@ -136,17 +136,8 @@ class Coupon_Dispenser_Widget {
         register_rest_route('coupon-dispenser/v1', '/token', array(
             'methods' => 'GET',
             'callback' => array($this, 'get_widget_session_token'),
-            'permission_callback' => array($this, 'check_rest_permission'), // Custom permission check
+            'permission_callback' => '__return_true', // Allow all requests - we handle auth internally
         ));
-    }
-    
-    /**
-     * Permission callback for REST API
-     * Allows both logged-in and anonymous users
-     */
-    public function check_rest_permission() {
-        // Always allow - we handle user detection in the callback
-        return true;
     }
     
     /**
