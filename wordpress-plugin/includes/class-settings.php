@@ -28,6 +28,7 @@ class Coupon_Dispenser_Settings {
     /**
      * Auto-fix settings from constants if they're incorrect
      * This helps when plugin was updated with new constants
+     * NOTE: API Key is NOT auto-fixed to allow manual updates via settings page
      */
     public function maybe_fix_settings_from_constants() {
         // Always ensure Vendor ID and API Base URL match constants (they're read-only)
@@ -45,7 +46,7 @@ class Coupon_Dispenser_Settings {
         
         $fixed = false;
         
-        // Fix vendor ID if constant is defined and option is wrong/empty
+        // Fix vendor ID if constant is defined and option is wrong/empty (read-only field)
         if (defined('CDW_VENDOR_ID') && CDW_VENDOR_ID !== 'PLUGIN_CONFIG_VENDOR_ID') {
             $current_value = get_option('cdw_vendor_id', '');
             if (empty($current_value) || $current_value !== CDW_VENDOR_ID) {
@@ -54,16 +55,16 @@ class Coupon_Dispenser_Settings {
             }
         }
         
-        // Fix API key if constant is defined and option is wrong/empty
-        if (defined('CDW_API_KEY') && CDW_API_KEY !== 'PLUGIN_CONFIG_API_KEY') {
-            $current_value = get_option('cdw_api_key', '');
-            if (empty($current_value) || $current_value !== CDW_API_KEY) {
-                update_option('cdw_api_key', CDW_API_KEY);
-                $fixed = true;
-            }
+        // DO NOT auto-fix API key - it should be manually updatable via settings page
+        // Only set it if it's completely empty (first time installation)
+        $api_key_value = get_option('cdw_api_key', '');
+        if (empty($api_key_value) && defined('CDW_API_KEY') && CDW_API_KEY !== 'PLUGIN_CONFIG_API_KEY') {
+            // Only set if truly empty (first install), don't overwrite manual updates
+            update_option('cdw_api_key', CDW_API_KEY);
+            $fixed = true;
         }
         
-        // Fix API base URL if constant is defined and option is wrong/placeholder
+        // Fix API base URL if constant is defined and option is wrong/placeholder (read-only field)
         if (defined('CDW_API_BASE_URL') && CDW_API_BASE_URL !== 'PLUGIN_CONFIG_API_BASE_URL') {
             $current_value = get_option('cdw_api_base_url', '');
             if (empty($current_value) || $current_value === 'https://your-domain.com' || $current_value !== CDW_API_BASE_URL) {

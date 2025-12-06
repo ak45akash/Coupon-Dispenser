@@ -164,13 +164,15 @@ class Coupon_Dispenser_Widget {
         }
         
         // Get vendor ID and API key from options (settings override constants)
+        // Options are checked first to allow manual updates via settings page
         $vendor_id = get_option('cdw_vendor_id', '');
         $api_key = get_option('cdw_api_key', '');
         
-        // Fallback to constants if options are not set
+        // Fallback to constants ONLY if options are truly empty (not manually set)
         if (empty($vendor_id) && defined('CDW_VENDOR_ID') && CDW_VENDOR_ID !== 'PLUGIN_CONFIG_VENDOR_ID') {
             $vendor_id = CDW_VENDOR_ID;
         }
+        // For API key, only use constant if option is empty (allows manual updates)
         if (empty($api_key) && defined('CDW_API_KEY') && CDW_API_KEY !== 'PLUGIN_CONFIG_API_KEY') {
             $api_key = CDW_API_KEY;
         }
