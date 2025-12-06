@@ -258,14 +258,15 @@ coupon_dispenser_widget_init();
  */
 register_activation_hook(__FILE__, 'cdw_activate');
 function cdw_activate() {
-    // Set default options if not set (pre-configured from dashboard)
-    if (!get_option('cdw_vendor_id') && defined('CDW_VENDOR_ID') && CDW_VENDOR_ID !== 'PLUGIN_CONFIG_VENDOR_ID') {
+    // Force update options from constants (pre-configured from dashboard)
+    // This ensures values are always set correctly, even if they were previously set incorrectly
+    if (defined('CDW_VENDOR_ID') && CDW_VENDOR_ID !== 'PLUGIN_CONFIG_VENDOR_ID') {
         update_option('cdw_vendor_id', CDW_VENDOR_ID);
     }
-    if (!get_option('cdw_api_key') && defined('CDW_API_KEY') && CDW_API_KEY !== 'PLUGIN_CONFIG_API_KEY') {
+    if (defined('CDW_API_KEY') && CDW_API_KEY !== 'PLUGIN_CONFIG_API_KEY') {
         update_option('cdw_api_key', CDW_API_KEY);
     }
-    if (!get_option('cdw_api_base_url') && defined('CDW_API_BASE_URL') && CDW_API_BASE_URL !== 'PLUGIN_CONFIG_API_BASE_URL') {
+    if (defined('CDW_API_BASE_URL') && CDW_API_BASE_URL !== 'PLUGIN_CONFIG_API_BASE_URL') {
         update_option('cdw_api_base_url', CDW_API_BASE_URL);
     }
 }

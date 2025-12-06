@@ -22,6 +22,60 @@ class Coupon_Dispenser_Settings {
     private function __construct() {
         add_action('admin_menu', array($this, 'add_settings_page'));
         add_action('admin_init', array($this, 'register_settings'));
+        add_action('admin_init', array($this, 'maybe_fix_settings_from_constants'));
+    }
+    
+    /**
+     * Auto-fix settings from constants if they're incorrect
+     * This helps when plugin was updated with new constants
+     */
+    public function maybe_fix_settings_from_constants() {
+        // Always ensure Vendor ID and API Base URL match constants (they're read-only)
+        // Only run once per session to avoid performance issues
+        if (get_transient('cdw_settings_fixed')) {
+            // Still check read-only fields on every admin load to prevent tampering
+            if (defined('CDW_VENDOR_ID') && CDW_VENDOR_ID !== 'PLUGIN_CONFIG_VENDOR_ID') {
+                update_option('cdw_vendor_id', CDW_VENDOR_ID);
+            }
+            if (defined('CDW_API_BASE_URL') && CDW_API_BASE_URL !== 'PLUGIN_CONFIG_API_BASE_URL') {
+                update_option('cdw_api_base_url', CDW_API_BASE_URL);
+            }
+            return;
+        }
+        
+        $fixed = false;
+        
+        // Fix vendor ID if constant is defined and option is wrong/empty
+        if (defined('CDW_VENDOR_ID') && CDW_VENDOR_ID !== 'PLUGIN_CONFIG_VENDOR_ID') {
+            $current_value = get_option('cdw_vendor_id', '');
+            if (empty($current_value) || $current_value !== CDW_VENDOR_ID) {
+                update_option('cdw_vendor_id', CDW_VENDOR_ID);
+                $fixed = true;
+            }
+        }
+        
+        // Fix API key if constant is defined and option is wrong/empty
+        if (defined('CDW_API_KEY') && CDW_API_KEY !== 'PLUGIN_CONFIG_API_KEY') {
+            $current_value = get_option('cdw_api_key', '');
+            if (empty($current_value) || $current_value !== CDW_API_KEY) {
+                update_option('cdw_api_key', CDW_API_KEY);
+                $fixed = true;
+            }
+        }
+        
+        // Fix API base URL if constant is defined and option is wrong/placeholder
+        if (defined('CDW_API_BASE_URL') && CDW_API_BASE_URL !== 'PLUGIN_CONFIG_API_BASE_URL') {
+            $current_value = get_option('cdw_api_base_url', '');
+            if (empty($current_value) || $current_value === 'https://your-domain.com' || $current_value !== CDW_API_BASE_URL) {
+                update_option('cdw_api_base_url', CDW_API_BASE_URL);
+                $fixed = true;
+            }
+        }
+        
+        // Set transient to avoid running this check repeatedly (expires in 1 hour)
+        if ($fixed) {
+            set_transient('cdw_settings_fixed', true, HOUR_IN_SECONDS);
+        }
     }
     
     /**
@@ -102,10 +156,14 @@ class Coupon_Dispenser_Settings {
     }
     
     /**
-     * Render vendor ID field
+     * Render vendor ID field (read-only)
      */
     public function render_vendor_id_field() {
         $value = get_option('cdw_vendor_id', '');
+        // Fallback to constant if option is empty
+        if (empty($value) && defined('CDW_VENDOR_ID') && CDW_VENDOR_ID !== 'PLUGIN_CONFIG_VENDOR_ID') {
+            $value = CDW_VENDOR_ID;
+        }
         ?>
         <input 
             type="text" 
@@ -114,9 +172,11 @@ class Coupon_Dispenser_Settings {
             value="<?php echo esc_attr($value); ?>" 
             class="regular-text"
             placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+            readonly
+            style="background-color: #f0f0f1; cursor: not-allowed;"
         />
         <p class="description">
-            <?php _e('Your vendor ID from the Coupon Dispenser dashboard. Format: UUID.', 'coupon-dispenser-widget'); ?>
+            <?php _e('Your vendor ID from the Coupon Dispenser dashboard. This is pre-configured and cannot be changed.', 'coupon-dispenser-widget'); ?>
         </p>
         <?php
     }
@@ -126,6 +186,10 @@ class Coupon_Dispenser_Settings {
      */
     public function render_api_key_field() {
         $api_key = get_option('cdw_api_key', '');
+        // Fallback to constant if option is empty
+        if (empty($api_key) && defined('CDW_API_KEY') && CDW_API_KEY !== 'PLUGIN_CONFIG_API_KEY') {
+            $api_key = CDW_API_KEY;
+        }
         $api_key_display = !empty($api_key) ? str_repeat('*', max(20, strlen($api_key) - 8)) . substr($api_key, -8) : '';
         ?>
         <div style="display: flex; gap: 8px; align-items: center;">
@@ -172,10 +236,18 @@ class Coupon_Dispenser_Settings {
     }
     
     /**
-     * Render API base URL field
+     * Render API base URL field (read-only)
      */
     public function render_api_base_url_field() {
-        $value = get_option('cdw_api_base_url', 'https://your-domain.com');
+        $value = get_option('cdw_api_base_url', '');
+        // Fallback to constant if option is empty or placeholder
+        if ((empty($value) || $value === 'https://your-domain.com') && defined('CDW_API_BASE_URL') && CDW_API_BASE_URL !== 'PLUGIN_CONFIG_API_BASE_URL') {
+            $value = CDW_API_BASE_URL;
+        }
+        // Default placeholder if still empty
+        if (empty($value)) {
+            $value = 'https://your-domain.com';
+        }
         ?>
         <input 
             type="url" 
@@ -184,9 +256,11 @@ class Coupon_Dispenser_Settings {
             value="<?php echo esc_attr($value); ?>" 
             class="regular-text"
             placeholder="https://your-domain.com"
+            readonly
+            style="background-color: #f0f0f1; cursor: not-allowed;"
         />
         <p class="description">
-            <?php _e('Base URL of your Coupon Dispenser platform (e.g., https://your-domain.com).', 'coupon-dispenser-widget'); ?>
+            <?php _e('Base URL of your Coupon Dispenser platform. This is automatically configured and cannot be changed.', 'coupon-dispenser-widget'); ?>
         </p>
         <?php
     }

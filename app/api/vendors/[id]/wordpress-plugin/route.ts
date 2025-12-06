@@ -53,8 +53,35 @@ export async function GET(
       )
     }
 
-    // Get API base URL from environment or request
-    const apiBaseUrl = process.env.NEXTAUTH_URL || request.headers.get('origin') || 'https://your-domain.com'
+    // Get API base URL from request origin (where the download came from)
+    // This ensures the correct URL is used based on where the request came from
+    const origin = request.headers.get('origin')
+    const host = request.headers.get('host')
+    const referer = request.headers.get('referer')
+    
+    // Try to extract URL from referer if origin is not available
+    let apiBaseUrl = origin
+    if (!apiBaseUrl && referer) {
+      try {
+        const refererUrl = new URL(referer)
+        apiBaseUrl = `${refererUrl.protocol}//${refererUrl.host}`
+      } catch (e) {
+        // Invalid referer, continue
+      }
+    }
+    
+    // Fallback to host from request
+    if (!apiBaseUrl && host) {
+      apiBaseUrl = `https://${host}`
+    }
+    
+    // Fallback to environment variables
+    if (!apiBaseUrl) {
+      apiBaseUrl = process.env.NEXTAUTH_URL || 
+                   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
+                   'https://coupon-dispenser.vercel.app'
+    }
+    
     const cleanApiBaseUrl = apiBaseUrl.replace(/\/$/, '') // Remove trailing slash
 
     // Read plugin template files
