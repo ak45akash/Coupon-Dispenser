@@ -53,16 +53,19 @@ class Coupon_Dispenser_Widget {
     }
     
     private function __construct() {
+        // Include required files early
+        $this->includes();
+        
         // Initialize plugin
         add_action('plugins_loaded', array($this, 'init'));
+        
+        // Register shortcode on 'init' to ensure it's available early
+        add_action('init', array($this, 'register_shortcode'), 10);
     }
     
     public function init() {
         // Load plugin textdomain for translations
         load_plugin_textdomain('coupon-dispenser-widget', false, dirname(CDW_PLUGIN_BASENAME) . '/languages');
-        
-        // Include required files
-        $this->includes();
         
         // Initialize components
         $this->init_components();
@@ -74,14 +77,18 @@ class Coupon_Dispenser_Widget {
         require_once CDW_PLUGIN_DIR . 'includes/class-widget-render.php';
     }
     
+    /**
+     * Register shortcode early on 'init' action
+     */
+    public function register_shortcode() {
+        Coupon_Dispenser_Shortcode::get_instance();
+    }
+    
     private function init_components() {
         // Initialize settings page
         if (is_admin()) {
             Coupon_Dispenser_Settings::get_instance();
         }
-        
-        // Initialize shortcode - register early
-        Coupon_Dispenser_Shortcode::get_instance();
         
         // Enqueue scripts
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
@@ -94,8 +101,16 @@ class Coupon_Dispenser_Widget {
      * Enqueue widget script on frontend
      */
     public function enqueue_scripts() {
-        // Only enqueue if shortcode is used or setting is enabled
-        $api_base_url = CDW_API_BASE_URL;
+        // Get API base URL from options (settings override constants)
+        $api_base_url = get_option('cdw_api_base_url', '');
+        if (empty($api_base_url) && defined('CDW_API_BASE_URL') && CDW_API_BASE_URL !== 'PLUGIN_CONFIG_API_BASE_URL') {
+            $api_base_url = CDW_API_BASE_URL;
+        }
+        
+        if (empty($api_base_url)) {
+            return; // Don't enqueue if not configured
+        }
+        
         $widget_script_url = $api_base_url . '/widget-embed.js';
         
         // Enqueue widget script
@@ -139,8 +154,17 @@ class Coupon_Dispenser_Widget {
             );
         }
         
-        $vendor_id = CDW_VENDOR_ID;
-        $api_key = CDW_API_KEY;
+        // Get vendor ID and API key from options (settings override constants)
+        $vendor_id = get_option('cdw_vendor_id', '');
+        $api_key = get_option('cdw_api_key', '');
+        
+        // Fallback to constants if options are not set
+        if (empty($vendor_id) && defined('CDW_VENDOR_ID') && CDW_VENDOR_ID !== 'PLUGIN_CONFIG_VENDOR_ID') {
+            $vendor_id = CDW_VENDOR_ID;
+        }
+        if (empty($api_key) && defined('CDW_API_KEY') && CDW_API_KEY !== 'PLUGIN_CONFIG_API_KEY') {
+            $api_key = CDW_API_KEY;
+        }
         
         // Validate configuration
         if (empty($vendor_id) || empty($api_key)) {
@@ -154,8 +178,22 @@ class Coupon_Dispenser_Widget {
         // Get WordPress user ID
         $user_id = get_current_user_id();
         
+        // Get API base URL from options (settings override constants)
+        $api_base_url = get_option('cdw_api_base_url', '');
+        if (empty($api_base_url) && defined('CDW_API_BASE_URL') && CDW_API_BASE_URL !== 'PLUGIN_CONFIG_API_BASE_URL') {
+            $api_base_url = CDW_API_BASE_URL;
+        }
+        
+        if (empty($api_base_url)) {
+            return new WP_Error(
+                'not_configured',
+                'API Base URL is not configured. Please set it in settings.',
+                array('status' => 500)
+            );
+        }
+        
         // Call our API to get widget session token
-        $api_url = CDW_API_BASE_URL . '/api/widget-session';
+        $api_url = $api_base_url . '/api/widget-session';
         
         $response = wp_remote_post($api_url, array(
             'headers' => array(
@@ -212,8 +250,8 @@ function coupon_dispenser_widget_init() {
     return Coupon_Dispenser_Widget::get_instance();
 }
 
-// Start the plugin - use plugins_loaded to ensure WordPress is ready
-add_action('plugins_loaded', 'coupon_dispenser_widget_init', 10);
+// Start the plugin immediately to ensure early initialization
+coupon_dispenser_widget_init();
 
 /**
  * Activation hook

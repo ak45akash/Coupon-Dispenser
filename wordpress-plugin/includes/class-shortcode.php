@@ -20,8 +20,11 @@ class Coupon_Dispenser_Shortcode {
     }
     
     private function __construct() {
-        // Register shortcode immediately
-        add_shortcode('coupon_widget', array($this, 'render_shortcode'));
+        // Register shortcode - will be called during 'init' action
+        // Using 'init' hook ensures WordPress is ready
+        if (!shortcode_exists('coupon_widget')) {
+            add_shortcode('coupon_widget', array($this, 'render_shortcode'));
+        }
     }
     
     /**
@@ -38,12 +41,19 @@ class Coupon_Dispenser_Shortcode {
         ), $atts, 'coupon_widget');
         
         $vendor_id = get_option('cdw_vendor_id', '');
+        $api_key = get_option('cdw_api_key', '');
         $api_base_url = get_option('cdw_api_base_url', 'https://your-domain.com');
         
         // Validate configuration
         if (empty($vendor_id)) {
             return '<div class="cdw-error" style="padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; margin: 10px 0;">
                 <strong>Coupon Dispenser Error:</strong> Vendor ID is not configured. Please go to <a href="' . admin_url('options-general.php?page=coupon-dispenser-widget') . '">Settings → Coupon Dispenser</a> to configure your plugin.
+            </div>';
+        }
+        
+        if (empty($api_key)) {
+            return '<div class="cdw-error" style="padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; margin: 10px 0;">
+                <strong>Coupon Dispenser Error:</strong> API Key is not configured. Please go to <a href="' . admin_url('options-general.php?page=coupon-dispenser-widget') . '">Settings → Coupon Dispenser</a> to configure your plugin.
             </div>';
         }
         

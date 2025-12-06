@@ -37,3 +37,7 @@ next-env.d.ts
 # macOS system files
 ._*
 .DS_Store
+
+# Documentation files (except README.md)
+*.md
+!README.md

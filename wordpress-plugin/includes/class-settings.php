@@ -41,9 +41,154 @@ class Coupon_Dispenser_Settings {
      * Register plugin settings
      */
     public function register_settings() {
-        register_setting('cdw_settings', 'cdw_vendor_id');
-        register_setting('cdw_settings', 'cdw_api_key');
-        register_setting('cdw_settings', 'cdw_api_base_url');
+        // Register settings group
+        register_setting('cdw_settings', 'cdw_vendor_id', array(
+            'type' => 'string',
+            'sanitize_callback' => 'sanitize_text_field',
+            'default' => ''
+        ));
+        
+        register_setting('cdw_settings', 'cdw_api_key', array(
+            'type' => 'string',
+            'sanitize_callback' => 'sanitize_text_field',
+            'default' => ''
+        ));
+        
+        register_setting('cdw_settings', 'cdw_api_base_url', array(
+            'type' => 'string',
+            'sanitize_callback' => 'esc_url_raw',
+            'default' => ''
+        ));
+        
+        // Add settings section
+        add_settings_section(
+            'cdw_main_section',
+            __('Configuration', 'coupon-dispenser-widget'),
+            array($this, 'settings_section_callback'),
+            'coupon-dispenser-widget'
+        );
+        
+        // Add settings fields
+        add_settings_field(
+            'cdw_vendor_id',
+            __('Vendor ID', 'coupon-dispenser-widget'),
+            array($this, 'render_vendor_id_field'),
+            'coupon-dispenser-widget',
+            'cdw_main_section'
+        );
+        
+        add_settings_field(
+            'cdw_api_key',
+            __('API Key', 'coupon-dispenser-widget'),
+            array($this, 'render_api_key_field'),
+            'coupon-dispenser-widget',
+            'cdw_main_section'
+        );
+        
+        add_settings_field(
+            'cdw_api_base_url',
+            __('API Base URL', 'coupon-dispenser-widget'),
+            array($this, 'render_api_base_url_field'),
+            'coupon-dispenser-widget',
+            'cdw_main_section'
+        );
+    }
+    
+    /**
+     * Settings section callback
+     */
+    public function settings_section_callback() {
+        echo '<p>' . __('Configure your Coupon Dispenser integration settings below.', 'coupon-dispenser-widget') . '</p>';
+    }
+    
+    /**
+     * Render vendor ID field
+     */
+    public function render_vendor_id_field() {
+        $value = get_option('cdw_vendor_id', '');
+        ?>
+        <input 
+            type="text" 
+            id="cdw_vendor_id" 
+            name="cdw_vendor_id" 
+            value="<?php echo esc_attr($value); ?>" 
+            class="regular-text"
+            placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+        />
+        <p class="description">
+            <?php _e('Your vendor ID from the Coupon Dispenser dashboard. Format: UUID.', 'coupon-dispenser-widget'); ?>
+        </p>
+        <?php
+    }
+    
+    /**
+     * Render API key field
+     */
+    public function render_api_key_field() {
+        $api_key = get_option('cdw_api_key', '');
+        $api_key_display = !empty($api_key) ? str_repeat('*', max(20, strlen($api_key) - 8)) . substr($api_key, -8) : '';
+        ?>
+        <div style="display: flex; gap: 8px; align-items: center;">
+            <input 
+                type="password" 
+                id="cdw_api_key" 
+                name="cdw_api_key" 
+                value="<?php echo esc_attr($api_key); ?>" 
+                class="regular-text"
+                placeholder="cdk_..."
+                style="flex: 1;"
+            />
+            <button 
+                type="button" 
+                class="button" 
+                onclick="
+                    var input = document.getElementById('cdw_api_key');
+                    var btn = this;
+                    if (input.type === 'password') {
+                        input.type = 'text';
+                        btn.textContent = '<?php _e('Hide', 'coupon-dispenser-widget'); ?>';
+                    } else {
+                        input.type = 'password';
+                        btn.textContent = '<?php _e('Show', 'coupon-dispenser-widget'); ?>';
+                    }
+                "
+                style="white-space: nowrap;"
+            >
+                <?php _e('Show', 'coupon-dispenser-widget'); ?>
+            </button>
+        </div>
+        <p class="description">
+            <?php _e('Your API key from the Coupon Dispenser dashboard. You can update this manually if your API key was regenerated. Keep this secure.', 'coupon-dispenser-widget'); ?>
+        </p>
+        <?php if (!empty($api_key)): ?>
+            <p class="description" style="color: #0073aa; margin-top: 5px;">
+                <strong><?php _e('Current Key:', 'coupon-dispenser-widget'); ?></strong> 
+                <?php echo esc_html($api_key_display); ?>
+                <br>
+                <em><?php _e('If you regenerated your API key in the dashboard, paste the new key here and save.', 'coupon-dispenser-widget'); ?></em>
+            </p>
+        <?php endif; ?>
+        <?php
+    }
+    
+    /**
+     * Render API base URL field
+     */
+    public function render_api_base_url_field() {
+        $value = get_option('cdw_api_base_url', 'https://your-domain.com');
+        ?>
+        <input 
+            type="url" 
+            id="cdw_api_base_url" 
+            name="cdw_api_base_url" 
+            value="<?php echo esc_attr($value); ?>" 
+            class="regular-text"
+            placeholder="https://your-domain.com"
+        />
+        <p class="description">
+            <?php _e('Base URL of your Coupon Dispenser platform (e.g., https://your-domain.com).', 'coupon-dispenser-widget'); ?>
+        </p>
+        <?php
     }
     
     /**
@@ -75,97 +220,10 @@ class Coupon_Dispenser_Settings {
                 do_settings_sections('cdw_settings');
                 ?>
                 
-                <table class="form-table" role="presentation">
-                    <tr>
-                        <th scope="row">
-                            <label for="cdw_vendor_id"><?php _e('Vendor ID', 'coupon-dispenser-widget'); ?></label>
-                        </th>
-                        <td>
-                            <input 
-                                type="text" 
-                                id="cdw_vendor_id" 
-                                name="cdw_vendor_id" 
-                                value="<?php echo esc_attr(get_option('cdw_vendor_id', '')); ?>" 
-                                class="regular-text"
-                                placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                            />
-                            <p class="description">
-                                <?php _e('Your vendor ID from the Coupon Dispenser dashboard. Format: UUID.', 'coupon-dispenser-widget'); ?>
-                            </p>
-                        </td>
-                    </tr>
-                    
-                    <tr>
-                        <th scope="row">
-                            <label for="cdw_api_key"><?php _e('API Key', 'coupon-dispenser-widget'); ?></label>
-                        </th>
-                        <td>
-                            <?php 
-                            $api_key = get_option('cdw_api_key', '');
-                            $api_key_display = !empty($api_key) ? str_repeat('*', max(20, strlen($api_key) - 8)) . substr($api_key, -8) : '';
-                            ?>
-                            <div style="display: flex; gap: 8px; align-items: center;">
-                                <input 
-                                    type="password" 
-                                    id="cdw_api_key" 
-                                    name="cdw_api_key" 
-                                    value="<?php echo esc_attr($api_key); ?>" 
-                                    class="regular-text"
-                                    placeholder="cdk_..."
-                                    style="flex: 1;"
-                                />
-                                <button 
-                                    type="button" 
-                                    class="button" 
-                                    onclick="
-                                        var input = document.getElementById('cdw_api_key');
-                                        var btn = this;
-                                        if (input.type === 'password') {
-                                            input.type = 'text';
-                                            btn.textContent = '<?php _e('Hide', 'coupon-dispenser-widget'); ?>';
-                                        } else {
-                                            input.type = 'password';
-                                            btn.textContent = '<?php _e('Show', 'coupon-dispenser-widget'); ?>';
-                                        }
-                                    "
-                                    style="white-space: nowrap;"
-                                >
-                                    <?php _e('Show', 'coupon-dispenser-widget'); ?>
-                                </button>
-                            </div>
-                            <p class="description">
-                                <?php _e('Your API key from the Coupon Dispenser dashboard. You can update this manually if your API key was regenerated. Keep this secure.', 'coupon-dispenser-widget'); ?>
-                            </p>
-                            <?php if (!empty($api_key)): ?>
-                                <p class="description" style="color: #0073aa; margin-top: 5px;">
-                                    <strong><?php _e('Current Key:', 'coupon-dispenser-widget'); ?></strong> 
-                                    <?php echo esc_html($api_key_display); ?>
-                                    <br>
-                                    <em><?php _e('If you regenerated your API key in the dashboard, paste the new key here and save.', 'coupon-dispenser-widget'); ?></em>
-                                </p>
-                            <?php endif; ?>
-                        </td>
-                    </tr>
-                    
-                    <tr>
-                        <th scope="row">
-                            <label for="cdw_api_base_url"><?php _e('API Base URL', 'coupon-dispenser-widget'); ?></label>
-                        </th>
-                        <td>
-                            <input 
-                                type="url" 
-                                id="cdw_api_base_url" 
-                                name="cdw_api_base_url" 
-                                value="<?php echo esc_attr(get_option('cdw_api_base_url', 'https://your-domain.com')); ?>" 
-                                class="regular-text"
-                                placeholder="https://your-domain.com"
-                            />
-                            <p class="description">
-                                <?php _e('Base URL of your Coupon Dispenser platform (e.g., https://your-domain.com).', 'coupon-dispenser-widget'); ?>
-                            </p>
-                        </td>
-                    </tr>
-                </table>
+                <?php
+                // Render settings fields using WordPress Settings API
+                do_settings_sections('coupon-dispenser-widget');
+                ?>
                 
                 <?php submit_button(__('Save Settings', 'coupon-dispenser-widget')); ?>
             </form>
