@@ -111,7 +111,7 @@ This plugin allows you to embed coupon widgets from the Coupon Dispenser platfor
 
 == Important Notes ==
 
-* **API Key Regeneration:** If you regenerate your API key in the dashboard, you must download a new plugin ZIP file and replace the existing plugin in WordPress. The new ZIP will contain your updated API key.
+* **API Key Updates:** If you regenerate your API key in the dashboard, you can update it directly in WordPress. Go to Settings → Coupon Dispenser and paste your new API key. No need to download a new plugin!
 * **One Plugin Per Vendor:** Each plugin is pre-configured with one vendor ID and API key. Use separate plugin installations for different vendors.
 
 == Installation ==

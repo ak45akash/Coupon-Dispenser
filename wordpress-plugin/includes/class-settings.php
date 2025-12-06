@@ -100,17 +100,50 @@ class Coupon_Dispenser_Settings {
                             <label for="cdw_api_key"><?php _e('API Key', 'coupon-dispenser-widget'); ?></label>
                         </th>
                         <td>
-                            <input 
-                                type="password" 
-                                id="cdw_api_key" 
-                                name="cdw_api_key" 
-                                value="<?php echo esc_attr(get_option('cdw_api_key', '')); ?>" 
-                                class="regular-text"
-                                placeholder="cdk_..."
-                            />
+                            <?php 
+                            $api_key = get_option('cdw_api_key', '');
+                            $api_key_display = !empty($api_key) ? str_repeat('*', max(20, strlen($api_key) - 8)) . substr($api_key, -8) : '';
+                            ?>
+                            <div style="display: flex; gap: 8px; align-items: center;">
+                                <input 
+                                    type="password" 
+                                    id="cdw_api_key" 
+                                    name="cdw_api_key" 
+                                    value="<?php echo esc_attr($api_key); ?>" 
+                                    class="regular-text"
+                                    placeholder="cdk_..."
+                                    style="flex: 1;"
+                                />
+                                <button 
+                                    type="button" 
+                                    class="button" 
+                                    onclick="
+                                        var input = document.getElementById('cdw_api_key');
+                                        var btn = this;
+                                        if (input.type === 'password') {
+                                            input.type = 'text';
+                                            btn.textContent = '<?php _e('Hide', 'coupon-dispenser-widget'); ?>';
+                                        } else {
+                                            input.type = 'password';
+                                            btn.textContent = '<?php _e('Show', 'coupon-dispenser-widget'); ?>';
+                                        }
+                                    "
+                                    style="white-space: nowrap;"
+                                >
+                                    <?php _e('Show', 'coupon-dispenser-widget'); ?>
+                                </button>
+                            </div>
                             <p class="description">
-                                <?php _e('Your API key from the Coupon Dispenser dashboard. Keep this secure.', 'coupon-dispenser-widget'); ?>
+                                <?php _e('Your API key from the Coupon Dispenser dashboard. You can update this manually if your API key was regenerated. Keep this secure.', 'coupon-dispenser-widget'); ?>
                             </p>
+                            <?php if (!empty($api_key)): ?>
+                                <p class="description" style="color: #0073aa; margin-top: 5px;">
+                                    <strong><?php _e('Current Key:', 'coupon-dispenser-widget'); ?></strong> 
+                                    <?php echo esc_html($api_key_display); ?>
+                                    <br>
+                                    <em><?php _e('If you regenerated your API key in the dashboard, paste the new key here and save.', 'coupon-dispenser-widget'); ?></em>
+                                </p>
+                            <?php endif; ?>
                         </td>
                     </tr>
                     
@@ -141,15 +174,27 @@ class Coupon_Dispenser_Settings {
             
             <h2><?php _e('Usage', 'coupon-dispenser-widget'); ?></h2>
             <p><?php _e('After configuring your settings, you can embed the coupon widget using the shortcode:', 'coupon-dispenser-widget'); ?></p>
-            <code>[coupon_widget]</code>
+            <p style="font-size: 16px; background: #f0f0f1; padding: 10px; border-left: 4px solid #2271b1;">
+                <code style="font-size: 16px;">[coupon_widget]</code>
+            </p>
             
             <h3><?php _e('Shortcode Attributes', 'coupon-dispenser-widget'); ?></h3>
             <ul>
                 <li><code>container_id</code> - Optional custom container ID (default: coupon-widget)</li>
             </ul>
             
-            <h3><?php _e('Example', 'coupon-dispenser-widget'); ?></h3>
-            <code>[coupon_widget container_id="my-coupons"]</code>
+            <h3><?php _e('Examples', 'coupon-dispenser-widget'); ?></h3>
+            <ul>
+                <li><code>[coupon_widget]</code> - Basic usage</li>
+                <li><code>[coupon_widget container_id="my-coupons"]</code> - With custom container ID</li>
+            </ul>
+            
+            <div style="background: #fff3cd; border-left: 4px solid #ffc107; padding: 12px; margin-top: 20px;">
+                <h3 style="margin-top: 0;"><?php _e('Updating API Key', 'coupon-dispenser-widget'); ?></h3>
+                <p style="margin-bottom: 0;">
+                    <?php _e('If you regenerate your API key in the Coupon Dispenser dashboard, simply paste the new API key in the field above and click "Save Settings". No need to download a new plugin!', 'coupon-dispenser-widget'); ?>
+                </p>
+            </div>
         </div>
         <?php
     }

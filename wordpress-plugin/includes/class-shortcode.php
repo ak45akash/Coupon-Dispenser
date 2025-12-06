@@ -20,6 +20,7 @@ class Coupon_Dispenser_Shortcode {
     }
     
     private function __construct() {
+        // Register shortcode immediately
         add_shortcode('coupon_widget', array($this, 'render_shortcode'));
     }
     
@@ -27,9 +28,10 @@ class Coupon_Dispenser_Shortcode {
      * Render coupon widget shortcode
      * 
      * @param array $atts Shortcode attributes
+     * @param string $content Shortcode content (not used)
      * @return string HTML output
      */
-    public function render_shortcode($atts) {
+    public function render_shortcode($atts, $content = null) {
         // Parse attributes
         $atts = shortcode_atts(array(
             'container_id' => 'coupon-widget',
@@ -40,7 +42,15 @@ class Coupon_Dispenser_Shortcode {
         
         // Validate configuration
         if (empty($vendor_id)) {
-            return '<div class="cdw-error">Coupon Dispenser: Vendor ID is not configured. Please configure in Settings → Coupon Dispenser.</div>';
+            return '<div class="cdw-error" style="padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; margin: 10px 0;">
+                <strong>Coupon Dispenser Error:</strong> Vendor ID is not configured. Please go to <a href="' . admin_url('options-general.php?page=coupon-dispenser-widget') . '">Settings → Coupon Dispenser</a> to configure your plugin.
+            </div>';
+        }
+        
+        if (empty($api_base_url) || $api_base_url === 'https://your-domain.com') {
+            return '<div class="cdw-error" style="padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; margin: 10px 0;">
+                <strong>Coupon Dispenser Error:</strong> API Base URL is not configured. Please go to <a href="' . admin_url('options-general.php?page=coupon-dispenser-widget') . '">Settings → Coupon Dispenser</a> to configure your plugin.
+            </div>';
         }
         
         $container_id = esc_attr($atts['container_id']);
@@ -48,8 +58,21 @@ class Coupon_Dispenser_Shortcode {
         // Get REST API endpoint URL for widget session token
         $rest_url = rest_url('coupon-dispenser/v1/token');
         
-        // Generate unique instance ID
-        $instance_id = 'cdw-' . uniqid();
+        // Ensure widget script is enqueued
+        $widget_script_url = $api_base_url . '/widget-embed.js';
+        wp_enqueue_script(
+            'coupon-dispenser-widget',
+            $widget_script_url,
+            array(),
+            CDW_VERSION,
+            true
+        );
+        
+        // Add inline script to configure API base URL
+        wp_add_inline_script('coupon-dispenser-widget', 
+            "window.COUPON_WIDGET_API_URL = '" . esc_js($api_base_url) . "';",
+            'before'
+        );
         
         ob_start();
         ?>
@@ -65,7 +88,7 @@ class Coupon_Dispenser_Shortcode {
             function initWidget() {
                 if (typeof window.CouponWidget !== 'undefined') {
                     // Widget will automatically initialize from data attributes
-                    console.log('Coupon Dispenser Widget: Initialized');
+                    console.log('Coupon Dispenser Widget: Initialized in container <?php echo esc_js($container_id); ?>');
                 } else {
                     // Retry after a short delay
                     setTimeout(initWidget, 100);

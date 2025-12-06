@@ -590,9 +590,9 @@ app.get('/api/coupon-token', authenticateUser, async (req, res) => {
                         </p>
                       )}
                       {apiKey && apiKey !== 'exists' && (
-                        <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mt-3">
-                          <p className="text-xs text-amber-800">
-                            <strong>Important:</strong> If you regenerate your API key, you must download a new plugin ZIP file and replace the existing plugin in WordPress to update the API key.
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-3">
+                          <p className="text-xs text-green-800">
+                            <strong>API Key Updates:</strong> If you regenerate your API key, you can update it directly in WordPress. Go to <strong>Settings → Coupon Dispenser</strong> and paste your new API key. No need to download a new plugin!
                           </p>
                         </div>
                       )}

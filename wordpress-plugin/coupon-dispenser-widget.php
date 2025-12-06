@@ -80,7 +80,7 @@ class Coupon_Dispenser_Widget {
             Coupon_Dispenser_Settings::get_instance();
         }
         
-        // Initialize shortcode
+        // Initialize shortcode - register early
         Coupon_Dispenser_Shortcode::get_instance();
         
         // Enqueue scripts
@@ -212,8 +212,8 @@ function coupon_dispenser_widget_init() {
     return Coupon_Dispenser_Widget::get_instance();
 }
 
-// Start the plugin
-add_action('init', 'coupon_dispenser_widget_init');
+// Start the plugin - use plugins_loaded to ensure WordPress is ready
+add_action('plugins_loaded', 'coupon_dispenser_widget_init', 10);
 
 /**
  * Activation hook
