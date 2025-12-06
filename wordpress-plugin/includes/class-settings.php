@@ -70,6 +70,13 @@ class Coupon_Dispenser_Settings {
                 update_option('cdw_api_base_url', CDW_API_BASE_URL);
                 $fixed = true;
             }
+        } else {
+            // If constant is still placeholder but option has placeholder, set to vercel.app
+            $current_value = get_option('cdw_api_base_url', '');
+            if ($current_value === 'https://your-domain.com' || empty($current_value)) {
+                update_option('cdw_api_base_url', 'https://coupon-dispenser.vercel.app');
+                $fixed = true;
+            }
         }
         
         // Set transient to avoid running this check repeatedly (expires in 1 hour)
@@ -244,9 +251,11 @@ class Coupon_Dispenser_Settings {
         if ((empty($value) || $value === 'https://your-domain.com') && defined('CDW_API_BASE_URL') && CDW_API_BASE_URL !== 'PLUGIN_CONFIG_API_BASE_URL') {
             $value = CDW_API_BASE_URL;
         }
-        // Default placeholder if still empty
-        if (empty($value)) {
-            $value = 'https://your-domain.com';
+        // If still placeholder, use vercel.app as default
+        if (empty($value) || $value === 'https://your-domain.com') {
+            $value = 'https://coupon-dispenser.vercel.app';
+            // Auto-update the option for next time
+            update_option('cdw_api_base_url', $value);
         }
         ?>
         <input 
