@@ -37,8 +37,11 @@ import { Copy, Check, Key, RefreshCw, AlertTriangle, Code, FileCode, Download, S
 export default function VendorProfilePage() {
   const params = useParams()
   const router = useRouter()
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const vendorId = params.id as string
+  
+  // Prevent redirect loop - wait for session to load
+  const [hasCheckedSession, setHasCheckedSession] = useState(false)
 
   const [vendor, setVendor] = useState<Vendor | null>(null)
   const [coupons, setCoupons] = useState<Coupon[]>([])
@@ -83,7 +86,18 @@ export default function VendorProfilePage() {
   const [activeIntegrationTab, setActiveIntegrationTab] = useState<'wordpress' | 'api-key' | 'jwt'>('api-key')
 
   useEffect(() => {
-    if (!session) {
+    // Wait for session to load completely
+    if (status === 'loading') {
+      return
+    }
+
+    // Only check once to prevent loops
+    if (hasCheckedSession) {
+      return
+    }
+
+    if (status === 'unauthenticated' || !session) {
+      setHasCheckedSession(true)
       router.push('/login')
       return
     }
@@ -95,13 +109,15 @@ export default function VendorProfilePage() {
       // Partner admin - check if they have access to this vendor
       // We'll verify access on the backend, but we can still show the page
     } else {
+      setHasCheckedSession(true)
       router.push('/dashboard')
       return
     }
 
+    setHasCheckedSession(true)
     fetchVendor()
     fetchCoupons()
-  }, [session, router, vendorId])
+  }, [session, status, router, vendorId, hasCheckedSession])
 
   const fetchVendor = async () => {
     try {

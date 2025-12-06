@@ -34,8 +34,11 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Copy, Check, Key, RefreshCw, AlertTriangle, Code, FileCode } from 'lucide-react'
 
 export default function VendorProfilePage() {
-  const { data: session } = useSession()
+  const { data: session, status } = useSession()
   const router = useRouter()
+  
+  // Prevent redirect loop - wait for session to load
+  const [hasCheckedSession, setHasCheckedSession] = useState(false)
   const [vendor, setVendor] = useState<Vendor | null>(null)
   const [coupons, setCoupons] = useState<Coupon[]>([])
   const [loading, setLoading] = useState(true)
@@ -69,20 +72,33 @@ export default function VendorProfilePage() {
   const [copiedCodeIndex, setCopiedCodeIndex] = useState<number | null>(null)
 
   useEffect(() => {
-    if (!session) {
+    // Wait for session to load completely
+    if (status === 'loading') {
+      return
+    }
+
+    // Only check once to prevent loops
+    if (hasCheckedSession) {
+      return
+    }
+
+    if (status === 'unauthenticated' || !session) {
+      setHasCheckedSession(true)
       router.push('/login')
       return
     }
 
     // Only partner admins can access this page
     if (session.user.role !== 'partner_admin') {
+      setHasCheckedSession(true)
       router.push('/dashboard')
       return
     }
 
+    setHasCheckedSession(true)
     fetchVendor()
     fetchCoupons()
-  }, [session, router])
+  }, [session, status, router, hasCheckedSession])
 
   const fetchVendor = async () => {
     try {

@@ -18,10 +18,16 @@ export const authOptions: NextAuthOptions = {
         }
 
         try {
+          // Validate environment variables
+          if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
+            console.error('Missing Supabase environment variables')
+            throw new Error('Missing Supabase configuration')
+          }
+
           // Create a client with anon key for authentication
           const supabase = createClient(
-            process.env.NEXT_PUBLIC_SUPABASE_URL!,
-            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+            process.env.NEXT_PUBLIC_SUPABASE_URL,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
           )
 
           // Authenticate with Supabase using anon key
