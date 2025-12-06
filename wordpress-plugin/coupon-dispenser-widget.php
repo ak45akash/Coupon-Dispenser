@@ -157,163 +157,164 @@ class Coupon_Dispenser_Widget {
         try {
             // Ensure WordPress is loaded properly for authentication
             if (!function_exists('is_user_logged_in')) {
-            return new WP_Error(
-                'wordpress_not_loaded',
-                'WordPress authentication not available',
-                array('status' => 500)
-            );
-        }
-        
-        // Get vendor ID and API key from options (settings override constants)
-        // Options are checked first to allow manual updates via settings page
-        $vendor_id = get_option('cdw_vendor_id', '');
-        $api_key = get_option('cdw_api_key', '');
-        
-        // Fallback to constants ONLY if options are truly empty (not manually set)
-        if (empty($vendor_id) && defined('CDW_VENDOR_ID') && CDW_VENDOR_ID !== 'PLUGIN_CONFIG_VENDOR_ID') {
-            $vendor_id = CDW_VENDOR_ID;
-        }
-        // For API key, only use constant if option is empty (allows manual updates)
-        if (empty($api_key) && defined('CDW_API_KEY') && CDW_API_KEY !== 'PLUGIN_CONFIG_API_KEY') {
-            $api_key = CDW_API_KEY;
-        }
-        
-        // Validate configuration
-        if (empty($vendor_id) || empty($api_key)) {
-            return new WP_Error(
-                'not_configured',
-                'Plugin is not configured. Please set vendor ID and API key in settings.',
-                array('status' => 500)
-            );
-        }
-        
-        // Try to determine user ID - check if user is logged in
-        // Note: REST API calls need cookies for authentication
-        $user_id = null;
-        
-        // Check if user is logged in (requires WordPress cookie authentication)
-        if (is_user_logged_in()) {
-            // Use WordPress user ID for logged-in users
-            $user_id = (string) get_current_user_id();
-        } else {
-            // For anonymous users, generate or use existing anonymous ID
-            $anonymous_id = $request->get_param('anonymous_id');
-            if (empty($anonymous_id)) {
-                // Check for existing anonymous ID cookie
-                if (isset($_COOKIE['cdw_anon_id']) && !empty($_COOKIE['cdw_anon_id'])) {
-                    $anonymous_id = sanitize_text_field($_COOKIE['cdw_anon_id']);
-                } else {
-                    // Generate a new anonymous ID
-                    $anonymous_id = 'anon_' . wp_generate_password(16, false);
-                    // Set cookie for 30 days to maintain consistency
-                    // Use httponly=false so JavaScript can access it if needed
-                    setcookie('cdw_anon_id', $anonymous_id, time() + (30 * DAY_IN_SECONDS), '/', '', is_ssl(), false);
-                    $_COOKIE['cdw_anon_id'] = $anonymous_id;
+                return new WP_Error(
+                    'wordpress_not_loaded',
+                    'WordPress authentication not available',
+                    array('status' => 500)
+                );
+            }
+            
+            // Get vendor ID and API key from options (settings override constants)
+            // Options are checked first to allow manual updates via settings page
+            $vendor_id = get_option('cdw_vendor_id', '');
+            $api_key = get_option('cdw_api_key', '');
+            
+            // Fallback to constants ONLY if options are truly empty (not manually set)
+            if (empty($vendor_id) && defined('CDW_VENDOR_ID') && CDW_VENDOR_ID !== 'PLUGIN_CONFIG_VENDOR_ID') {
+                $vendor_id = CDW_VENDOR_ID;
+            }
+            // For API key, only use constant if option is empty (allows manual updates)
+            if (empty($api_key) && defined('CDW_API_KEY') && CDW_API_KEY !== 'PLUGIN_CONFIG_API_KEY') {
+                $api_key = CDW_API_KEY;
+            }
+            
+            // Validate configuration
+            if (empty($vendor_id) || empty($api_key)) {
+                error_log('Coupon Dispenser Plugin: Missing vendor_id or api_key. Vendor ID: ' . (!empty($vendor_id) ? 'set' : 'empty') . ', API Key: ' . (!empty($api_key) ? 'set' : 'empty'));
+                return new WP_Error(
+                    'not_configured',
+                    'Plugin is not configured. Please set vendor ID and API key in settings.',
+                    array('status' => 500)
+                );
+            }
+            
+            // Try to determine user ID - check if user is logged in
+            // Note: REST API calls need cookies for authentication
+            $user_id = null;
+            
+            // Check if user is logged in (requires WordPress cookie authentication)
+            if (is_user_logged_in()) {
+                // Use WordPress user ID for logged-in users
+                $user_id = (string) get_current_user_id();
+            } else {
+                // For anonymous users, generate or use existing anonymous ID
+                $anonymous_id = $request->get_param('anonymous_id');
+                if (empty($anonymous_id)) {
+                    // Check for existing anonymous ID cookie
+                    if (isset($_COOKIE['cdw_anon_id']) && !empty($_COOKIE['cdw_anon_id'])) {
+                        $anonymous_id = sanitize_text_field($_COOKIE['cdw_anon_id']);
+                    } else {
+                        // Generate a new anonymous ID
+                        $anonymous_id = 'anon_' . wp_generate_password(16, false);
+                        // Set cookie for 30 days to maintain consistency
+                        // Use httponly=false so JavaScript can access it if needed
+                        setcookie('cdw_anon_id', $anonymous_id, time() + (30 * DAY_IN_SECONDS), '/', '', is_ssl(), false);
+                        $_COOKIE['cdw_anon_id'] = $anonymous_id;
+                    }
                 }
-            }
-            $user_id = $anonymous_id;
-        }
-        
-        if (empty($user_id)) {
-            return new WP_Error(
-                'user_id_required',
-                'Unable to determine user identifier',
-                array('status' => 400)
-            );
-        }
-        
-        // Get API base URL from options (settings override constants)
-        $api_base_url = get_option('cdw_api_base_url', '');
-        if (empty($api_base_url) && defined('CDW_API_BASE_URL') && CDW_API_BASE_URL !== 'PLUGIN_CONFIG_API_BASE_URL') {
-            $api_base_url = CDW_API_BASE_URL;
-        }
-        
-        // Fallback to default if still empty
-        if (empty($api_base_url)) {
-            $api_base_url = 'https://coupon-dispenser.vercel.app';
-        }
-        
-        // Remove trailing slash
-        $api_base_url = rtrim($api_base_url, '/');
-        
-        // Call our API to get widget session token
-        $api_url = $api_base_url . '/api/widget-session';
-        
-        error_log('Coupon Dispenser Plugin: Calling API: ' . $api_url);
-        error_log('Coupon Dispenser Plugin: Vendor ID: ' . $vendor_id);
-        error_log('Coupon Dispenser Plugin: API Key (first 10 chars): ' . substr($api_key, 0, 10) . '...');
-        error_log('Coupon Dispenser Plugin: User ID: ' . $user_id);
-        
-        $response = wp_remote_post($api_url, array(
-            'headers' => array(
-                'Content-Type' => 'application/json',
-            ),
-            'body' => json_encode(array(
-                'api_key' => $api_key,
-                'vendor_id' => $vendor_id,
-                'user_id' => (string)$user_id,
-            )),
-            'timeout' => 10,
-        ));
-        
-        if (is_wp_error($response)) {
-            error_log('Coupon Dispenser Plugin: WP_Error: ' . $response->get_error_message());
-            return new WP_Error(
-                'api_error',
-                'Failed to connect to Coupon Dispenser API: ' . $response->get_error_message(),
-                array('status' => 500)
-            );
-        }
-        
-        $response_code = wp_remote_retrieve_response_code($response);
-        $response_body = wp_remote_retrieve_body($response);
-        $data = json_decode($response_body, true);
-        
-        error_log('Coupon Dispenser Plugin: API Response Code: ' . $response_code);
-        error_log('Coupon Dispenser Plugin: API Response Body: ' . substr($response_body, 0, 500));
-        
-        if ($response_code !== 200) {
-            // Log the error for debugging
-            error_log('Coupon Dispenser Plugin: API Error - Status: ' . $response_code . ', Response: ' . $response_body);
-            
-            $error_message = isset($data['error']) ? $data['error'] : 'Failed to generate widget session token';
-            
-            // Provide more helpful error messages
-            if ($response_code === 401) {
-                $error_message = isset($data['error']) ? $data['error'] : 'Invalid API key or vendor ID. Please check your plugin settings.';
-            } elseif ($response_code === 404) {
-                $error_message = 'Vendor not found. Please verify your vendor ID in plugin settings.';
+                $user_id = $anonymous_id;
             }
             
-            return new WP_Error(
-                'api_error',
-                $error_message,
-                array('status' => $response_code)
-            );
-        }
-        
-        if (!isset($data['success']) || !$data['success']) {
-            error_log('Coupon Dispenser Plugin: API returned success=false');
-            return new WP_Error(
-                'api_error',
-                isset($data['error']) ? $data['error'] : 'Failed to generate widget session token',
-                array('status' => 500)
-            );
-        }
-        
-        if (!isset($data['data']['session_token'])) {
-            error_log('Coupon Dispenser Plugin: Missing session_token in API response');
-            return new WP_Error(
-                'api_error',
-                'Invalid API response: session_token not found',
-                array('status' => 500)
-            );
-        }
-        
-        // Return widget session token
-        return rest_ensure_response(array(
-            'token' => $data['data']['session_token'],
-        ));
+            if (empty($user_id)) {
+                return new WP_Error(
+                    'user_id_required',
+                    'Unable to determine user identifier',
+                    array('status' => 400)
+                );
+            }
+            
+            // Get API base URL from options (settings override constants)
+            $api_base_url = get_option('cdw_api_base_url', '');
+            if (empty($api_base_url) && defined('CDW_API_BASE_URL') && CDW_API_BASE_URL !== 'PLUGIN_CONFIG_API_BASE_URL') {
+                $api_base_url = CDW_API_BASE_URL;
+            }
+            
+            // Fallback to default if still empty
+            if (empty($api_base_url)) {
+                $api_base_url = 'https://coupon-dispenser.vercel.app';
+            }
+            
+            // Remove trailing slash
+            $api_base_url = rtrim($api_base_url, '/');
+            
+            // Call our API to get widget session token
+            $api_url = $api_base_url . '/api/widget-session';
+            
+            error_log('Coupon Dispenser Plugin: Calling API: ' . $api_url);
+            error_log('Coupon Dispenser Plugin: Vendor ID: ' . $vendor_id);
+            error_log('Coupon Dispenser Plugin: API Key (first 10 chars): ' . substr($api_key, 0, 10) . '...');
+            error_log('Coupon Dispenser Plugin: User ID: ' . $user_id);
+            
+            $response = wp_remote_post($api_url, array(
+                'headers' => array(
+                    'Content-Type' => 'application/json',
+                ),
+                'body' => json_encode(array(
+                    'api_key' => $api_key,
+                    'vendor_id' => $vendor_id,
+                    'user_id' => (string)$user_id,
+                )),
+                'timeout' => 10,
+            ));
+            
+            if (is_wp_error($response)) {
+                error_log('Coupon Dispenser Plugin: WP_Error: ' . $response->get_error_message());
+                return new WP_Error(
+                    'api_error',
+                    'Failed to connect to Coupon Dispenser API: ' . $response->get_error_message(),
+                    array('status' => 500)
+                );
+            }
+            
+            $response_code = wp_remote_retrieve_response_code($response);
+            $response_body = wp_remote_retrieve_body($response);
+            $data = json_decode($response_body, true);
+            
+            error_log('Coupon Dispenser Plugin: API Response Code: ' . $response_code);
+            error_log('Coupon Dispenser Plugin: API Response Body: ' . substr($response_body, 0, 500));
+            
+            if ($response_code !== 200) {
+                // Log the error for debugging
+                error_log('Coupon Dispenser Plugin: API Error - Status: ' . $response_code . ', Response: ' . $response_body);
+                
+                $error_message = isset($data['error']) ? $data['error'] : 'Failed to generate widget session token';
+                
+                // Provide more helpful error messages
+                if ($response_code === 401) {
+                    $error_message = isset($data['error']) ? $data['error'] : 'Invalid API key or vendor ID. Please check your plugin settings.';
+                } elseif ($response_code === 404) {
+                    $error_message = 'Vendor not found. Please verify your vendor ID in plugin settings.';
+                }
+                
+                return new WP_Error(
+                    'api_error',
+                    $error_message,
+                    array('status' => $response_code)
+                );
+            }
+            
+            if (!isset($data['success']) || !$data['success']) {
+                error_log('Coupon Dispenser Plugin: API returned success=false');
+                return new WP_Error(
+                    'api_error',
+                    isset($data['error']) ? $data['error'] : 'Failed to generate widget session token',
+                    array('status' => 500)
+                );
+            }
+            
+            if (!isset($data['data']['session_token'])) {
+                error_log('Coupon Dispenser Plugin: Missing session_token in API response');
+                return new WP_Error(
+                    'api_error',
+                    'Invalid API response: session_token not found',
+                    array('status' => 500)
+                );
+            }
+            
+            // Return widget session token
+            return rest_ensure_response(array(
+                'token' => $data['data']['session_token'],
+            ));
             
         } catch (Exception $e) {
             // Log the exception for debugging
