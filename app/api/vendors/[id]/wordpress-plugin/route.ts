@@ -53,33 +53,68 @@ export async function GET(
       )
     }
 
-    // Get API base URL from request origin (where the download came from)
-    // This ensures the correct URL is used based on where the request came from
+    // Get API base URL from the request (where the plugin is downloaded from)
+    // Priority: referer > origin > host > env variables > default
+    const referer = request.headers.get('referer')
     const origin = request.headers.get('origin')
     const host = request.headers.get('host')
-    const referer = request.headers.get('referer')
     
-    // Try to extract URL from referer if origin is not available
-    let apiBaseUrl = origin
-    if (!apiBaseUrl && referer) {
+    let apiBaseUrl: string | null = null
+    
+    // 1. Try to extract from referer (most reliable - contains the full URL of the page)
+    if (referer) {
       try {
         const refererUrl = new URL(referer)
-        apiBaseUrl = `${refererUrl.protocol}//${refererUrl.host}`
+        const refererHost = refererUrl.host
+        
+        // If downloaded from localhost, use vercel.app as fallback
+        if (refererHost === 'localhost' || refererHost.startsWith('localhost:') || refererHost === '127.0.0.1') {
+          apiBaseUrl = 'https://coupon-dispenser.vercel.app'
+        } else {
+          apiBaseUrl = `${refererUrl.protocol}//${refererHost}`
+        }
       } catch (e) {
-        // Invalid referer, continue
+        // Invalid referer URL, continue
       }
     }
     
-    // Fallback to host from request
-    if (!apiBaseUrl && host) {
-      apiBaseUrl = `https://${host}`
+    // 2. Try origin header if referer didn't work
+    if (!apiBaseUrl && origin) {
+      try {
+        const originUrl = new URL(origin)
+        const originHost = originUrl.host
+        
+        // If downloaded from localhost, use vercel.app as fallback
+        if (originHost === 'localhost' || originHost.startsWith('localhost:') || originHost === '127.0.0.1') {
+          apiBaseUrl = 'https://coupon-dispenser.vercel.app'
+        } else {
+          apiBaseUrl = origin
+        }
+      } catch (e) {
+        // Invalid origin URL, continue
+      }
     }
     
-    // Fallback to environment variables
+    // 3. Try host header if referer/origin didn't work
+    if (!apiBaseUrl && host) {
+      // If host is localhost, use vercel.app as fallback
+      if (host === 'localhost' || host.startsWith('localhost:') || host === '127.0.0.1') {
+        apiBaseUrl = 'https://coupon-dispenser.vercel.app'
+      } else {
+        // Use https by default (assume production uses https)
+        apiBaseUrl = `https://${host}`
+      }
+    }
+    
+    // 4. Fallback to environment variables
     if (!apiBaseUrl) {
       apiBaseUrl = process.env.NEXTAUTH_URL || 
-                   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null) ||
-                   'https://coupon-dispenser.vercel.app'
+                   (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : null)
+    }
+    
+    // 5. Final fallback to vercel.app
+    if (!apiBaseUrl) {
+      apiBaseUrl = 'https://coupon-dispenser.vercel.app'
     }
     
     const cleanApiBaseUrl = apiBaseUrl.replace(/\/$/, '') // Remove trailing slash
