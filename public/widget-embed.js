@@ -362,13 +362,15 @@
       const queryParams = new URLSearchParams()
       
       // Priority: Pass WordPress user ID if available (for logged-in users)
-      if (wpUserId) {
+      // Check if it's a WordPress user ID (numeric) or anonymous ID (starts with 'anon_' or 'anonymous-')
+      if (wpUserId && !wpUserId.startsWith('anon_') && !wpUserId.startsWith('anonymous-')) {
+        // This is a real WordPress user ID (numeric)
         queryParams.append('widget_user_id', wpUserId)
         console.log('CouponWidget: Passing WordPress user ID to plugin endpoint:', wpUserId)
       } else {
         // For anonymous users, pass the anonymous ID from localStorage
-        const anonymousId = detectUserId() // This will return the stored anonymous ID if no logged-in user
-        if (anonymousId && anonymousId.startsWith('anon_')) {
+        const anonymousId = wpUserId || detectUserId() // Use wpUserId if it exists (even if anonymous), otherwise try to detect
+        if (anonymousId && (anonymousId.startsWith('anon_') || anonymousId.startsWith('anonymous-'))) {
           queryParams.append('anonymous_id', anonymousId)
           console.log('CouponWidget: Passing anonymous ID to plugin endpoint:', anonymousId.substring(0, 20) + '...')
         }

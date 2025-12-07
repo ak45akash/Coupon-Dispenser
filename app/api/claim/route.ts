@@ -9,6 +9,30 @@ const claimSchema = z.object({
 })
 
 /**
+ * Helper function to add CORS headers to responses
+ */
+function addCorsHeaders(response: NextResponse): NextResponse {
+  response.headers.set('Access-Control-Allow-Origin', '*')
+  response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS')
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  return response
+}
+
+/**
+ * Handle CORS preflight requests
+ */
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  })
+}
+
+/**
  * POST /api/claim
  * 
  * Atomically claims a coupon for the authenticated widget user.
@@ -30,9 +54,11 @@ export async function POST(request: NextRequest) {
     const session = extractWidgetSession(authHeader)
 
     if (!session) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized: Widget session token required' },
-        { status: 401 }
+      return addCorsHeaders(
+        NextResponse.json(
+          { success: false, error: 'Unauthorized: Widget session token required' },
+          { status: 401 }
+        )
       )
     }
 
@@ -61,30 +87,38 @@ export async function POST(request: NextRequest) {
         console.error('Error dispatching webhook:', webhookError)
       }
 
-      return NextResponse.json({
-        success: true,
-        coupon_code: result.coupon_code,
-      })
+      return addCorsHeaders(
+        NextResponse.json({
+          success: true,
+          coupon_code: result.coupon_code,
+        })
+      )
     } catch (error: any) {
       // Handle specific error types
       if (error.message === 'COUPON_ALREADY_CLAIMED') {
-        return NextResponse.json(
-          { success: false, error: 'COUPON_ALREADY_CLAIMED' },
-          { status: 409 }
+        return addCorsHeaders(
+          NextResponse.json(
+            { success: false, error: 'COUPON_ALREADY_CLAIMED' },
+            { status: 409 }
+          )
         )
       }
 
       if (error.message === 'USER_ALREADY_CLAIMED') {
-        return NextResponse.json(
-          { success: false, error: 'USER_ALREADY_CLAIMED' },
-          { status: 409 }
+        return addCorsHeaders(
+          NextResponse.json(
+            { success: false, error: 'USER_ALREADY_CLAIMED' },
+            { status: 409 }
+          )
         )
       }
 
       if (error.message === 'Coupon not found') {
-        return NextResponse.json(
-          { success: false, error: 'Coupon not found' },
-          { status: 404 }
+        return addCorsHeaders(
+          NextResponse.json(
+            { success: false, error: 'Coupon not found' },
+            { status: 404 }
+          )
         )
       }
 
@@ -95,15 +129,19 @@ export async function POST(request: NextRequest) {
     console.error('Error in claim endpoint:', error)
 
     if (error.name === 'ZodError') {
-      return NextResponse.json(
-        { success: false, error: 'Validation error', details: error.errors },
-        { status: 400 }
+      return addCorsHeaders(
+        NextResponse.json(
+          { success: false, error: 'Validation error', details: error.errors },
+          { status: 400 }
+        )
       )
     }
 
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
+    return addCorsHeaders(
+      NextResponse.json(
+        { success: false, error: 'Internal server error' },
+        { status: 500 }
+      )
     )
   }
 }

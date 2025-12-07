@@ -4,6 +4,30 @@ import { getCouponsByVendor } from '@/lib/db/coupons'
 import { supabaseAdmin } from '@/lib/supabase/server'
 
 /**
+ * Helper function to add CORS headers to responses
+ */
+function addCorsHeaders(response: NextResponse): NextResponse {
+  response.headers.set('Access-Control-Allow-Origin', '*')
+  response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
+  response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  return response
+}
+
+/**
+ * Handle CORS preflight requests
+ */
+export async function OPTIONS() {
+  return new NextResponse(null, {
+    status: 200,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'GET, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    },
+  })
+}
+
+/**
  * GET /api/available-coupons?vendor={vendor_id}
  * 
  * Returns coupons available for claiming by the authenticated widget user.
@@ -27,9 +51,11 @@ export async function GET(request: NextRequest) {
     const session = extractWidgetSession(authHeader)
 
     if (!session) {
-      return NextResponse.json(
-        { success: false, error: 'Unauthorized: Widget session token required' },
-        { status: 401 }
+      return addCorsHeaders(
+        NextResponse.json(
+          { success: false, error: 'Unauthorized: Widget session token required' },
+          { status: 401 }
+        )
       )
     }
 
@@ -38,17 +64,21 @@ export async function GET(request: NextRequest) {
     const vendorId = searchParams.get('vendor')
 
     if (!vendorId) {
-      return NextResponse.json(
-        { success: false, error: 'vendor query parameter is required' },
-        { status: 400 }
+      return addCorsHeaders(
+        NextResponse.json(
+          { success: false, error: 'vendor query parameter is required' },
+          { status: 400 }
+        )
       )
     }
 
     // Validate vendor_id matches session
     if (session.vendor_id !== vendorId) {
-      return NextResponse.json(
-        { success: false, error: 'Vendor ID mismatch' },
-        { status: 403 }
+      return addCorsHeaders(
+        NextResponse.json(
+          { success: false, error: 'Vendor ID mismatch' },
+          { status: 403 }
+        )
       )
     }
 
@@ -69,9 +99,11 @@ export async function GET(request: NextRequest) {
 
     if (claimError) {
       console.error('Error checking existing claim:', claimError)
-      return NextResponse.json(
-        { success: false, error: 'Internal server error' },
-        { status: 500 }
+      return addCorsHeaders(
+        NextResponse.json(
+          { success: false, error: 'Internal server error' },
+          { status: 500 }
+        )
       )
     }
 
@@ -79,14 +111,16 @@ export async function GET(request: NextRequest) {
 
     // If user already claimed, return empty list with flag
     if (userAlreadyClaimed) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          coupons: [],
-          user_already_claimed: true,
-          claim_month: currentMonth,
-        },
-      })
+      return addCorsHeaders(
+        NextResponse.json({
+          success: true,
+          data: {
+            coupons: [],
+            user_already_claimed: true,
+            claim_month: currentMonth,
+          },
+        })
+      )
     }
 
     // Get all coupons for this vendor
@@ -111,19 +145,23 @@ export async function GET(request: NextRequest) {
         },
       }))
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        coupons: availableCoupons,
-        user_already_claimed: false,
-        claim_month: currentMonth,
-      },
-    })
+    return addCorsHeaders(
+      NextResponse.json({
+        success: true,
+        data: {
+          coupons: availableCoupons,
+          user_already_claimed: false,
+          claim_month: currentMonth,
+        },
+      })
+    )
   } catch (error: any) {
     console.error('Error in available-coupons:', error)
-    return NextResponse.json(
-      { success: false, error: 'Internal server error' },
-      { status: 500 }
+    return addCorsHeaders(
+      NextResponse.json(
+        { success: false, error: 'Internal server error' },
+        { status: 500 }
+      )
     )
   }
 }
