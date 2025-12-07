@@ -28,14 +28,15 @@ define('CDW_PLUGIN_BASENAME', plugin_basename(__FILE__));
 // Vendor configuration (pre-configured from dashboard)
 // These values are set during plugin ZIP generation
 // PLUGIN_CONFIG_VENDOR_ID and PLUGIN_CONFIG_API_KEY are replaced during ZIP generation
+// Note: We don't use get_option() here to avoid caching issues - constants are only used as fallback
 if (!defined('CDW_VENDOR_ID')) {
-    define('CDW_VENDOR_ID', get_option('cdw_vendor_id', 'PLUGIN_CONFIG_VENDOR_ID'));
+    define('CDW_VENDOR_ID', 'PLUGIN_CONFIG_VENDOR_ID');
 }
 if (!defined('CDW_API_KEY')) {
-    define('CDW_API_KEY', get_option('cdw_api_key', 'PLUGIN_CONFIG_API_KEY'));
+    define('CDW_API_KEY', 'PLUGIN_CONFIG_API_KEY');
 }
 if (!defined('CDW_API_BASE_URL')) {
-    define('CDW_API_BASE_URL', get_option('cdw_api_base_url', 'PLUGIN_CONFIG_API_BASE_URL'));
+    define('CDW_API_BASE_URL', 'PLUGIN_CONFIG_API_BASE_URL');
 }
 
 /**
@@ -183,12 +184,14 @@ class Coupon_Dispenser_Widget {
                 error_log('Coupon Dispenser Plugin ERROR: Missing vendor_id or api_key.');
                 error_log('  Vendor ID length: ' . strlen($vendor_id));
                 error_log('  API Key length: ' . strlen($api_key));
-                error_log('  Vendor ID defined constant: ' . (defined('CDW_VENDOR_ID') ? 'yes' : 'no'));
-                error_log('  API Key defined constant: ' . (defined('CDW_API_KEY') ? 'yes' : 'no'));
+                error_log('  Vendor ID option value: "' . get_option('cdw_vendor_id', 'NOT_SET') . '"');
+                error_log('  API Key option value (first 10): "' . substr(get_option('cdw_api_key', 'NOT_SET'), 0, 10) . '"');
+                error_log('  Vendor ID constant: ' . (defined('CDW_VENDOR_ID') ? CDW_VENDOR_ID : 'NOT_DEFINED'));
+                error_log('  API Key constant (first 10): ' . (defined('CDW_API_KEY') ? substr(CDW_API_KEY, 0, 10) : 'NOT_DEFINED'));
                 
                 return new WP_Error(
                     'not_configured',
-                    'Plugin is not configured. Please set vendor ID and API key in settings.',
+                    'Plugin is not configured. Please set vendor ID and API key in WordPress Settings → Coupon Dispenser Widget. Current API Key option length: ' . strlen($api_key) . ', Constant defined: ' . (defined('CDW_API_KEY') ? 'yes' : 'no'),
                     array('status' => 500)
                 );
             }
