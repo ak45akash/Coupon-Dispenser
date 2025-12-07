@@ -181,9 +181,16 @@ class Coupon_Dispenser_Widget {
      * Called by widget to authenticate WordPress users (or anonymous users)
      */
     public function get_widget_session_token($request) {
+        // Set error handler to catch all PHP errors
+        set_error_handler(function($errno, $errstr, $errfile, $errline) {
+            error_log('Coupon Dispenser Plugin PHP Error: ' . $errstr . ' in ' . $errfile . ' on line ' . $errline);
+            return false; // Don't prevent default error handling
+        }, E_ALL);
+        
         try {
             // Ensure WordPress is loaded properly for authentication
             if (!function_exists('is_user_logged_in')) {
+                restore_error_handler();
                 return new WP_Error(
                     'wordpress_not_loaded',
                     'WordPress authentication not available',
