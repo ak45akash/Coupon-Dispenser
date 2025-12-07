@@ -139,6 +139,41 @@ class Coupon_Dispenser_Widget {
             'callback' => array($this, 'get_widget_session_token'),
             'permission_callback' => '__return_true', // Allow all requests - we handle auth internally
         ));
+        
+        // Debug endpoint (remove in production)
+        register_rest_route('coupon-dispenser/v1', '/debug', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'debug_config'),
+            'permission_callback' => '__return_true',
+        ));
+    }
+    
+    /**
+     * Debug endpoint to check configuration
+     */
+    public function debug_config($request) {
+        $vendor_id_option = get_option('cdw_vendor_id', 'NOT_SET');
+        $api_key_option = get_option('cdw_api_key', 'NOT_SET');
+        
+        return rest_ensure_response(array(
+            'vendor_id' => array(
+                'option' => $vendor_id_option,
+                'length' => strlen($vendor_id_option),
+                'constant_defined' => defined('CDW_VENDOR_ID'),
+                'constant_value' => defined('CDW_VENDOR_ID') ? CDW_VENDOR_ID : 'NOT_DEFINED',
+            ),
+            'api_key' => array(
+                'option_first_10' => substr($api_key_option, 0, 10),
+                'option_length' => strlen($api_key_option),
+                'constant_defined' => defined('CDW_API_KEY'),
+                'constant_first_10' => defined('CDW_API_KEY') ? substr(CDW_API_KEY, 0, 10) : 'NOT_DEFINED',
+            ),
+            'api_base_url' => array(
+                'option' => get_option('cdw_api_base_url', 'NOT_SET'),
+                'constant_defined' => defined('CDW_API_BASE_URL'),
+                'constant_value' => defined('CDW_API_BASE_URL') ? CDW_API_BASE_URL : 'NOT_DEFINED',
+            ),
+        ));
     }
     
     /**
@@ -340,11 +375,25 @@ class Coupon_Dispenser_Widget {
             error_log('Coupon Dispenser Plugin Exception: ' . $e->getMessage());
             error_log('Coupon Dispenser Plugin Stack Trace: ' . $e->getTraceAsString());
             
+            restore_error_handler();
             return new WP_Error(
                 'internal_error',
                 'An internal error occurred: ' . $e->getMessage(),
                 array('status' => 500)
             );
+        } catch (Error $e) {
+            // Catch PHP 7+ errors (ParseError, TypeError, etc.)
+            error_log('Coupon Dispenser Plugin PHP Error: ' . $e->getMessage());
+            error_log('Coupon Dispenser Plugin Stack Trace: ' . $e->getTraceAsString());
+            
+            restore_error_handler();
+            return new WP_Error(
+                'internal_error',
+                'A PHP error occurred: ' . $e->getMessage(),
+                array('status' => 500)
+            );
+        } finally {
+            restore_error_handler();
         }
     }
 }
