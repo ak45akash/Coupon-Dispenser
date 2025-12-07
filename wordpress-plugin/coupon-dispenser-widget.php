@@ -156,22 +156,36 @@ class Coupon_Dispenser_Widget {
             }
             
             // Get vendor ID and API key from options (settings override constants)
-            // Options are checked first to allow manual updates via settings page
+            // ALWAYS prioritize options over constants to allow manual updates
             $vendor_id = get_option('cdw_vendor_id', '');
             $api_key = get_option('cdw_api_key', '');
             
-            // Fallback to constants ONLY if options are truly empty (not manually set)
+            // Trim whitespace to ensure empty check works correctly
+            $vendor_id = trim((string)$vendor_id);
+            $api_key = trim((string)$api_key);
+            
+            // Log what we retrieved (for debugging)
+            error_log('Coupon Dispenser Plugin: Retrieved from options - Vendor ID: ' . (!empty($vendor_id) ? substr($vendor_id, 0, 8) . '...' : 'empty') . ', API Key: ' . (!empty($api_key) ? substr($api_key, 0, 10) . '...' : 'empty'));
+            
+            // Fallback to constants ONLY if options are truly empty
             if (empty($vendor_id) && defined('CDW_VENDOR_ID') && CDW_VENDOR_ID !== 'PLUGIN_CONFIG_VENDOR_ID') {
-                $vendor_id = CDW_VENDOR_ID;
+                $vendor_id = trim((string)CDW_VENDOR_ID);
+                error_log('Coupon Dispenser Plugin: Using Vendor ID from constant fallback');
             }
-            // For API key, only use constant if option is empty (allows manual updates)
+            // For API key, only use constant if option is completely empty (allows manual updates)
             if (empty($api_key) && defined('CDW_API_KEY') && CDW_API_KEY !== 'PLUGIN_CONFIG_API_KEY') {
-                $api_key = CDW_API_KEY;
+                $api_key = trim((string)CDW_API_KEY);
+                error_log('Coupon Dispenser Plugin: Using API Key from constant fallback');
             }
             
             // Validate configuration
             if (empty($vendor_id) || empty($api_key)) {
-                error_log('Coupon Dispenser Plugin: Missing vendor_id or api_key. Vendor ID: ' . (!empty($vendor_id) ? 'set' : 'empty') . ', API Key: ' . (!empty($api_key) ? 'set' : 'empty'));
+                error_log('Coupon Dispenser Plugin ERROR: Missing vendor_id or api_key.');
+                error_log('  Vendor ID length: ' . strlen($vendor_id));
+                error_log('  API Key length: ' . strlen($api_key));
+                error_log('  Vendor ID defined constant: ' . (defined('CDW_VENDOR_ID') ? 'yes' : 'no'));
+                error_log('  API Key defined constant: ' . (defined('CDW_API_KEY') ? 'yes' : 'no'));
+                
                 return new WP_Error(
                     'not_configured',
                     'Plugin is not configured. Please set vendor ID and API key in settings.',
@@ -216,17 +230,28 @@ class Coupon_Dispenser_Widget {
             
             // Get API base URL from options (settings override constants)
             $api_base_url = get_option('cdw_api_base_url', '');
+            $api_base_url = trim((string)$api_base_url);
+            
+            // Fallback to constant if option is empty
             if (empty($api_base_url) && defined('CDW_API_BASE_URL') && CDW_API_BASE_URL !== 'PLUGIN_CONFIG_API_BASE_URL') {
-                $api_base_url = CDW_API_BASE_URL;
+                $api_base_url = trim((string)CDW_API_BASE_URL);
+            }
+            
+            // Remove placeholder values
+            if ($api_base_url === 'PLUGIN_CONFIG_API_BASE_URL' || $api_base_url === 'https://your-domain.com') {
+                $api_base_url = '';
             }
             
             // Fallback to default if still empty
             if (empty($api_base_url)) {
                 $api_base_url = 'https://coupon-dispenser.vercel.app';
+                error_log('Coupon Dispenser Plugin: Using default API base URL: ' . $api_base_url);
             }
             
             // Remove trailing slash
             $api_base_url = rtrim($api_base_url, '/');
+            
+            error_log('Coupon Dispenser Plugin: Final API Base URL: ' . $api_base_url);
             
             // Call our API to get widget session token
             $api_url = $api_base_url . '/api/widget-session';
