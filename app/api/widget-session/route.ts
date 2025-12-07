@@ -89,17 +89,48 @@ export async function POST(request: NextRequest) {
       internalUserId = user.id
     } catch (error: any) {
       console.error('Error upserting user:', error)
+      console.error('Error stack:', error?.stack)
+      console.error('Error message:', error?.message)
+      
+      // Return detailed error for API debugging
+      const errorMessage = `Failed to create user mapping: ${error?.message || error?.toString()}`
+      const isDevelopment = process.env.NODE_ENV === 'development'
+      
       return NextResponse.json(
-        { success: false, error: 'Failed to create user mapping' },
+        { 
+          success: false, 
+          error: errorMessage,
+          ...(isDevelopment && { details: error?.stack })
+        },
         { status: 500 }
       )
     }
 
     // Step 4: Create and return widget session token
-    const widgetSessionToken = signWidgetSession({
-      user_id: internalUserId,
-      vendor_id: validatedData.vendor_id,
-    })
+    let widgetSessionToken: string
+    try {
+      widgetSessionToken = signWidgetSession({
+        user_id: internalUserId,
+        vendor_id: validatedData.vendor_id,
+      })
+    } catch (error: any) {
+      console.error('Error signing widget session token:', error)
+      console.error('Error stack:', error?.stack)
+      console.error('Error message:', error?.message)
+      
+      // Return detailed error for API debugging
+      const errorMessage = `Failed to create session token: ${error?.message || error?.toString()}`
+      const isDevelopment = process.env.NODE_ENV === 'development'
+      
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: errorMessage,
+          ...(isDevelopment && { details: error?.stack })
+        },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       success: true,
@@ -111,6 +142,8 @@ export async function POST(request: NextRequest) {
     })
   } catch (error: any) {
     console.error('Error in widget-session endpoint:', error)
+    console.error('Error stack:', error?.stack)
+    console.error('Error message:', error?.message)
 
     if (error.name === 'ZodError') {
       return NextResponse.json(
@@ -119,8 +152,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // For API endpoints, return more helpful error messages even in production
+    // This helps partners debug integration issues
+    const errorMessage = error?.message || error?.toString() || 'Internal server error'
+    
+    // Only include stack traces in development
+    const isDevelopment = process.env.NODE_ENV === 'development'
+    
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { 
+        success: false, 
+        error: errorMessage,
+        ...(isDevelopment && { details: error?.stack })
+      },
       { status: 500 }
     )
   }

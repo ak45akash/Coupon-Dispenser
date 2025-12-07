@@ -355,7 +355,28 @@
 
       console.log('CouponWidget: Fetching widget session token from partner backend:', apiKeyEndpoint)
 
-      const response = await fetch(apiKeyEndpoint, {
+      // Try to detect WordPress user ID if available
+      const wpUserId = detectUserId()
+      
+      // Build query parameters
+      const queryParams = new URLSearchParams()
+      
+      // Priority: Pass WordPress user ID if available (for logged-in users)
+      if (wpUserId) {
+        queryParams.append('widget_user_id', wpUserId)
+        console.log('CouponWidget: Passing WordPress user ID to plugin endpoint:', wpUserId)
+      } else {
+        // For anonymous users, pass the anonymous ID from localStorage
+        const anonymousId = detectUserId() // This will return the stored anonymous ID if no logged-in user
+        if (anonymousId && anonymousId.startsWith('anon_')) {
+          queryParams.append('anonymous_id', anonymousId)
+          console.log('CouponWidget: Passing anonymous ID to plugin endpoint:', anonymousId.substring(0, 20) + '...')
+        }
+      }
+
+      const url = queryParams.toString() ? `${apiKeyEndpoint}?${queryParams.toString()}` : apiKeyEndpoint
+
+      const response = await fetch(url, {
         method: 'GET',
         headers: { 
           'Content-Type': 'application/json',
@@ -1130,7 +1151,36 @@
       // Ignore
     }
 
-    return null
+    // 8. For anonymous users, generate and store a unique ID
+    // This ensures each user gets a consistent ID across page loads
+    // Different users on the same browser will get different IDs
+    try {
+      const storageKey = 'coupon_widget_anonymous_id'
+      
+      // Try localStorage first (persists across sessions)
+      let anonymousId = localStorage.getItem(storageKey)
+      
+      if (!anonymousId) {
+        // Generate a new unique anonymous ID
+        const timestamp = Date.now()
+        const random = Math.random().toString(36).substring(2, 15)
+        const random2 = Math.random().toString(36).substring(2, 15)
+        anonymousId = `anon_${timestamp}_${random}${random2}`
+        
+        // Store in localStorage for consistency
+        localStorage.setItem(storageKey, anonymousId)
+        
+        console.log('CouponWidget: Generated and stored new anonymous ID:', anonymousId)
+      } else {
+        console.log('CouponWidget: Reusing stored anonymous ID:', anonymousId)
+      }
+      
+      return anonymousId
+    } catch (e) {
+      // If localStorage is not available (private browsing, etc.), generate a temporary ID
+      console.warn('CouponWidget: localStorage not available, using session-only anonymous ID')
+      return `anon_temp_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`
+    }
   }
 
   /**

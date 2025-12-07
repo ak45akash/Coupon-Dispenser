@@ -238,29 +238,47 @@ class Coupon_Dispenser_Widget {
                 );
             }
             
-            // Try to determine user ID - check if user is logged in
+            // Try to determine user ID - prioritize logged-in users
             // Note: REST API calls need cookies for authentication
             $user_id = null;
             
-            // Check if user is logged in (requires WordPress cookie authentication)
-            if (is_user_logged_in()) {
+            // Priority 1: Check if user_id is explicitly passed from widget (for logged-in users)
+            $widget_user_id = $request->get_param('widget_user_id');
+            if (!empty($widget_user_id)) {
+                $user_id = sanitize_text_field($widget_user_id);
+                error_log('Coupon Dispenser Plugin: Using user ID from widget parameter: ' . $user_id);
+            }
+            
+            // Priority 2: Check if user is logged in via WordPress (requires WordPress cookie authentication)
+            if (empty($user_id) && is_user_logged_in()) {
                 // Use WordPress user ID for logged-in users
                 $user_id = (string) get_current_user_id();
-            } else {
-                // For anonymous users, generate or use existing anonymous ID
+                error_log('Coupon Dispenser Plugin: Using WordPress logged-in user ID: ' . $user_id);
+            }
+            
+            // Priority 3: For anonymous users, generate unique ID per request
+            // IMPORTANT: For anonymous users, we generate a new unique ID each time
+            // This ensures each actual user (even on the same browser) gets a different ID
+            // The widget will maintain this ID in localStorage/sessionStorage for consistency
+            if (empty($user_id)) {
                 $anonymous_id = $request->get_param('anonymous_id');
-                if (empty($anonymous_id)) {
-                    // Check for existing anonymous ID cookie
-                    if (isset($_COOKIE['cdw_anon_id']) && !empty($_COOKIE['cdw_anon_id'])) {
-                        $anonymous_id = sanitize_text_field($_COOKIE['cdw_anon_id']);
-                    } else {
-                        // Generate a new anonymous ID
-                        $anonymous_id = 'anon_' . wp_generate_password(16, false);
-                        // Set cookie for 30 days to maintain consistency
-                        // Use httponly=false so JavaScript can access it if needed
-                        setcookie('cdw_anon_id', $anonymous_id, time() + (30 * DAY_IN_SECONDS), '/', '', is_ssl(), false);
-                        $_COOKIE['cdw_anon_id'] = $anonymous_id;
-                    }
+                if (!empty($anonymous_id)) {
+                    // Use provided anonymous ID (from widget's localStorage/sessionStorage)
+                    $anonymous_id = sanitize_text_field($anonymous_id);
+                    error_log('Coupon Dispenser Plugin: Using provided anonymous ID from widget: ' . substr($anonymous_id, 0, 20) . '...');
+                } else {
+                    // Generate a NEW unique anonymous ID for this user
+                    // This ID will be stored by the widget in localStorage/sessionStorage
+                    // Different users on the same browser will get different IDs
+                    $unique_suffix = wp_generate_password(20, false); // Longer for better uniqueness
+                    $timestamp = time();
+                    $microtime = microtime(true);
+                    $random_bytes = bin2hex(random_bytes(8));
+                    
+                    // Create truly unique anonymous ID: timestamp + microtime + random
+                    $anonymous_id = 'anon_' . $timestamp . '_' . substr($microtime, -6) . '_' . $random_bytes;
+                    
+                    error_log('Coupon Dispenser Plugin: Generated new unique anonymous ID: ' . substr($anonymous_id, 0, 30) . '...');
                 }
                 $user_id = $anonymous_id;
             }
