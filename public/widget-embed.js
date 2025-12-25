@@ -1410,7 +1410,7 @@
     },
   }
 
-  // Expose CouponWidget to window, but delay initialization if Elementor is present
+  // Expose CouponWidget to window
   window.CouponWidget = CouponWidget
 
   // Initialize function that can be called multiple times
@@ -1422,90 +1422,35 @@
     }
   }
 
-  // Check if Elementor is present and wait for it to be fully ready
-  function waitForElementorAndInitialize() {
-    var attempts = 0
-    var maxAttempts = 100 // 10 seconds max
-    
-    function checkElementorReady() {
-      attempts++
-      
-      // Check if Elementor scripts are present on the page
-      var hasElementorScripts = document.querySelector('script[src*="elementor"]') !== null ||
-                                 document.querySelector('script[src*="frontend.min.js"]') !== null ||
-                                 typeof window.elementorFrontend !== 'undefined' ||
-                                 typeof window.elementor !== 'undefined'
-      
-      if (hasElementorScripts) {
-        // Elementor is present - wait for it to be fully ready
-        // Check for the specific function that's causing the error
-        var elementorCommonReady = typeof window.elementorCommon !== 'undefined' && 
-                                    window.elementorCommon && 
-                                    window.elementorCommon.helpers && 
-                                    typeof window.elementorCommon.helpers.softDeprecated === 'function'
-        
-        // Check if Elementor frontend is ready
-        var elementorFrontendReady = typeof window.elementorFrontend !== 'undefined' && 
-                                      window.elementorFrontend && 
-                                      window.elementorFrontend.hooks
-        
-        if (elementorCommonReady && elementorFrontendReady) {
-          // Elementor is fully ready, wait a bit more to ensure all modules are loaded
-          setTimeout(function() {
-            try {
-              initializeWidget()
-            } catch (e) {
-              console.error('CouponWidget: Error during initialization:', e)
-            }
-          }, 1000) // Increased delay to 1 second to ensure Elementor is completely done
-        } else if (attempts < maxAttempts) {
-          // Elementor is still loading, wait and retry
-          setTimeout(checkElementorReady, 100)
-        } else {
-          // Timeout - Elementor might have issues, initialize anyway after a long delay
-          console.warn('CouponWidget: Elementor detection timeout after 10 seconds, initializing widget anyway')
-          setTimeout(function() {
-            try {
-              initializeWidget()
-            } catch (e) {
-              console.error('CouponWidget: Error during initialization:', e)
-            }
-          }, 2000)
-        }
-      } else {
-        // No Elementor detected, safe to initialize normally
-        if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', function() {
-            setTimeout(initializeWidget, 100)
-          })
-        } else {
-          setTimeout(initializeWidget, 100)
-        }
-      }
+  // Simple initialization - no Elementor checks needed
+  function startInitialization() {
+    // Wait for DOM to be ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', function() {
+        setTimeout(initializeWidget, 100)
+      })
+    } else {
+      // DOM is already ready
+      setTimeout(initializeWidget, 100)
     }
-    
-    // Start checking after a small delay to let scripts load
-    setTimeout(checkElementorReady, 200)
+
+    // Also initialize after window load to catch dynamically added containers
+    if (document.readyState !== 'complete') {
+      window.addEventListener('load', function() {
+        setTimeout(initializeWidget, 200)
+      })
+    } else {
+      // Already loaded, initialize after a short delay
+      setTimeout(initializeWidget, 200)
+    }
+
+    // Initialize again after delays for dynamic content (WordPress/Elementor shortcodes)
+    setTimeout(initializeWidget, 1000)
+    setTimeout(initializeWidget, 3000)
   }
 
-  // Start initialization - wait for window.load to ensure all scripts are loaded
-  if (document.readyState === 'complete') {
-    waitForElementorAndInitialize()
-  } else {
-    window.addEventListener('load', waitForElementorAndInitialize)
-  }
-
-  // Also initialize after delays for dynamic content (but only if Elementor is not present)
-  // Check again at runtime to avoid conflicts
-  setTimeout(function() {
-    var hasElementor = document.querySelector('script[src*="elementor"]') !== null ||
-                       typeof window.elementorFrontend !== 'undefined' ||
-                       typeof window.elementor !== 'undefined'
-    if (!hasElementor) {
-      setTimeout(initializeWidget, 1000)
-      setTimeout(initializeWidget, 3000)
-    }
-  }, 500)
+  // Start initialization
+  startInitialization()
 
   // Support for MutationObserver to detect dynamically added containers (WordPress/Elementor)
   if (typeof MutationObserver !== 'undefined') {

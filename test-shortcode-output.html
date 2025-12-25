@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Coupon Widget Shortcode Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .test-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+        }
+        .test-section h2 {
+            margin-top: 0;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .status.success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .status.error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        .status.info {
+            background: #d1ecf1;
+            color: #0c5460;
+            border: 1px solid #bee5eb;
+        }
+        #coupon-widget {
+            min-height: 200px;
+            border: 2px dashed #ccc;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        #coupon-widget:empty::before {
+            content: "Widget container - waiting for initialization...";
+            color: #999;
+        }
+    </style>
+</head>
+<body>
+    <h1>Coupon Widget Shortcode Output Test</h1>
+    
+    <div class="test-section">
+        <h2>Test 1: Shortcode HTML Output</h2>
+        <p>This simulates what the WordPress shortcode outputs:</p>
+        <div id="coupon-widget" 
+             data-vendor-id="ef47d71c-07bf-41b5-831e-96214618e7f1"
+             data-api-key-endpoint="https://coupon-dispenser.vercel.app/wp-json/coupon-dispenser/v1/token"
+             class="coupon-dispenser-widget-container">
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 2: Script Loading Status</h2>
+        <div id="script-status" class="status info">Checking...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 3: Container Detection</h2>
+        <div id="container-status" class="status info">Checking...</div>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 4: Widget Initialization</h2>
+        <div id="init-status" class="status info">Checking...</div>
+        <button onclick="checkStatus()" style="padding: 10px 20px; margin-top: 10px;">Refresh Status</button>
+        <button onclick="forceInit()" style="padding: 10px 20px; margin-top: 10px;">Force Initialize</button>
+    </div>
+
+    <div class="test-section">
+        <h2>Test 5: Console Logs</h2>
+        <p>Open browser console (F12) to see detailed logs from the widget script.</p>
+        <p>Look for messages starting with "CouponWidget:"</p>
+    </div>
+
+    <!-- Load jQuery (simulating WordPress) -->
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    
+    <!-- Load widget script -->
+    <script src="https://coupon-dispenser.vercel.app/widget-embed.js"></script>
+
+    <script>
+        // Configure API URL (simulating WordPress inline script)
+        window.COUPON_WIDGET_API_URL = 'https://coupon-dispenser.vercel.app';
+
+        function checkScriptStatus() {
+            const script = document.querySelector('script[src*="widget-embed.js"]');
+            if (script) {
+                document.getElementById('script-status').innerHTML = 
+                    '<strong>✓ Script loaded</strong><br>Source: <code>' + script.src + '</code>';
+                document.getElementById('script-status').className = 'status success';
+            } else {
+                document.getElementById('script-status').innerHTML = 
+                    '<strong>✗ Script not found</strong>';
+                document.getElementById('script-status').className = 'status error';
+            }
+        }
+
+        function checkContainerStatus() {
+            const containers = document.querySelectorAll('[data-vendor-id]');
+            if (containers.length > 0) {
+                let html = '<strong>✓ Found ' + containers.length + ' container(s)</strong><br>';
+                containers.forEach(container => {
+                    html += 'Container ID: <code>' + (container.id || 'no-id') + '</code><br>';
+                    html += 'Vendor ID: <code>' + container.getAttribute('data-vendor-id') + '</code><br>';
+                    html += 'API Endpoint: <code>' + container.getAttribute('data-api-key-endpoint') + '</code><br><br>';
+                });
+                document.getElementById('container-status').innerHTML = html;
+                document.getElementById('container-status').className = 'status success';
+            } else {
+                document.getElementById('container-status').innerHTML = 
+                    '<strong>✗ No containers found</strong>';
+                document.getElementById('container-status').className = 'status error';
+            }
+        }
+
+        function checkInitStatus() {
+            if (typeof window.CouponWidget === 'undefined') {
+                document.getElementById('init-status').innerHTML = 
+                    '<strong>✗ CouponWidget not available</strong><br>Script may not have loaded';
+                document.getElementById('init-status').className = 'status error';
+                return;
+            }
+
+            const container = document.getElementById('coupon-widget');
+            if (!container) {
+                document.getElementById('init-status').innerHTML = 
+                    '<strong>✗ Container not found</strong>';
+                document.getElementById('init-status').className = 'status error';
+                return;
+            }
+
+            const isInitialized = container.dataset.widgetInitialized === 'true';
+            if (isInitialized) {
+                document.getElementById('init-status').innerHTML = 
+                    '<strong>✓ Widget initialized</strong><br>Container has data-widget-initialized="true"';
+                document.getElementById('init-status').className = 'status success';
+            } else {
+                document.getElementById('init-status').innerHTML = 
+                    '<strong>⚠ Widget not initialized yet</strong><br>Container does not have data-widget-initialized="true"<br>Click "Force Initialize" to trigger initialization';
+                document.getElementById('init-status').className = 'status info';
+            }
+        }
+
+        function forceInit() {
+            if (typeof window.CouponWidget !== 'undefined' && window.CouponWidget.initFromAttributes) {
+                window.CouponWidget.initFromAttributes();
+                setTimeout(checkStatus, 500);
+                alert('Initialization triggered. Check status in 500ms.');
+            } else {
+                alert('CouponWidget.initFromAttributes is not available. Make sure the script is loaded.');
+            }
+        }
+
+        function checkStatus() {
+            checkScriptStatus();
+            checkContainerStatus();
+            checkInitStatus();
+        }
+
+        // Check status after page loads
+        window.addEventListener('load', function() {
+            setTimeout(checkStatus, 1000);
+            setTimeout(checkStatus, 3000);
+        });
+
+        // Also check immediately if DOM is ready
+        if (document.readyState === 'complete' || document.readyState === 'interactive') {
+            setTimeout(checkStatus, 500);
+        }
+    </script>
+</body>
+</html>
+

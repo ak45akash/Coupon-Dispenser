@@ -68,39 +68,29 @@ class Coupon_Dispenser_Shortcode {
         // Get REST API endpoint URL for widget session token
         $rest_url = rest_url('coupon-dispenser/v1/token');
         
-        // Ensure widget script is enqueued
-        // Load AFTER jQuery and with lower priority to avoid Elementor conflicts
+        // Ensure widget script is enqueued (only once, even if shortcode appears multiple times)
         $widget_script_url = $api_base_url . '/widget-embed.js';
         
-        // Use a high priority number to ensure this loads after Elementor
-        // Elementor typically uses priority 20, so we use 30 to load much later
-        // Also add defer attribute to prevent blocking Elementor
-        add_action('wp_enqueue_scripts', function() use ($widget_script_url) {
-            wp_enqueue_script(
-                'coupon-dispenser-widget',
-                $widget_script_url,
-                array('jquery'), // Depend on jQuery to ensure proper loading order
-                CDW_VERSION,
-                true
-            );
-            
-            // Add defer attribute to prevent script from blocking Elementor
-            add_filter('script_loader_tag', function($tag, $handle) {
-                if ($handle === 'coupon-dispenser-widget') {
-                    // Add defer attribute if not already present
-                    if (strpos($tag, 'defer') === false) {
-                        $tag = str_replace(' src', ' defer src', $tag);
-                    }
-                }
-                return $tag;
-            }, 10, 2);
-        }, 30); // Higher priority = loads later (after Elementor's 20)
-        
-        // Add inline script to configure API base URL
-        wp_add_inline_script('coupon-dispenser-widget', 
-            "window.COUPON_WIDGET_API_URL = '" . esc_js($api_base_url) . "';",
-            'before'
-        );
+        // Use a static flag to ensure script is only enqueued once
+        static $script_enqueued = false;
+        if (!$script_enqueued) {
+            add_action('wp_enqueue_scripts', function() use ($widget_script_url, $api_base_url) {
+                wp_enqueue_script(
+                    'coupon-dispenser-widget',
+                    $widget_script_url,
+                    array('jquery'), // Depend on jQuery
+                    CDW_VERSION,
+                    true // Load in footer
+                );
+                
+                // Add inline script to configure API base URL
+                wp_add_inline_script('coupon-dispenser-widget', 
+                    "window.COUPON_WIDGET_API_URL = '" . esc_js($api_base_url) . "';",
+                    'before'
+                );
+            }, 20); // Standard priority
+            $script_enqueued = true;
+        }
         
         ob_start();
         ?>
@@ -110,7 +100,7 @@ class Coupon_Dispenser_Shortcode {
              class="coupon-dispenser-widget-container">
         </div>
         
-        <!-- Widget script handles all initialization to prevent Elementor conflicts -->
+        <!-- Widget script will automatically initialize this container -->
         <?php
         return ob_get_clean();
     }

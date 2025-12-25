@@ -91,12 +91,8 @@ class Coupon_Dispenser_Widget {
             Coupon_Dispenser_Settings::get_instance();
         }
         
-        // Enqueue scripts with high priority (30) to load after Elementor (20)
-        // This prevents conflicts with Elementor's initialization
-        add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'), 30);
-        
-        // Add defer attribute to widget script to prevent blocking Elementor
-        add_filter('script_loader_tag', array($this, 'add_defer_attribute'), 10, 2);
+        // Enqueue scripts
+        add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'), 20);
         
         // Register REST API endpoint for widget session token
         add_action('rest_api_init', array($this, 'register_rest_routes'));
@@ -134,19 +130,6 @@ class Coupon_Dispenser_Widget {
             "window.COUPON_WIDGET_API_URL = '" . esc_js($api_base_url) . "';",
             'before'
         );
-    }
-    
-    /**
-     * Add defer attribute to widget script to prevent blocking Elementor
-     */
-    public function add_defer_attribute($tag, $handle) {
-        if ($handle === 'coupon-dispenser-widget') {
-            // Add defer attribute if not already present
-            if (strpos($tag, 'defer') === false) {
-                $tag = str_replace(' src', ' defer src', $tag);
-            }
-        }
-        return $tag;
     }
     
     /**
