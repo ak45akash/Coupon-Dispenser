@@ -149,14 +149,24 @@ class Coupon_Dispenser_Widget {
         
         // Get API base URL from options (settings override constants)
         $api_base_url = get_option('cdw_api_base_url', '');
+        $api_base_url = trim((string)$api_base_url);
+        
         if (empty($api_base_url) && defined('CDW_API_BASE_URL') && CDW_API_BASE_URL !== 'PLUGIN_CONFIG_API_BASE_URL') {
-            $api_base_url = CDW_API_BASE_URL;
+            $api_base_url = trim((string)CDW_API_BASE_URL);
         }
         
-        error_log('[CouponDispenser] API Base URL: ' . ($api_base_url ?: 'EMPTY'));
+        // Auto-fix: If it's a preview URL (contains preview deployment pattern), change to production
+        if (!empty($api_base_url) && strpos($api_base_url, 'coupon-dispenser-') !== false && strpos($api_base_url, '-akashdeep-kanchas-projects.vercel.app') !== false) {
+            error_log('[CouponDispenser] Auto-fixing preview URL to production URL in enqueue_scripts');
+            $api_base_url = 'https://coupon-dispenser.vercel.app';
+            update_option('cdw_api_base_url', $api_base_url);
+        }
         
-        if (empty($api_base_url)) {
-            error_log('[CouponDispenser] WARNING: API Base URL is empty, script will not be enqueued');
+        error_log('[CouponDispenser] API Base URL: ' . ($api_base_url ?: 'EMPTY') . ' (length: ' . strlen($api_base_url) . ')');
+        
+        // More lenient validation - just check if it's not empty and not the placeholder
+        if (empty($api_base_url) || $api_base_url === 'https://your-domain.com' || strlen($api_base_url) < 10) {
+            error_log('[CouponDispenser] WARNING: API Base URL is empty or invalid. Value: "' . $api_base_url . '". Script will not be enqueued.');
             return; // Don't enqueue if not configured
         }
         
