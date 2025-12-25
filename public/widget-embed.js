@@ -1424,35 +1424,57 @@
   // Initialize widget with Elementor compatibility
   // Wait for Elementor to be fully ready before initializing
   function safeInitialize() {
-    // Check if Elementor is present and wait for it to be ready
-    if (typeof window.elementorFrontend !== 'undefined') {
-      // Elementor is present - wait for it to finish initializing
-      if (window.elementorFrontend.hooks) {
-        // Elementor is ready, but wait a bit more to ensure all modules are loaded
-        setTimeout(function() {
+    var attempts = 0
+    var maxAttempts = 50 // 5 seconds max
+    
+    function checkElementorReady() {
+      attempts++
+      
+      // Check if Elementor's common library is loaded (this is what's causing the error)
+      var elementorCommonReady = typeof window.elementorCommon !== 'undefined' && 
+                                  window.elementorCommon.helpers && 
+                                  typeof window.elementorCommon.helpers.softDeprecated === 'function'
+      
+      // Check if Elementor frontend is ready
+      var elementorFrontendReady = typeof window.elementorFrontend !== 'undefined' && 
+                                    window.elementorFrontend.hooks
+      
+      // If Elementor is present, wait for it to be fully ready
+      if (typeof window.elementorFrontend !== 'undefined' || typeof window.elementor !== 'undefined') {
+        if (elementorCommonReady && elementorFrontendReady) {
+          // Elementor is fully ready, wait a bit more then initialize
+          setTimeout(function() {
+            try {
+              initializeWidget()
+            } catch (e) {
+              console.error('CouponWidget: Error during initialization:', e)
+            }
+          }, 500) // Increased delay to ensure Elementor is completely done
+        } else if (attempts < maxAttempts) {
+          // Elementor is still loading, wait and retry
+          setTimeout(checkElementorReady, 100)
+        } else {
+          // Timeout - Elementor might have issues, initialize anyway
+          console.warn('CouponWidget: Elementor detection timeout, initializing widget anyway')
           try {
             initializeWidget()
           } catch (e) {
             console.error('CouponWidget: Error during initialization:', e)
           }
-        }, 300)
+        }
       } else {
-        // Elementor is loading, wait and retry
-        setTimeout(safeInitialize, 100)
-      }
-    } else if (typeof window.elementor !== 'undefined') {
-      // Elementor Pro might be loading differently
-      setTimeout(safeInitialize, 100)
-    } else {
-      // No Elementor detected, safe to initialize normally
-      if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function() {
+        // No Elementor detected, safe to initialize normally
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', function() {
+            setTimeout(initializeWidget, 100)
+          })
+        } else {
           setTimeout(initializeWidget, 100)
-        })
-      } else {
-        setTimeout(initializeWidget, 100)
+        }
       }
     }
+    
+    checkElementorReady()
   }
 
   // Start safe initialization
