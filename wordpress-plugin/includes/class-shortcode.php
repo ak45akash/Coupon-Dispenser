@@ -62,18 +62,21 @@ class Coupon_Dispenser_Shortcode {
         
         // Validate configuration
         if (empty($vendor_id)) {
+            error_log('[CouponDispenser] ERROR: Vendor ID is empty');
             return '<div class="cdw-error" style="padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; margin: 10px 0;">
                 <strong>Coupon Dispenser Error:</strong> Vendor ID is not configured. Please go to <a href="' . admin_url('options-general.php?page=coupon-dispenser-widget') . '">Settings → Coupon Dispenser</a> to configure your plugin.
             </div>';
         }
         
         if (empty($api_key)) {
+            error_log('[CouponDispenser] ERROR: API Key is empty');
             return '<div class="cdw-error" style="padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; margin: 10px 0;">
                 <strong>Coupon Dispenser Error:</strong> API Key is not configured. Please go to <a href="' . admin_url('options-general.php?page=coupon-dispenser-widget') . '">Settings → Coupon Dispenser</a> to configure your plugin.
             </div>';
         }
         
         if (empty($api_base_url) || $api_base_url === 'https://your-domain.com') {
+            error_log('[CouponDispenser] ERROR: API Base URL is empty or default');
             return '<div class="cdw-error" style="padding: 15px; background: #fff3cd; border-left: 4px solid #ffc107; margin: 10px 0;">
                 <strong>Coupon Dispenser Error:</strong> API Base URL is not configured. Please go to <a href="' . admin_url('options-general.php?page=coupon-dispenser-widget') . '">Settings → Coupon Dispenser</a> to configure your plugin.
             </div>';

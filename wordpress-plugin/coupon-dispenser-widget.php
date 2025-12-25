@@ -428,6 +428,13 @@ class Coupon_Dispenser_Widget {
  * Initialize plugin
  */
 function coupon_dispenser_widget_init() {
+    // IMMEDIATE LOG - This runs as soon as plugin file is loaded
+    error_log('[CouponDispenser] ============================================');
+    error_log('[CouponDispenser] PLUGIN FILE LOADED');
+    error_log('[CouponDispenser] Plugin version: ' . CDW_VERSION);
+    error_log('[CouponDispenser] Plugin directory: ' . CDW_PLUGIN_DIR);
+    error_log('[CouponDispenser] ============================================');
+    
     return Coupon_Dispenser_Widget::get_instance();
 }
 
