@@ -115,10 +115,12 @@ class Coupon_Dispenser_Widget {
         $widget_script_url = $api_base_url . '/widget-embed.js';
         
         // Enqueue widget script
+        // Load AFTER jQuery and Elementor to avoid conflicts
+        // Use high priority to ensure it loads after Elementor
         wp_enqueue_script(
             'coupon-dispenser-widget',
             $widget_script_url,
-            array(),
+            array('jquery'), // Depend on jQuery to ensure proper loading order
             CDW_VERSION,
             true
         );

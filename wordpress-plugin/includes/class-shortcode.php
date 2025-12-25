@@ -69,11 +69,12 @@ class Coupon_Dispenser_Shortcode {
         $rest_url = rest_url('coupon-dispenser/v1/token');
         
         // Ensure widget script is enqueued
+        // Load AFTER jQuery and Elementor to avoid conflicts
         $widget_script_url = $api_base_url . '/widget-embed.js';
         wp_enqueue_script(
             'coupon-dispenser-widget',
             $widget_script_url,
-            array(),
+            array('jquery'), // Depend on jQuery to ensure proper loading order
             CDW_VERSION,
             true
         );
@@ -94,22 +95,33 @@ class Coupon_Dispenser_Shortcode {
         
         <script>
         (function() {
-            // Wait for widget script to load
+            // Wait for both widget script AND Elementor to load
+            // This prevents conflicts with Elementor's initialization
             function initWidget() {
-                if (typeof window.CouponWidget !== 'undefined') {
-                    // Widget will automatically initialize from data attributes
-                    console.log('Coupon Dispenser Widget: Initialized in container <?php echo esc_js($container_id); ?>');
-                } else {
+                // Check if widget script is loaded
+                if (typeof window.CouponWidget === 'undefined') {
                     // Retry after a short delay
                     setTimeout(initWidget, 100);
+                    return;
                 }
+                
+                // Wait for Elementor to finish initializing (if present)
+                // Use requestAnimationFrame to ensure DOM and other scripts are ready
+                requestAnimationFrame(function() {
+                    // Small delay to ensure Elementor is fully initialized
+                    setTimeout(function() {
+                        // Widget will automatically initialize from data attributes
+                        console.log('Coupon Dispenser Widget: Initialized in container <?php echo esc_js($container_id); ?>');
+                    }, 50);
+                });
             }
             
-            // Start initialization
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', initWidget);
-            } else {
+            // Start initialization after everything is loaded
+            // Use window.load instead of DOMContentLoaded to ensure all scripts (including Elementor) are loaded
+            if (document.readyState === 'complete') {
                 initWidget();
+            } else {
+                window.addEventListener('load', initWidget);
             }
         })();
         </script>
