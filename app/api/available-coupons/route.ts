@@ -201,17 +201,22 @@ export async function GET(request: NextRequest) {
 
     // Filter available coupons:
     // 1. Not soft-deleted
-    // 2. Not permanently claimed (is_claimed = false)
-    // Once a coupon is claimed, it's permanently unavailable to all users
+    // 2. Either unclaimed OR claimed by this user
+    // Claimed coupons are only visible to the user who claimed them
     const availableCoupons = allCoupons
       .filter((coupon) => !coupon.deleted_at)
-      .filter((coupon) => !coupon.is_claimed) // Permanently unavailable if claimed
+      .filter((coupon) => {
+        // Show coupon if:
+        // - It's not claimed yet, OR
+        // - It's claimed by this user
+        return !coupon.is_claimed || coupon.claimed_by === userId
+      })
       .map((coupon) => ({
         id: coupon.id,
         title: coupon.description || 'Coupon',
         summary: coupon.discount_value || '',
         code: coupon.code,
-        is_claimed_by_user: false, // User hasn't claimed this specific coupon
+        is_claimed_by_user: coupon.is_claimed && coupon.claimed_by === userId, // True if user claimed this coupon
         schedule_info: {
           start_at: null, // Can be extended if coupons have start/end dates
           end_at: coupon.expiry_date || null,
