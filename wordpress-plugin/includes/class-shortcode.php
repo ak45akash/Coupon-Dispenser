@@ -69,15 +69,20 @@ class Coupon_Dispenser_Shortcode {
         $rest_url = rest_url('coupon-dispenser/v1/token');
         
         // Ensure widget script is enqueued
-        // Load AFTER jQuery and Elementor to avoid conflicts
+        // Load AFTER jQuery and with lower priority to avoid Elementor conflicts
         $widget_script_url = $api_base_url . '/widget-embed.js';
-        wp_enqueue_script(
-            'coupon-dispenser-widget',
-            $widget_script_url,
-            array('jquery'), // Depend on jQuery to ensure proper loading order
-            CDW_VERSION,
-            true
-        );
+        
+        // Use a high priority number to ensure this loads after Elementor
+        // Elementor typically uses priority 20, so we use 25
+        add_action('wp_enqueue_scripts', function() use ($widget_script_url) {
+            wp_enqueue_script(
+                'coupon-dispenser-widget',
+                $widget_script_url,
+                array('jquery'), // Depend on jQuery to ensure proper loading order
+                CDW_VERSION,
+                true
+            );
+        }, 25); // Higher priority = loads later
         
         // Add inline script to configure API base URL
         wp_add_inline_script('coupon-dispenser-widget', 
@@ -95,33 +100,84 @@ class Coupon_Dispenser_Shortcode {
         
         <script>
         (function() {
-            // Wait for both widget script AND Elementor to load
-            // This prevents conflicts with Elementor's initialization
+            // Isolated initialization to prevent Elementor conflicts
+            // Use IIFE with strict mode to avoid namespace pollution
+            'use strict';
+            
+            var initAttempts = 0;
+            var maxAttempts = 50; // 5 seconds max wait
+            
             function initWidget() {
+                initAttempts++;
+                
                 // Check if widget script is loaded
                 if (typeof window.CouponWidget === 'undefined') {
-                    // Retry after a short delay
-                    setTimeout(initWidget, 100);
+                    if (initAttempts < maxAttempts) {
+                        setTimeout(initWidget, 100);
+                    } else {
+                        console.error('Coupon Dispenser Widget: Script failed to load after 5 seconds');
+                    }
                     return;
                 }
                 
-                // Wait for Elementor to finish initializing (if present)
-                // Use requestAnimationFrame to ensure DOM and other scripts are ready
-                requestAnimationFrame(function() {
-                    // Small delay to ensure Elementor is fully initialized
-                    setTimeout(function() {
-                        // Widget will automatically initialize from data attributes
-                        console.log('Coupon Dispenser Widget: Initialized in container <?php echo esc_js($container_id); ?>');
-                    }, 50);
-                });
+                // Wait for Elementor to be fully ready (if present)
+                // Check for Elementor's readiness indicators
+                function waitForElementor() {
+                    // If Elementor is present, wait for it to finish
+                    if (typeof window.elementor !== 'undefined' || typeof window.elementorFrontend !== 'undefined') {
+                        // Check if Elementor is ready
+                        if (typeof window.elementorFrontend !== 'undefined' && window.elementorFrontend.init) {
+                            // Elementor is present but might still be initializing
+                            // Wait a bit more for Elementor to complete
+                            setTimeout(function() {
+                                initializeCouponWidget();
+                            }, 200);
+                        } else {
+                            // Elementor might not be fully loaded yet, wait a bit
+                            setTimeout(waitForElementor, 100);
+                        }
+                    } else {
+                        // No Elementor detected, proceed immediately
+                        initializeCouponWidget();
+                    }
+                }
+                
+                function initializeCouponWidget() {
+                    // Widget will automatically initialize from data attributes
+                    // The widget script handles this, we just need to ensure it's loaded
+                    if (typeof window.CouponWidget !== 'undefined' && window.CouponWidget.initFromAttributes) {
+                        console.log('Coupon Dispenser Widget: Ready in container <?php echo esc_js($container_id); ?>');
+                    }
+                }
+                
+                // Start waiting for Elementor (if present)
+                waitForElementor();
             }
             
-            // Start initialization after everything is loaded
-            // Use window.load instead of DOMContentLoaded to ensure all scripts (including Elementor) are loaded
-            if (document.readyState === 'complete') {
-                initWidget();
-            } else {
-                window.addEventListener('load', initWidget);
+            // Start initialization after DOM is ready
+            // Use a combination approach: try immediately if ready, otherwise wait
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', function() {
+                    // Wait for window.load to ensure all scripts are loaded
+                    if (window.addEventListener) {
+                        window.addEventListener('load', initWidget);
+                    } else {
+                        // Fallback for older browsers
+                        window.attachEvent('onload', initWidget);
+                    }
+                });
+            } else if (document.readyState === 'interactive' || document.readyState === 'complete') {
+                // DOM is ready, but wait for all resources (including scripts)
+                if (window.addEventListener) {
+                    if (document.readyState === 'complete') {
+                        // Already loaded, initialize after a small delay
+                        setTimeout(initWidget, 100);
+                    } else {
+                        window.addEventListener('load', initWidget);
+                    }
+                } else {
+                    window.attachEvent('onload', initWidget);
+                }
             }
         })();
         </script>
