@@ -701,13 +701,18 @@
       if (this.config.apiKeyEndpoint) {
         try {
           await this.fetchTokenFromApiKeyEndpoint()
+          // Only load data if token fetch succeeded
+          this.loadData()
         } catch (error) {
           // Error already handled in fetchTokenFromApiKeyEndpoint
-          return
+          // The error state is set, so render() will display it
+          // Don't return - let the widget render the error message
+          console.error('CouponWidget: Failed to initialize - authentication error')
         }
+      } else {
+        // No API key endpoint - load data directly (legacy mode)
+        this.loadData()
       }
-
-      this.loadData()
     }
 
     /**
