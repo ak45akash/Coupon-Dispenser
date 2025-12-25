@@ -248,10 +248,20 @@ class Coupon_Dispenser_Settings {
      */
     public function render_api_base_url_field() {
         $value = get_option('cdw_api_base_url', '');
+        $value = trim((string)$value);
+        
         // Fallback to constant if option is empty or placeholder
         if ((empty($value) || $value === 'https://your-domain.com') && defined('CDW_API_BASE_URL') && CDW_API_BASE_URL !== 'PLUGIN_CONFIG_API_BASE_URL') {
-            $value = CDW_API_BASE_URL;
+            $value = trim((string)CDW_API_BASE_URL);
         }
+        
+        // Auto-fix: If it's a preview URL (contains preview deployment pattern), change to production
+        if (!empty($value) && strpos($value, 'coupon-dispenser-') !== false && strpos($value, '-akashdeep-kanchas-projects.vercel.app') !== false) {
+            error_log('[CouponDispenser] Auto-fixing preview URL to production URL');
+            $value = 'https://coupon-dispenser.vercel.app';
+            update_option('cdw_api_base_url', $value);
+        }
+        
         // If still placeholder, use vercel.app as default
         if (empty($value) || $value === 'https://your-domain.com') {
             $value = 'https://coupon-dispenser.vercel.app';
@@ -265,12 +275,10 @@ class Coupon_Dispenser_Settings {
             name="cdw_api_base_url" 
             value="<?php echo esc_attr($value); ?>" 
             class="regular-text"
-            placeholder="https://your-domain.com"
-            readonly
-            style="background-color: #f0f0f1; cursor: not-allowed;"
+            placeholder="https://coupon-dispenser.vercel.app"
         />
         <p class="description">
-            <?php _e('Base URL of your Coupon Dispenser platform. This is automatically configured and cannot be changed.', 'coupon-dispenser-widget'); ?>
+            <?php _e('Base URL of your Coupon Dispenser platform. Use the production URL: <code>https://coupon-dispenser.vercel.app</code>', 'coupon-dispenser-widget'); ?>
         </p>
         <?php
     }
