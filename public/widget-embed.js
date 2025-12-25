@@ -1267,11 +1267,24 @@
       )
 
       if (containers.length === 0) {
-        console.log('CouponWidget: No containers found. Make sure you have a div with data-vendor-id attribute.')
+        console.warn('[CouponWidget] No containers found. Make sure you have a div with data-vendor-id attribute.')
+        console.log('[CouponWidget] Checking for any div with id containing "coupon":', document.querySelectorAll('[id*="coupon"]').length)
+        console.log('[CouponWidget] Checking for any element with data-vendor-id:', document.querySelectorAll('[data-vendor-id]').length)
         return
       }
 
-      console.log(`CouponWidget: Found ${containers.length} potential container(s)`)
+      console.log(`[CouponWidget] Found ${containers.length} potential container(s)`)
+      
+      // Log details about each container
+      containers.forEach((container, index) => {
+        console.log(`[CouponWidget] Container ${index + 1}:`, {
+          id: container.id,
+          vendorId: container.getAttribute('data-vendor-id'),
+          apiEndpoint: container.getAttribute('data-api-key-endpoint'),
+          className: container.className,
+          initialized: container.dataset.widgetInitialized
+        })
+      })
 
       // Try to auto-detect user ID once for all containers
       let autoDetectedUserId = detectUserId()
