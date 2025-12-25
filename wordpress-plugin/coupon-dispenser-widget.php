@@ -87,12 +87,9 @@ class Coupon_Dispenser_Widget {
      * Register shortcode early on 'init' action
      */
     public function register_shortcode() {
+        error_log('[CouponDispenser] register_shortcode() method called');
         Coupon_Dispenser_Shortcode::get_instance();
-        
-        // Debug: Log shortcode registration
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('[CouponDispenser] Shortcode registered: [coupon_widget]');
-        }
+        error_log('[CouponDispenser] Shortcode registration complete');
     }
     
     private function init_components() {

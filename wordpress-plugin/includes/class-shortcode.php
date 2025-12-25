@@ -22,17 +22,13 @@ class Coupon_Dispenser_Shortcode {
     private function __construct() {
         // Register shortcode - will be called during 'init' action
         // Using 'init' hook ensures WordPress is ready
+        error_log('[CouponDispenser] Shortcode class constructor called');
+        
         if (!shortcode_exists('coupon_widget')) {
             add_shortcode('coupon_widget', array($this, 'render_shortcode'));
-            
-            // Debug: Log shortcode registration
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('[CouponDispenser] Shortcode handler registered');
-            }
+            error_log('[CouponDispenser] Shortcode [coupon_widget] REGISTERED');
         } else {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('[CouponDispenser] Shortcode already exists, skipping registration');
-            }
+            error_log('[CouponDispenser] WARNING: Shortcode already exists, skipping registration');
         }
     }
     
@@ -44,10 +40,10 @@ class Coupon_Dispenser_Shortcode {
      * @return string HTML output
      */
     public function render_shortcode($atts, $content = null) {
-        // Debug: Log shortcode render start
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('[CouponDispenser] Shortcode render_shortcode() called');
-        }
+        // ALWAYS log - don't require WP_DEBUG
+        error_log('[CouponDispenser] ============================================');
+        error_log('[CouponDispenser] Shortcode render_shortcode() CALLED');
+        error_log('[CouponDispenser] Timestamp: ' . current_time('mysql'));
         
         // Parse attributes
         $atts = shortcode_atts(array(
@@ -58,13 +54,11 @@ class Coupon_Dispenser_Shortcode {
         $api_key = get_option('cdw_api_key', '');
         $api_base_url = get_option('cdw_api_base_url', 'https://your-domain.com');
         
-        // Debug: Log configuration check
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('[CouponDispenser] Shortcode - Vendor ID: ' . (!empty($vendor_id) ? substr($vendor_id, 0, 8) . '...' : 'EMPTY'));
-            error_log('[CouponDispenser] Shortcode - API Key: ' . (!empty($api_key) ? 'SET' : 'EMPTY'));
-            error_log('[CouponDispenser] Shortcode - API Base URL: ' . $api_base_url);
-            error_log('[CouponDispenser] Shortcode - Container ID: ' . $atts['container_id']);
-        }
+        // ALWAYS log configuration
+        error_log('[CouponDispenser] Shortcode - Vendor ID: ' . (!empty($vendor_id) ? substr($vendor_id, 0, 8) . '...' : 'EMPTY'));
+        error_log('[CouponDispenser] Shortcode - API Key: ' . (!empty($api_key) ? 'SET' : 'EMPTY'));
+        error_log('[CouponDispenser] Shortcode - API Base URL: ' . $api_base_url);
+        error_log('[CouponDispenser] Shortcode - Container ID: ' . $atts['container_id']);
         
         // Validate configuration
         if (empty($vendor_id)) {
@@ -96,14 +90,10 @@ class Coupon_Dispenser_Shortcode {
         // Use a static flag to ensure script is only enqueued once
         static $script_enqueued = false;
         if (!$script_enqueued) {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('[CouponDispenser] Shortcode - Enqueuing script: ' . $widget_script_url);
-            }
+            error_log('[CouponDispenser] Shortcode - Enqueuing script: ' . $widget_script_url);
             
             add_action('wp_enqueue_scripts', function() use ($widget_script_url, $api_base_url) {
-                if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('[CouponDispenser] Shortcode - wp_enqueue_scripts hook fired');
-                }
+                error_log('[CouponDispenser] Shortcode - wp_enqueue_scripts hook FIRED');
                 
                 wp_enqueue_script(
                     'coupon-dispenser-widget',
@@ -134,15 +124,11 @@ class Coupon_Dispenser_Shortcode {
                     'after'
                 );
                 
-                if (defined('WP_DEBUG') && WP_DEBUG) {
-                    error_log('[CouponDispenser] Shortcode - Script enqueued successfully');
-                }
+                error_log('[CouponDispenser] Shortcode - Script enqueued successfully');
             }, 20); // Standard priority
             $script_enqueued = true;
         } else {
-            if (defined('WP_DEBUG') && WP_DEBUG) {
-                error_log('[CouponDispenser] Shortcode - Script already enqueued, skipping');
-            }
+            error_log('[CouponDispenser] Shortcode - Script already enqueued, skipping');
         }
         
         ob_start();
@@ -186,9 +172,8 @@ class Coupon_Dispenser_Shortcode {
         <?php
         $output = ob_get_clean();
         
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('[CouponDispenser] Shortcode - HTML output generated, length: ' . strlen($output));
-        }
+        error_log('[CouponDispenser] Shortcode - HTML output generated, length: ' . strlen($output));
+        error_log('[CouponDispenser] ============================================');
         
         return $output;
     }
