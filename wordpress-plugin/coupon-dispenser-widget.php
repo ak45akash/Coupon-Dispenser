@@ -3,7 +3,7 @@
  * Plugin Name: Coupon Dispenser Widget
  * Plugin URI: https://iakash.dev
  * Description: Embed coupon widgets from Coupon Dispenser platform. Zero-code integration for WordPress.
- * Version: 1.0.0
+ * Version: 1.1.0
  * Author: Akash
  * Author URI: https://iakash.dev
  * Text Domain: coupon-dispenser-widget
@@ -20,7 +20,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Plugin constants
-define('CDW_VERSION', '1.0.0');
+define('CDW_VERSION', '1.1.0');
 define('CDW_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CDW_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CDW_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -62,6 +62,11 @@ class Coupon_Dispenser_Widget {
         
         // Register shortcode on 'init' to ensure it's available early
         add_action('init', array($this, 'register_shortcode'), 10);
+        
+        // Debug: Log plugin initialization
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('[CouponDispenser] Plugin initialized - Version: ' . CDW_VERSION);
+        }
     }
     
     public function init() {
@@ -83,6 +88,11 @@ class Coupon_Dispenser_Widget {
      */
     public function register_shortcode() {
         Coupon_Dispenser_Shortcode::get_instance();
+        
+        // Debug: Log shortcode registration
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('[CouponDispenser] Shortcode registered: [coupon_widget]');
+        }
     }
     
     private function init_components() {
@@ -102,6 +112,10 @@ class Coupon_Dispenser_Widget {
      * Enqueue widget script on frontend
      */
     public function enqueue_scripts() {
+        // Debug: Log script enqueuing
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('[CouponDispenser] Enqueue scripts called');
+        }
         // Get API base URL from options (settings override constants)
         $api_base_url = get_option('cdw_api_base_url', '');
         if (empty($api_base_url) && defined('CDW_API_BASE_URL') && CDW_API_BASE_URL !== 'PLUGIN_CONFIG_API_BASE_URL') {
@@ -130,6 +144,11 @@ class Coupon_Dispenser_Widget {
             "window.COUPON_WIDGET_API_URL = '" . esc_js($api_base_url) . "';",
             'before'
         );
+        
+        // Debug: Log script URL
+        if (defined('WP_DEBUG') && WP_DEBUG) {
+            error_log('[CouponDispenser] Script URL: ' . $widget_script_url);
+        }
     }
     
     /**

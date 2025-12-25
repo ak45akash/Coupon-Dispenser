@@ -1335,7 +1335,14 @@
         })
 
         widgetState.instances.set(containerId, instance)
-        console.log(`CouponWidget: Initializing widget for container ${containerId}${userId ? ` with user ID: ${userId}` : ' (plugin will detect logged-in user via cookies)'}`)
+        console.log(`[CouponWidget] Initializing widget for container ${containerId}${userId ? ` with user ID: ${userId}` : ' (plugin will detect logged-in user via cookies)'}`)
+        console.log(`[CouponWidget] Instance config:`, {
+          vendorId: vendorId,
+          userId: userId || 'auto-detect',
+          theme: theme,
+          containerId: containerId,
+          apiKeyEndpoint: apiKeyEndpoint || 'none'
+        })
         instance.init()
 
         // Try to fetch WordPress user ID asynchronously and update if found
@@ -1412,44 +1419,66 @@
 
   // Expose CouponWidget to window
   window.CouponWidget = CouponWidget
+  console.log('[CouponWidget] Script loaded - Version: 1.1.0')
+  console.log('[CouponWidget] CouponWidget object exposed to window:', typeof window.CouponWidget)
 
   // Initialize function that can be called multiple times
   function initializeWidget() {
+    console.log('[CouponWidget] initializeWidget() called')
     try {
       CouponWidget.initFromAttributes()
     } catch (error) {
-      console.error('CouponWidget: Initialization error:', error)
+      console.error('[CouponWidget] Initialization error:', error)
+      console.error('[CouponWidget] Error stack:', error.stack)
     }
   }
 
   // Simple initialization - no Elementor checks needed
   function startInitialization() {
+    console.log('[CouponWidget] startInitialization() called')
+    console.log('[CouponWidget] Document ready state:', document.readyState)
+    console.log('[CouponWidget] API URL configured:', window.COUPON_WIDGET_API_URL || 'NOT SET')
+    
     // Wait for DOM to be ready
     if (document.readyState === 'loading') {
+      console.log('[CouponWidget] DOM is loading, waiting for DOMContentLoaded')
       document.addEventListener('DOMContentLoaded', function() {
+        console.log('[CouponWidget] DOMContentLoaded fired, initializing in 100ms')
         setTimeout(initializeWidget, 100)
       })
     } else {
       // DOM is already ready
+      console.log('[CouponWidget] DOM already ready, initializing in 100ms')
       setTimeout(initializeWidget, 100)
     }
 
     // Also initialize after window load to catch dynamically added containers
     if (document.readyState !== 'complete') {
+      console.log('[CouponWidget] Window not loaded, waiting for load event')
       window.addEventListener('load', function() {
+        console.log('[CouponWidget] Window load fired, initializing in 200ms')
         setTimeout(initializeWidget, 200)
       })
     } else {
       // Already loaded, initialize after a short delay
+      console.log('[CouponWidget] Window already loaded, initializing in 200ms')
       setTimeout(initializeWidget, 200)
     }
 
     // Initialize again after delays for dynamic content (WordPress/Elementor shortcodes)
-    setTimeout(initializeWidget, 1000)
-    setTimeout(initializeWidget, 3000)
+    console.log('[CouponWidget] Scheduling delayed initializations at 1s and 3s')
+    setTimeout(function() {
+      console.log('[CouponWidget] Delayed initialization (1s)')
+      initializeWidget()
+    }, 1000)
+    setTimeout(function() {
+      console.log('[CouponWidget] Delayed initialization (3s)')
+      initializeWidget()
+    }, 3000)
   }
 
   // Start initialization
+  console.log('[CouponWidget] Starting initialization process')
   startInitialization()
 
   // Support for MutationObserver to detect dynamically added containers (WordPress/Elementor)
