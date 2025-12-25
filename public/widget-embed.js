@@ -33,6 +33,12 @@
 
 (function (window, document) {
   'use strict'
+  
+  // IMMEDIATE LOG - This should appear as soon as script loads
+  console.log('[CouponWidget] ============================================');
+  console.log('[CouponWidget] Script file loaded and executing');
+  console.log('[CouponWidget] Timestamp:', new Date().toISOString());
+  console.log('[CouponWidget] ============================================');
 
   // Configuration
   function getApiBaseUrl() {

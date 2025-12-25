@@ -113,10 +113,25 @@ class Coupon_Dispenser_Shortcode {
                     true // Load in footer
                 );
                 
-                // Add inline script to configure API base URL
+                // Add inline script to configure API base URL and log script loading
                 wp_add_inline_script('coupon-dispenser-widget', 
-                    "window.COUPON_WIDGET_API_URL = '" . esc_js($api_base_url) . "';",
+                    "console.log('[CouponDispenser] Script enqueued - URL: " . esc_js($widget_script_url) . "');" .
+                    "window.COUPON_WIDGET_API_URL = '" . esc_js($api_base_url) . "';" .
+                    "console.log('[CouponDispenser] API URL set to:', window.COUPON_WIDGET_API_URL);",
                     'before'
+                );
+                
+                // Add script load detection
+                wp_add_inline_script('coupon-dispenser-widget', 
+                    "console.log('[CouponDispenser] Waiting for widget script to load...');" .
+                    "var checkScript = setInterval(function() {" .
+                    "  if (typeof window.CouponWidget !== 'undefined') {" .
+                    "    console.log('[CouponDispenser] ✓ Widget script loaded successfully');" .
+                    "    clearInterval(checkScript);" .
+                    "  }" .
+                    "}, 100);" .
+                    "setTimeout(function() { clearInterval(checkScript); }, 10000);",
+                    'after'
                 );
                 
                 if (defined('WP_DEBUG') && WP_DEBUG) {
@@ -132,20 +147,41 @@ class Coupon_Dispenser_Shortcode {
         
         ob_start();
         ?>
+        <!-- Coupon Dispenser Widget Container - Start -->
         <div id="<?php echo esc_attr($container_id); ?>" 
              data-vendor-id="<?php echo esc_attr($vendor_id); ?>"
              data-api-key-endpoint="<?php echo esc_js($rest_url); ?>"
-             class="coupon-dispenser-widget-container">
+             class="coupon-dispenser-widget-container"
+             style="min-height: 50px; border: 1px dashed #ccc; padding: 10px; margin: 10px 0;">
+            <div style="color: #666; font-size: 12px;">
+                Coupon Widget Container (ID: <?php echo esc_html($container_id); ?>) - Waiting for initialization...
+            </div>
         </div>
+        <!-- Coupon Dispenser Widget Container - End -->
         
         <!-- Widget script will automatically initialize this container -->
         <script>
-        console.log('[CouponDispenser] Shortcode output rendered');
-        console.log('[CouponDispenser] Container ID:', '<?php echo esc_js($container_id); ?>');
-        console.log('[CouponDispenser] Vendor ID:', '<?php echo esc_js(substr($vendor_id, 0, 8)); ?>...');
-        console.log('[CouponDispenser] API Endpoint:', '<?php echo esc_js($rest_url); ?>');
-        console.log('[CouponDispenser] Script URL:', '<?php echo esc_js($widget_script_url); ?>');
-        console.log('[CouponDispenser] API Base URL:', '<?php echo esc_js($api_base_url); ?>');
+        (function() {
+            console.log('[CouponDispenser] ============================================');
+            console.log('[CouponDispenser] SHORTCODE RENDERED - This proves shortcode is working');
+            console.log('[CouponDispenser] Container ID:', '<?php echo esc_js($container_id); ?>');
+            console.log('[CouponDispenser] Vendor ID:', '<?php echo esc_js(substr($vendor_id, 0, 8)); ?>...');
+            console.log('[CouponDispenser] API Endpoint:', '<?php echo esc_js($rest_url); ?>');
+            console.log('[CouponDispenser] Script URL:', '<?php echo esc_js($widget_script_url); ?>');
+            console.log('[CouponDispenser] API Base URL:', '<?php echo esc_js($api_base_url); ?>');
+            console.log('[CouponDispenser] Container element exists:', !!document.getElementById('<?php echo esc_js($container_id); ?>'));
+            console.log('[CouponDispenser] ============================================');
+            
+            // Check if widget script is loaded
+            setTimeout(function() {
+                if (typeof window.CouponWidget === 'undefined') {
+                    console.error('[CouponDispenser] ERROR: CouponWidget script not loaded!');
+                    console.error('[CouponDispenser] Check if script URL is accessible:', '<?php echo esc_js($widget_script_url); ?>');
+                } else {
+                    console.log('[CouponDispenser] ✓ CouponWidget script is loaded');
+                }
+            }, 1000);
+        })();
         </script>
         <?php
         $output = ob_get_clean();
