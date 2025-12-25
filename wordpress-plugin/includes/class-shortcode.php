@@ -74,6 +74,7 @@ class Coupon_Dispenser_Shortcode {
         
         // Use a high priority number to ensure this loads after Elementor
         // Elementor typically uses priority 20, so we use 30 to load much later
+        // Also add defer attribute to prevent blocking Elementor
         add_action('wp_enqueue_scripts', function() use ($widget_script_url) {
             wp_enqueue_script(
                 'coupon-dispenser-widget',
@@ -82,6 +83,17 @@ class Coupon_Dispenser_Shortcode {
                 CDW_VERSION,
                 true
             );
+            
+            // Add defer attribute to prevent script from blocking Elementor
+            add_filter('script_loader_tag', function($tag, $handle) {
+                if ($handle === 'coupon-dispenser-widget') {
+                    // Add defer attribute if not already present
+                    if (strpos($tag, 'defer') === false) {
+                        $tag = str_replace(' src', ' defer src', $tag);
+                    }
+                }
+                return $tag;
+            }, 10, 2);
         }, 30); // Higher priority = loads later (after Elementor's 20)
         
         // Add inline script to configure API base URL
