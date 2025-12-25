@@ -158,7 +158,7 @@ Tags: coupons, widget, ecommerce
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Plugin URI: https://iakash.dev
@@ -196,6 +196,17 @@ Yes, you can change the container ID using the container_id attribute:
 
 == Changelog ==
 
+= 1.1.2 =
+* Auto-fix for Vercel preview URLs (automatically switches to production URL)
+* Enhanced logging and diagnostics for troubleshooting
+* Improved user authentication detection in REST API contexts
+* Better error handling and compatibility with PHP 7.4+
+
+= 1.1.0 =
+* Added comprehensive logging for plugin initialization
+* Improved shortcode rendering and script loading
+* Enhanced error messages and debugging capabilities
+
 = 1.0.0 =
 * Initial release
 * Pre-configured with vendor ID and API key
@@ -203,6 +214,12 @@ Yes, you can change the container ID using the container_id attribute:
 * WordPress REST API integration
 
 == Upgrade Notice ==
+
+= 1.1.2 =
+Recommended update. Includes auto-fix for deployment URLs and improved error handling.
+
+= 1.1.0 =
+Recommended update. Includes enhanced logging and debugging features.
 
 = 1.0.0 =
 Initial release.
