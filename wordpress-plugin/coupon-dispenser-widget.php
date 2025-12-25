@@ -19,6 +19,17 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
+// IMMEDIATE TEST - Log before any constants are defined
+// This will help us know if the file is being loaded at all
+if (function_exists('error_log')) {
+    error_log('[CouponDispenser] Plugin file coupon-dispenser-widget.php is being loaded');
+} else {
+    // Fallback: write to a custom log file
+    if (defined('WP_CONTENT_DIR')) {
+        @file_put_contents(WP_CONTENT_DIR . '/coupon-dispenser-load-test.log', date('Y-m-d H:i:s') . " Plugin file loaded\n", FILE_APPEND);
+    }
+}
+
 // Plugin constants
 define('CDW_VERSION', '1.1.0');
 define('CDW_PLUGIN_DIR', plugin_dir_path(__FILE__));
@@ -442,17 +453,36 @@ class Coupon_Dispenser_Widget {
  */
 function coupon_dispenser_widget_init() {
     // IMMEDIATE LOG - This runs as soon as plugin file is loaded
+    // Use file_put_contents as backup in case error_log is disabled
+    $log_file = WP_CONTENT_DIR . '/coupon-dispenser-debug.log';
+    $log_msg = date('Y-m-d H:i:s') . " [CouponDispenser] PLUGIN FILE LOADED - Version: " . CDW_VERSION . "\n";
+    @file_put_contents($log_file, $log_msg, FILE_APPEND);
+    
     error_log('[CouponDispenser] ============================================');
     error_log('[CouponDispenser] PLUGIN FILE LOADED');
     error_log('[CouponDispenser] Plugin version: ' . CDW_VERSION);
     error_log('[CouponDispenser] Plugin directory: ' . CDW_PLUGIN_DIR);
     error_log('[CouponDispenser] ============================================');
     
-    return Coupon_Dispenser_Widget::get_instance();
+    try {
+        return Coupon_Dispenser_Widget::get_instance();
+    } catch (Exception $e) {
+        error_log('[CouponDispenser] FATAL ERROR: ' . $e->getMessage());
+        error_log('[CouponDispenser] Stack trace: ' . $e->getTraceAsString());
+        @file_put_contents($log_file, date('Y-m-d H:i:s') . " [CouponDispenser] FATAL ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
+        return null;
+    }
 }
 
 // Start the plugin immediately to ensure early initialization
-coupon_dispenser_widget_init();
+// Wrap in try-catch to prevent fatal errors from breaking the site
+try {
+    coupon_dispenser_widget_init();
+} catch (Exception $e) {
+    error_log('[CouponDispenser] CRITICAL: Plugin initialization failed: ' . $e->getMessage());
+    $log_file = WP_CONTENT_DIR . '/coupon-dispenser-debug.log';
+    @file_put_contents($log_file, date('Y-m-d H:i:s') . " [CouponDispenser] CRITICAL ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
+}
 
 /**
  * Activation hook
