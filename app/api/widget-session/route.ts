@@ -79,31 +79,51 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Step 3: Upsert user mapping (same as JWT method)
+    // Helper function to check if user ID is anonymous
+    const isAnonymousUserId = (id: string): boolean => {
+      return id.startsWith('anon_') || id.startsWith('anonymous-')
+    }
+
+    // Step 3: Handle user mapping
+    // For anonymous users, use the anonymous ID directly (don't create database user)
+    // For real users, upsert user mapping
     let internalUserId: string
-    try {
-      const user = await upsertUserFromExternalId(
-        validatedData.vendor_id,
-        externalUserId
-      )
-      internalUserId = user.id
-    } catch (error: any) {
-      console.error('Error upserting user:', error)
-      console.error('Error stack:', error?.stack)
-      console.error('Error message:', error?.message)
-      
-      // Return detailed error for API debugging
-      const errorMessage = `Failed to create user mapping: ${error?.message || error?.toString()}`
-      const isDevelopment = process.env.NODE_ENV === 'development'
-      
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: errorMessage,
-          ...(isDevelopment && { details: error?.stack })
-        },
-        { status: 500 }
-      )
+    const isAnonymous = isAnonymousUserId(externalUserId)
+    
+    if (isAnonymous) {
+      // For anonymous users, use the anonymous ID directly in the session token
+      // This avoids creating database users for anonymous visitors
+      internalUserId = externalUserId
+      console.log(`[widget-session] Using anonymous user ID directly: ${internalUserId.substring(0, 20)}...`)
+    } else {
+      // For real users, create/retrieve user mapping
+      try {
+        const user = await upsertUserFromExternalId(
+          validatedData.vendor_id,
+          externalUserId
+        )
+        internalUserId = user.id
+        console.log(`[widget-session] Created/retrieved user mapping: ${internalUserId}`)
+      } catch (error: any) {
+        console.error('[widget-session] Error upserting user:', {
+          error: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined,
+          externalUserId: externalUserId.substring(0, 20) + '...',
+        })
+        
+        // Return detailed error for API debugging
+        const errorMessage = `Failed to create user mapping: ${error?.message || error?.toString()}`
+        const isDevelopment = process.env.NODE_ENV === 'development'
+        
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: errorMessage,
+            ...(isDevelopment && { details: error?.stack })
+          },
+          { status: 500 }
+        )
+      }
     }
 
     // Step 4: Create and return widget session token
