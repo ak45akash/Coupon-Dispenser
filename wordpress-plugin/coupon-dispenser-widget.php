@@ -14,13 +14,11 @@
  * License URI: https://www.gnu.org/licenses/gpl-2.0.html
  */
 
-// ULTRA-BASIC TEST - Write to file immediately, before ANY WordPress checks
-// This will tell us if the file is being loaded at all
-// Use simple string concatenation for PHP 7.4 compatibility
-$test_file_path = dirname(__FILE__);
-$test_file = $test_file_path . '/plugin-load-test.txt';
-$test_msg = date('Y-m-d H:i:s') . " - Plugin file STARTED loading\n";
-@file_put_contents($test_file, $test_msg, FILE_APPEND);
+// ABSOLUTE MINIMUM TEST - Write to file with absolute path
+// This MUST work if the file is being loaded at all
+$test_file_abs = __DIR__ . DIRECTORY_SEPARATOR . 'plugin-load-test.txt';
+$test_msg = date('Y-m-d H:i:s') . " - FILE LOADED\n";
+file_put_contents($test_file_abs, $test_msg);
 
 // Exit if accessed directly
 if (!defined('ABSPATH')) {
@@ -33,23 +31,13 @@ $continue_msg = date('Y-m-d H:i:s') . " - ABSPATH defined, continuing\n";
 @file_put_contents($test_file, $continue_msg, FILE_APPEND);
 
 // IMMEDIATE TEST - Log before any constants are defined
-// This will help us know if the file is being loaded at all
+file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - Before constants\n", FILE_APPEND);
+
 if (function_exists('error_log')) {
     error_log('[CouponDispenser] Plugin file coupon-dispenser-widget.php is being loaded');
-    @file_put_contents($test_file, date('Y-m-d H:i:s') . " - error_log() function exists\n", FILE_APPEND);
+    file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - error_log() function exists\n", FILE_APPEND);
 } else {
-    @file_put_contents($test_file, date('Y-m-d H:i:s') . " - error_log() function NOT available\n", FILE_APPEND);
-}
-
-// Try multiple log file locations
-$log_locations = array(
-    dirname(__FILE__) . '/plugin-debug.log',
-    dirname(dirname(__FILE__)) . '/coupon-dispenser-debug.log',
-    dirname(dirname(dirname(__FILE__))) . '/coupon-dispenser-debug.log',
-);
-
-foreach ($log_locations as $log_file) {
-    @file_put_contents($log_file, date('Y-m-d H:i:s') . " [CouponDispenser] Plugin file loaded from: " . __FILE__ . "\n", FILE_APPEND);
+    file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - error_log() function NOT available\n", FILE_APPEND);
 }
 
 // Plugin constants
@@ -475,8 +463,8 @@ class Coupon_Dispenser_Widget {
  */
 function coupon_dispenser_widget_init() {
     // Write to test file immediately
-    $test_file = dirname(__FILE__) . '/plugin-load-test.txt';
-    @file_put_contents($test_file, date('Y-m-d H:i:s') . " - coupon_dispenser_widget_init() called\n", FILE_APPEND);
+    $test_file_abs = __DIR__ . DIRECTORY_SEPARATOR . 'plugin-load-test.txt';
+    file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - coupon_dispenser_widget_init() called\n", FILE_APPEND);
     
     // IMMEDIATE LOG - This runs as soon as plugin file is loaded
     // Use file_put_contents as backup in case error_log is disabled
@@ -500,28 +488,29 @@ function coupon_dispenser_widget_init() {
     error_log('[CouponDispenser] Plugin directory: ' . CDW_PLUGIN_DIR);
     error_log('[CouponDispenser] ============================================');
     
-    @file_put_contents($test_file, date('Y-m-d H:i:s') . " - About to create Coupon_Dispenser_Widget instance\n", FILE_APPEND);
+    $test_file_abs = __DIR__ . DIRECTORY_SEPARATOR . 'plugin-load-test.txt';
+    file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - About to create Coupon_Dispenser_Widget instance\n", FILE_APPEND);
     
     try {
         $instance = Coupon_Dispenser_Widget::get_instance();
-        @file_put_contents($test_file, date('Y-m-d H:i:s') . " - Instance created successfully\n", FILE_APPEND);
+        file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - Instance created successfully\n", FILE_APPEND);
         return $instance;
     } catch (Exception $e) {
         error_log('[CouponDispenser] FATAL ERROR: ' . $e->getMessage());
         error_log('[CouponDispenser] Stack trace: ' . $e->getTraceAsString());
-        @file_put_contents($test_file, date('Y-m-d H:i:s') . " - FATAL ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
+        file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - FATAL ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
         foreach ($log_locations as $log_file) {
-            @file_put_contents($log_file, date('Y-m-d H:i:s') . " [CouponDispenser] FATAL ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
+            file_put_contents($log_file, date('Y-m-d H:i:s') . " [CouponDispenser] FATAL ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
         }
         return null;
     } catch (Throwable $e) {
         // Catch PHP 7+ fatal errors (Throwable works in PHP 7.0+, Error in PHP 7.0+)
         error_log('[CouponDispenser] FATAL ERROR: ' . $e->getMessage());
         $error_msg = date('Y-m-d H:i:s') . " - FATAL PHP ERROR: " . $e->getMessage() . "\n";
-        @file_put_contents($test_file, $error_msg, FILE_APPEND);
+        file_put_contents($test_file_abs, $error_msg, FILE_APPEND);
         foreach ($log_locations as $log_file) {
             $log_msg = date('Y-m-d H:i:s') . " [CouponDispenser] FATAL PHP ERROR: " . $e->getMessage() . "\n";
-            @file_put_contents($log_file, $log_msg, FILE_APPEND);
+            file_put_contents($log_file, $log_msg, FILE_APPEND);
         }
         return null;
     }
@@ -529,40 +518,40 @@ function coupon_dispenser_widget_init() {
 
 // Start the plugin immediately to ensure early initialization
 // Wrap in try-catch to prevent fatal errors from breaking the site
-$test_file = dirname(__FILE__) . '/plugin-load-test.txt';
-@file_put_contents($test_file, date('Y-m-d H:i:s') . " - About to call coupon_dispenser_widget_init()\n", FILE_APPEND);
+$test_file_abs = __DIR__ . DIRECTORY_SEPARATOR . 'plugin-load-test.txt';
+file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - About to call coupon_dispenser_widget_init()\n", FILE_APPEND);
 
 try {
     coupon_dispenser_widget_init();
-    @file_put_contents($test_file, date('Y-m-d H:i:s') . " - coupon_dispenser_widget_init() completed\n", FILE_APPEND);
+    file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - coupon_dispenser_widget_init() completed\n", FILE_APPEND);
 } catch (Exception $e) {
     error_log('[CouponDispenser] CRITICAL: Plugin initialization failed: ' . $e->getMessage());
-    @file_put_contents($test_file, date('Y-m-d H:i:s') . " - EXCEPTION: " . $e->getMessage() . "\n", FILE_APPEND);
+    file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - EXCEPTION: " . $e->getMessage() . "\n", FILE_APPEND);
     $log_locations = array(
-        dirname(__FILE__) . '/plugin-debug.log',
-        dirname(dirname(__FILE__)) . '/coupon-dispenser-debug.log',
+        __DIR__ . DIRECTORY_SEPARATOR . 'plugin-debug.log',
+        dirname(__DIR__) . DIRECTORY_SEPARATOR . 'coupon-dispenser-debug.log',
     );
     if (defined('WP_CONTENT_DIR')) {
-        $log_locations[] = WP_CONTENT_DIR . '/coupon-dispenser-debug.log';
+        $log_locations[] = WP_CONTENT_DIR . DIRECTORY_SEPARATOR . 'coupon-dispenser-debug.log';
     }
     foreach ($log_locations as $log_file) {
-        @file_put_contents($log_file, date('Y-m-d H:i:s') . " [CouponDispenser] CRITICAL ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
+        file_put_contents($log_file, date('Y-m-d H:i:s') . " [CouponDispenser] CRITICAL ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
     }
 } catch (Throwable $e) {
     // Catch PHP 7+ fatal errors (Throwable works in PHP 7.0+, Error in PHP 7.0+)
     error_log('[CouponDispenser] CRITICAL PHP ERROR: ' . $e->getMessage());
     $error_msg = date('Y-m-d H:i:s') . " - PHP ERROR: " . $e->getMessage() . "\n";
-    @file_put_contents($test_file, $error_msg, FILE_APPEND);
+    file_put_contents($test_file_abs, $error_msg, FILE_APPEND);
     $log_locations = array(
-        dirname(__FILE__) . '/plugin-debug.log',
-        dirname(dirname(__FILE__)) . '/coupon-dispenser-debug.log',
+        __DIR__ . DIRECTORY_SEPARATOR . 'plugin-debug.log',
+        dirname(__DIR__) . DIRECTORY_SEPARATOR . 'coupon-dispenser-debug.log',
     );
     if (defined('WP_CONTENT_DIR')) {
-        $log_locations[] = WP_CONTENT_DIR . '/coupon-dispenser-debug.log';
+        $log_locations[] = WP_CONTENT_DIR . DIRECTORY_SEPARATOR . 'coupon-dispenser-debug.log';
     }
     foreach ($log_locations as $log_file) {
         $log_msg = date('Y-m-d H:i:s') . " [CouponDispenser] CRITICAL PHP ERROR: " . $e->getMessage() . "\n";
-        @file_put_contents($log_file, $log_msg, FILE_APPEND);
+        file_put_contents($log_file, $log_msg, FILE_APPEND);
     }
 }
 
