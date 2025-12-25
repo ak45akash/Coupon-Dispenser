@@ -23,12 +23,12 @@ file_put_contents($test_file_abs, $test_msg);
 // Exit if accessed directly
 if (!defined('ABSPATH')) {
     $exit_msg = date('Y-m-d H:i:s') . " - ABSPATH not defined, exiting\n";
-    @file_put_contents($test_file, $exit_msg, FILE_APPEND);
+    file_put_contents($test_file_abs, $exit_msg, FILE_APPEND);
     exit;
 }
 
 $continue_msg = date('Y-m-d H:i:s') . " - ABSPATH defined, continuing\n";
-@file_put_contents($test_file, $continue_msg, FILE_APPEND);
+file_put_contents($test_file_abs, $continue_msg, FILE_APPEND);
 
 // IMMEDIATE TEST - Log before any constants are defined
 file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - Before constants\n", FILE_APPEND);
