@@ -48,9 +48,9 @@ export async function GET(request: NextRequest) {
   try {
     // Extract widget session from Authorization header
     const authHeader = request.headers.get('authorization')
-    const session = extractWidgetSession(authHeader)
-
-    if (!session) {
+    
+    if (!authHeader) {
+      console.error('[available-coupons] Missing Authorization header')
       return addCorsHeaders(
         NextResponse.json(
           { success: false, error: 'Unauthorized: Widget session token required' },
@@ -58,6 +58,34 @@ export async function GET(request: NextRequest) {
         )
       )
     }
+    
+    let session
+    try {
+      session = extractWidgetSession(authHeader)
+    } catch (error) {
+      console.error('[available-coupons] Error extracting widget session:', {
+        error: error instanceof Error ? error.message : String(error),
+        authHeaderPrefix: authHeader.substring(0, 20) + '...',
+      })
+      return addCorsHeaders(
+        NextResponse.json(
+          { success: false, error: 'Invalid widget session token' },
+          { status: 401 }
+        )
+      )
+    }
+
+    if (!session) {
+      console.error('[available-coupons] Failed to extract session from token')
+      return addCorsHeaders(
+        NextResponse.json(
+          { success: false, error: 'Unauthorized: Widget session token required' },
+          { status: 401 }
+        )
+      )
+    }
+    
+    console.log(`[available-coupons] Session extracted: user=${session.user_id.substring(0, 20)}..., vendor=${session.vendor_id}`)
 
     // Get vendor_id from query params
     const searchParams = request.nextUrl.searchParams
@@ -155,7 +183,18 @@ export async function GET(request: NextRequest) {
     }
 
     // Get all coupons for this vendor
-    const allCoupons = await getCouponsByVendor(vendorId)
+    let allCoupons
+    try {
+      allCoupons = await getCouponsByVendor(vendorId)
+      console.log(`[available-coupons] Retrieved ${allCoupons.length} coupons for vendor ${vendorId}`)
+    } catch (error) {
+      console.error('[available-coupons] Error fetching coupons:', {
+        error: error instanceof Error ? error.message : String(error),
+        vendorId,
+        stack: error instanceof Error ? error.stack : undefined,
+      })
+      throw error
+    }
 
     // Filter available coupons:
     // 1. Not soft-deleted
@@ -175,6 +214,8 @@ export async function GET(request: NextRequest) {
           end_at: coupon.expiry_date || null,
         },
       }))
+    
+    console.log(`[available-coupons] Returning ${availableCoupons.length} available coupons`)
 
     return addCorsHeaders(
       NextResponse.json({

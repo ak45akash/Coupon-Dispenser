@@ -7,7 +7,7 @@ import { supabaseAdmin } from '@/lib/supabase/server'
 const widgetClaimSchema = z.object({
   coupon_id: z.string().uuid('Invalid coupon ID'),
   user_id: z.string().refine(
-    (val) => !val || val.startsWith('anonymous-') || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val),
+    (val) => !val || val.startsWith('anon_') || val.startsWith('anonymous-') || /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(val),
     'Invalid user ID format'
   ).optional(),
   user_email: z.string().email('Invalid email').optional(),
@@ -61,11 +61,13 @@ export async function POST(request: NextRequest) {
     let userId: string | undefined
 
     if (validatedData.user_id) {
-      // Check if it's an anonymous user ID
-      if (validatedData.user_id.startsWith('anonymous-')) {
+      // Check if it's an anonymous user ID (supports both anon_ and anonymous- prefixes)
+      const isAnonymous = validatedData.user_id.startsWith('anon_') || validatedData.user_id.startsWith('anonymous-')
+      if (isAnonymous) {
         // For anonymous users, we'll create a guest user or use the anonymous ID directly
         // The claimCoupon function will handle this
         userId = validatedData.user_id
+        console.log(`[widget/claim] Using anonymous user ID: ${userId.substring(0, 20)}...`)
       } else {
         // Use user_id directly - must exist in database
         const user = await getUserById(validatedData.user_id)
@@ -155,12 +157,12 @@ export async function POST(request: NextRequest) {
       })
     )
   } catch (error: any) {
-    console.error('Error claiming coupon via widget:', error)
-    console.error('Error details:', {
+    console.error('[widget/claim] Error claiming coupon via widget:', {
+      error: error instanceof Error ? error.message : String(error),
       name: error?.name,
-      message: error?.message,
       code: error?.code,
       details: error?.details,
+      stack: error instanceof Error ? error.stack : undefined,
     })
 
     if (error.name === 'ZodError') {
