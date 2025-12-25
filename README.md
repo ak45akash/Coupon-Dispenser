@@ -386,3 +386,4 @@ For issues, questions, or contributions:
 
 Built with ❤️ using Next.js 15, React 19, Supabase, and TypeScript
 
+test
