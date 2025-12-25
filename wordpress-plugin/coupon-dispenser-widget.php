@@ -75,27 +75,36 @@ class Coupon_Dispenser_Widget {
     }
     
     private function __construct() {
+        error_log('[CouponDispenser] Coupon_Dispenser_Widget constructor called');
+        $test_file_abs = __DIR__ . DIRECTORY_SEPARATOR . 'plugin-load-test.txt';
+        file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - Coupon_Dispenser_Widget constructor called\n", FILE_APPEND);
+        
         // Include required files early
         $this->includes();
+        file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - includes() completed\n", FILE_APPEND);
         
         // Initialize plugin
         add_action('plugins_loaded', array($this, 'init'));
         
         // Register shortcode on 'init' to ensure it's available early
         add_action('init', array($this, 'register_shortcode'), 10);
+        file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - Actions registered\n", FILE_APPEND);
         
         // Debug: Log plugin initialization
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('[CouponDispenser] Plugin initialized - Version: ' . CDW_VERSION);
-        }
+        error_log('[CouponDispenser] Plugin initialized - Version: ' . CDW_VERSION);
     }
     
     public function init() {
+        error_log('[CouponDispenser] init() method called');
+        $test_file_abs = __DIR__ . DIRECTORY_SEPARATOR . 'plugin-load-test.txt';
+        file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - init() method called\n", FILE_APPEND);
+        
         // Load plugin textdomain for translations
         load_plugin_textdomain('coupon-dispenser-widget', false, dirname(CDW_PLUGIN_BASENAME) . '/languages');
         
         // Initialize components
         $this->init_components();
+        file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - init_components() completed\n", FILE_APPEND);
     }
     
     private function includes() {
@@ -114,6 +123,10 @@ class Coupon_Dispenser_Widget {
     }
     
     private function init_components() {
+        error_log('[CouponDispenser] init_components() method called');
+        $test_file_abs = __DIR__ . DIRECTORY_SEPARATOR . 'plugin-load-test.txt';
+        file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - init_components() called\n", FILE_APPEND);
+        
         // Initialize settings page
         if (is_admin()) {
             Coupon_Dispenser_Settings::get_instance();
@@ -121,9 +134,11 @@ class Coupon_Dispenser_Widget {
         
         // Enqueue scripts
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'), 20);
+        file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - wp_enqueue_scripts action registered\n", FILE_APPEND);
         
         // Register REST API endpoint for widget session token
         add_action('rest_api_init', array($this, 'register_rest_routes'));
+        file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - rest_api_init action registered\n", FILE_APPEND);
     }
     
     /**
