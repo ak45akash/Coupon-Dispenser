@@ -109,43 +109,56 @@ class Coupon_Dispenser_Widget {
      * Enqueue widget script on frontend
      */
     public function enqueue_scripts() {
-        // Debug: Log script enqueuing
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('[CouponDispenser] Enqueue scripts called');
-        }
+        error_log('[CouponDispenser] enqueue_scripts() method called');
+        
         // Get API base URL from options (settings override constants)
         $api_base_url = get_option('cdw_api_base_url', '');
         if (empty($api_base_url) && defined('CDW_API_BASE_URL') && CDW_API_BASE_URL !== 'PLUGIN_CONFIG_API_BASE_URL') {
             $api_base_url = CDW_API_BASE_URL;
         }
         
+        error_log('[CouponDispenser] API Base URL: ' . ($api_base_url ?: 'EMPTY'));
+        
         if (empty($api_base_url)) {
+            error_log('[CouponDispenser] WARNING: API Base URL is empty, script will not be enqueued');
             return; // Don't enqueue if not configured
         }
         
         $widget_script_url = $api_base_url . '/widget-embed.js';
         
+        error_log('[CouponDispenser] Enqueuing script: ' . $widget_script_url);
+        
         // Enqueue widget script
-        // Load AFTER jQuery and Elementor to avoid conflicts
-        // Use high priority to ensure it loads after Elementor
         wp_enqueue_script(
             'coupon-dispenser-widget',
             $widget_script_url,
-            array('jquery'), // Depend on jQuery to ensure proper loading order
+            array('jquery'), // Depend on jQuery
             CDW_VERSION,
-            true
+            true // Load in footer
         );
         
         // Add inline script to configure API base URL
         wp_add_inline_script('coupon-dispenser-widget', 
-            "window.COUPON_WIDGET_API_URL = '" . esc_js($api_base_url) . "';",
+            "console.log('[CouponDispenser] Script enqueued - URL: " . esc_js($widget_script_url) . "');" .
+            "window.COUPON_WIDGET_API_URL = '" . esc_js($api_base_url) . "';" .
+            "console.log('[CouponDispenser] API URL set to:', window.COUPON_WIDGET_API_URL);",
             'before'
         );
         
-        // Debug: Log script URL
-        if (defined('WP_DEBUG') && WP_DEBUG) {
-            error_log('[CouponDispenser] Script URL: ' . $widget_script_url);
-        }
+        // Add script load detection
+        wp_add_inline_script('coupon-dispenser-widget', 
+            "console.log('[CouponDispenser] Waiting for widget script to load...');" .
+            "var checkScript = setInterval(function() {" .
+            "  if (typeof window.CouponWidget !== 'undefined') {" .
+            "    console.log('[CouponDispenser] ✓ Widget script loaded successfully');" .
+            "    clearInterval(checkScript);" .
+            "  }" .
+            "}, 100);" .
+            "setTimeout(function() { clearInterval(checkScript); }, 10000);",
+            'after'
+        );
+        
+        error_log('[CouponDispenser] Script enqueued successfully');
     }
     
     /**

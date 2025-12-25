@@ -87,52 +87,10 @@ class Coupon_Dispenser_Shortcode {
         // Get REST API endpoint URL for widget session token
         $rest_url = rest_url('coupon-dispenser/v1/token');
         
-        // Ensure widget script is enqueued (only once, even if shortcode appears multiple times)
+        // Script is enqueued by main plugin's enqueue_scripts() method
+        // No need to enqueue here - wp_enqueue_scripts fires before shortcodes render
         $widget_script_url = $api_base_url . '/widget-embed.js';
-        
-        // Use a static flag to ensure script is only enqueued once
-        static $script_enqueued = false;
-        if (!$script_enqueued) {
-            error_log('[CouponDispenser] Shortcode - Enqueuing script: ' . $widget_script_url);
-            
-            add_action('wp_enqueue_scripts', function() use ($widget_script_url, $api_base_url) {
-                error_log('[CouponDispenser] Shortcode - wp_enqueue_scripts hook FIRED');
-                
-                wp_enqueue_script(
-                    'coupon-dispenser-widget',
-                    $widget_script_url,
-                    array('jquery'), // Depend on jQuery
-                    CDW_VERSION,
-                    true // Load in footer
-                );
-                
-                // Add inline script to configure API base URL and log script loading
-                wp_add_inline_script('coupon-dispenser-widget', 
-                    "console.log('[CouponDispenser] Script enqueued - URL: " . esc_js($widget_script_url) . "');" .
-                    "window.COUPON_WIDGET_API_URL = '" . esc_js($api_base_url) . "';" .
-                    "console.log('[CouponDispenser] API URL set to:', window.COUPON_WIDGET_API_URL);",
-                    'before'
-                );
-                
-                // Add script load detection
-                wp_add_inline_script('coupon-dispenser-widget', 
-                    "console.log('[CouponDispenser] Waiting for widget script to load...');" .
-                    "var checkScript = setInterval(function() {" .
-                    "  if (typeof window.CouponWidget !== 'undefined') {" .
-                    "    console.log('[CouponDispenser] ✓ Widget script loaded successfully');" .
-                    "    clearInterval(checkScript);" .
-                    "  }" .
-                    "}, 100);" .
-                    "setTimeout(function() { clearInterval(checkScript); }, 10000);",
-                    'after'
-                );
-                
-                error_log('[CouponDispenser] Shortcode - Script enqueued successfully');
-            }, 20); // Standard priority
-            $script_enqueued = true;
-        } else {
-            error_log('[CouponDispenser] Shortcode - Script already enqueued, skipping');
-        }
+        error_log('[CouponDispenser] Shortcode - Script should be enqueued by main plugin: ' . $widget_script_url);
         
         ob_start();
         ?>
