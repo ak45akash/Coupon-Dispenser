@@ -16,16 +16,21 @@
 
 // ULTRA-BASIC TEST - Write to file immediately, before ANY WordPress checks
 // This will tell us if the file is being loaded at all
-$test_file = dirname(__FILE__) . '/plugin-load-test.txt';
-@file_put_contents($test_file, date('Y-m-d H:i:s') . " - Plugin file STARTED loading\n", FILE_APPEND);
+// Use simple string concatenation for PHP 7.4 compatibility
+$test_file_path = dirname(__FILE__);
+$test_file = $test_file_path . '/plugin-load-test.txt';
+$test_msg = date('Y-m-d H:i:s') . " - Plugin file STARTED loading\n";
+@file_put_contents($test_file, $test_msg, FILE_APPEND);
 
 // Exit if accessed directly
 if (!defined('ABSPATH')) {
-    @file_put_contents($test_file, date('Y-m-d H:i:s') . " - ABSPATH not defined, exiting\n", FILE_APPEND);
+    $exit_msg = date('Y-m-d H:i:s') . " - ABSPATH not defined, exiting\n";
+    @file_put_contents($test_file, $exit_msg, FILE_APPEND);
     exit;
 }
 
-@file_put_contents($test_file, date('Y-m-d H:i:s') . " - ABSPATH defined, continuing\n", FILE_APPEND);
+$continue_msg = date('Y-m-d H:i:s') . " - ABSPATH defined, continuing\n";
+@file_put_contents($test_file, $continue_msg, FILE_APPEND);
 
 // IMMEDIATE TEST - Log before any constants are defined
 // This will help us know if the file is being loaded at all
@@ -509,12 +514,14 @@ function coupon_dispenser_widget_init() {
             @file_put_contents($log_file, date('Y-m-d H:i:s') . " [CouponDispenser] FATAL ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
         }
         return null;
-    } catch (Error $e) {
-        // Catch PHP 7+ fatal errors
+    } catch (Throwable $e) {
+        // Catch PHP 7+ fatal errors (Throwable works in PHP 7.0+, Error in PHP 7.0+)
         error_log('[CouponDispenser] FATAL ERROR: ' . $e->getMessage());
-        @file_put_contents($test_file, date('Y-m-d H:i:s') . " - FATAL PHP ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
+        $error_msg = date('Y-m-d H:i:s') . " - FATAL PHP ERROR: " . $e->getMessage() . "\n";
+        @file_put_contents($test_file, $error_msg, FILE_APPEND);
         foreach ($log_locations as $log_file) {
-            @file_put_contents($log_file, date('Y-m-d H:i:s') . " [CouponDispenser] FATAL PHP ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
+            $log_msg = date('Y-m-d H:i:s') . " [CouponDispenser] FATAL PHP ERROR: " . $e->getMessage() . "\n";
+            @file_put_contents($log_file, $log_msg, FILE_APPEND);
         }
         return null;
     }
@@ -541,10 +548,11 @@ try {
     foreach ($log_locations as $log_file) {
         @file_put_contents($log_file, date('Y-m-d H:i:s') . " [CouponDispenser] CRITICAL ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
     }
-} catch (Error $e) {
-    // Catch PHP 7+ fatal errors
+} catch (Throwable $e) {
+    // Catch PHP 7+ fatal errors (Throwable works in PHP 7.0+, Error in PHP 7.0+)
     error_log('[CouponDispenser] CRITICAL PHP ERROR: ' . $e->getMessage());
-    @file_put_contents($test_file, date('Y-m-d H:i:s') . " - PHP ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
+    $error_msg = date('Y-m-d H:i:s') . " - PHP ERROR: " . $e->getMessage() . "\n";
+    @file_put_contents($test_file, $error_msg, FILE_APPEND);
     $log_locations = array(
         dirname(__FILE__) . '/plugin-debug.log',
         dirname(dirname(__FILE__)) . '/coupon-dispenser-debug.log',
@@ -553,7 +561,8 @@ try {
         $log_locations[] = WP_CONTENT_DIR . '/coupon-dispenser-debug.log';
     }
     foreach ($log_locations as $log_file) {
-        @file_put_contents($log_file, date('Y-m-d H:i:s') . " [CouponDispenser] CRITICAL PHP ERROR: " . $e->getMessage() . "\n", FILE_APPEND);
+        $log_msg = date('Y-m-d H:i:s') . " [CouponDispenser] CRITICAL PHP ERROR: " . $e->getMessage() . "\n";
+        @file_put_contents($log_file, $log_msg, FILE_APPEND);
     }
 }
 
