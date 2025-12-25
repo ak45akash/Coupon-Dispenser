@@ -61,33 +61,54 @@ export async function GET(request: NextRequest) {
     // Get user_id from query params if provided
     const userId = searchParams.get('user_id')
     
-    // Validate user_id if provided
-    if (userId) {
+    // Helper function to check if user ID is anonymous
+    const isAnonymousUserId = (id: string | null): boolean => {
+      if (!id) return false
+      return id.startsWith('anon_') || id.startsWith('anonymous-')
+    }
+    
+    // Validate user_id if provided (skip validation for anonymous users)
+    if (userId && !isAnonymousUserId(userId)) {
       try {
+        // Only validate UUID format for non-anonymous users
+        widgetCouponsSchema.parse({ vendor_id: vendorId, user_id: userId })
+        
         const user = await getUserById(userId)
         if (!user) {
+          console.error(`[widget/coupons] User not found: ${userId}`)
           return NextResponse.json(
             { success: false, error: 'User not found' },
             { status: 404 }
           )
         }
       } catch (error) {
+        console.error(`[widget/coupons] Invalid user ID format: ${userId}`, error)
         return NextResponse.json(
           { success: false, error: 'Invalid user ID format' },
           { status: 400 }
         )
       }
     }
+    
+    // Log request for debugging
+    console.log(`[widget/coupons] Fetching coupons for vendor: ${vendorId}, user: ${userId || 'none'} (anonymous: ${isAnonymousUserId(userId || '')})`)
 
     // Get available coupons for this vendor (respects active claims if user_id provided)
-    const coupons = await getAvailableCouponsByVendor(vendorId, userId || undefined)
+    // Skip active claim check for anonymous users
+    const isAnonymous = userId ? (userId.startsWith('anon_') || userId.startsWith('anonymous-')) : false
+    const coupons = await getAvailableCouponsByVendor(vendorId, (!isAnonymous && userId) ? userId : undefined)
     
-    // Check if user has an active claim
+    // Check if user has an active claim (skip for anonymous users)
     let activeClaim = null
     let hasActiveClaim = false
-    if (userId) {
-      activeClaim = await getUserActiveClaim(userId, vendorId)
-      hasActiveClaim = activeClaim !== null
+    if (userId && !isAnonymous) {
+      try {
+        activeClaim = await getUserActiveClaim(userId, vendorId)
+        hasActiveClaim = activeClaim !== null
+      } catch (error) {
+        console.error(`[widget/coupons] Error checking active claim for user ${userId}:`, error)
+        // Continue without active claim check
+      }
     }
 
     const response = NextResponse.json({
@@ -122,7 +143,12 @@ export async function GET(request: NextRequest) {
 
     return response
   } catch (error) {
-    console.error('Error fetching widget coupons:', error)
+    console.error('[widget/coupons] Error fetching widget coupons:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      vendorId: request.nextUrl.searchParams.get('vendor_id'),
+      userId: request.nextUrl.searchParams.get('user_id'),
+    })
     const errorResponse = NextResponse.json(
       { success: false, error: 'Internal server error' },
       { status: 500 }

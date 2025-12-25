@@ -83,31 +83,62 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = session.user_id
+    
+    // Helper function to check if user ID is anonymous
+    const isAnonymousUserId = (id: string): boolean => {
+      return id.startsWith('anon_') || id.startsWith('anonymous-')
+    }
+    
+    const isAnonymous = isAnonymousUserId(userId)
+    
+    // Log request for debugging
+    console.log(`[available-coupons] Fetching coupons for vendor: ${vendorId}, user: ${userId} (anonymous: ${isAnonymous})`)
+    
     // Calculate current month in YYYYMM format
     const now = new Date()
     const currentMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}` // YYYYMM
 
     // Check if user already claimed a coupon this month for this vendor
-    const { data: existingClaim, error: claimError } = await supabaseAdmin
-      .from('claim_history')
-      .select('coupon_id, claimed_at')
-      .eq('vendor_id', vendorId)
-      .eq('user_id', userId)
-      .eq('claim_month', currentMonth)
-      .limit(1)
-      .maybeSingle()
+    // Skip this check for anonymous users since they don't exist in claim_history (foreign key constraint)
+    let userAlreadyClaimed = false
+    if (!isAnonymous) {
+      try {
+        const { data: existingClaim, error: claimError } = await supabaseAdmin
+          .from('claim_history')
+          .select('coupon_id, claimed_at')
+          .eq('vendor_id', vendorId)
+          .eq('user_id', userId)
+          .eq('claim_month', currentMonth)
+          .limit(1)
+          .maybeSingle()
 
-    if (claimError) {
-      console.error('Error checking existing claim:', claimError)
-      return addCorsHeaders(
-        NextResponse.json(
-          { success: false, error: 'Internal server error' },
-          { status: 500 }
-        )
-      )
+        if (claimError) {
+          console.error('[available-coupons] Error checking existing claim:', {
+            error: claimError.message,
+            userId,
+            vendorId,
+            currentMonth,
+          })
+          return addCorsHeaders(
+            NextResponse.json(
+              { success: false, error: 'Internal server error' },
+              { status: 500 }
+            )
+          )
+        }
+
+        userAlreadyClaimed = existingClaim !== null
+      } catch (error) {
+        console.error('[available-coupons] Exception checking existing claim:', {
+          error: error instanceof Error ? error.message : String(error),
+          userId,
+          vendorId,
+        })
+        // Continue - don't block coupon fetching if claim check fails
+      }
+    } else {
+      console.log(`[available-coupons] Skipping claim_history check for anonymous user: ${userId}`)
     }
-
-    const userAlreadyClaimed = existingClaim !== null
 
     // If user already claimed, return empty list with flag
     if (userAlreadyClaimed) {
@@ -156,7 +187,12 @@ export async function GET(request: NextRequest) {
       })
     )
   } catch (error: any) {
-    console.error('Error in available-coupons:', error)
+    console.error('[available-coupons] Error in available-coupons:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      vendorId: request.nextUrl.searchParams.get('vendor'),
+      authHeader: request.headers.get('authorization') ? 'present' : 'missing',
+    })
     return addCorsHeaders(
       NextResponse.json(
         { success: false, error: 'Internal server error' },

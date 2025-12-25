@@ -65,6 +65,10 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = claimSchema.parse(body)
 
+    // Log claim attempt for debugging
+    const isAnonymous = session.user_id.startsWith('anon_') || session.user_id.startsWith('anonymous-')
+    console.log(`[claim] Attempting claim: coupon=${validatedData.coupon_id}, user=${session.user_id} (anonymous: ${isAnonymous}), vendor=${session.vendor_id}`)
+    
     // Attempt atomic claim
     try {
       const result = await atomicClaimCoupon(session.user_id, validatedData.coupon_id)
@@ -126,7 +130,12 @@ export async function POST(request: NextRequest) {
       throw error
     }
   } catch (error: any) {
-    console.error('Error in claim endpoint:', error)
+    console.error('[claim] Error in claim endpoint:', {
+      error: error instanceof Error ? error.message : String(error),
+      stack: error instanceof Error ? error.stack : undefined,
+      couponId: request.body ? 'present' : 'missing',
+      authHeader: request.headers.get('authorization') ? 'present' : 'missing',
+    })
 
     if (error.name === 'ZodError') {
       return addCorsHeaders(

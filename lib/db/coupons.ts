@@ -338,56 +338,72 @@ export async function atomicClaimCoupon(
     throw new Error(`Database error: ${updateError.message}`)
   }
 
+  // Helper function to check if user ID is anonymous
+  const isAnonymousUserId = (id: string): boolean => {
+    return id.startsWith('anon_') || id.startsWith('anonymous-')
+  }
+  
+  const isAnonymous = isAnonymousUserId(userId)
+  
   // Step 2: Insert into claim_history (enforces user monthly limit)
-  const { error: historyError } = await supabaseAdmin
-    .from('claim_history')
-    .insert({
-      user_id: userId,
-      vendor_id: coupon.vendor_id,
-      coupon_id: coupon.id,
-      claimed_at: claimedAt,
-      claim_month: claimMonth,
-    })
-
-  if (historyError) {
-    // If claim_history insert fails, we need to rollback the coupon update
-    // But since Supabase doesn't support transactions in JS client,
-    // we'll rely on the unique constraint check above
-    // The coupon.is_claimed check prevents double-claiming
-    
-    // Check if it's a unique constraint violation (Postgres error code 23505)
-    if (historyError.code === '23505') {
-      const errorMessage = historyError.message || ''
-      
-      if (errorMessage.includes('unique_coupon_id')) {
-        // This shouldn't happen since we checked is_claimed, but handle it
-        throw new Error('COUPON_ALREADY_CLAIMED')
-      } else if (errorMessage.includes('unique_vendor_user_claim_month')) {
-        // Rollback: unclaim the coupon since user limit was hit
-        await supabaseAdmin
-          .from('coupons')
-          .update({
-            is_claimed: false,
-            claimed_by: null,
-            claimed_at: null,
-          })
-          .eq('id', couponId)
-        
-        throw new Error('USER_ALREADY_CLAIMED')
-      }
-    }
-    
-    // Other database errors - rollback coupon claim
-    await supabaseAdmin
-      .from('coupons')
-      .update({
-        is_claimed: false,
-        claimed_by: null,
-        claimed_at: null,
+  // Skip for anonymous users since they don't exist in users table (foreign key constraint)
+  if (!isAnonymous) {
+    const { error: historyError } = await supabaseAdmin
+      .from('claim_history')
+      .insert({
+        user_id: userId,
+        vendor_id: coupon.vendor_id,
+        coupon_id: coupon.id,
+        claimed_at: claimedAt,
+        claim_month: claimMonth,
       })
-      .eq('id', couponId)
-    
-    throw new Error(`Database error: ${historyError.message}`)
+
+    if (historyError) {
+      // If claim_history insert fails, we need to rollback the coupon update
+      // But since Supabase doesn't support transactions in JS client,
+      // we'll rely on the unique constraint check above
+      // The coupon.is_claimed check prevents double-claiming
+      
+      // Check if it's a unique constraint violation (Postgres error code 23505)
+      if (historyError.code === '23505') {
+        const errorMessage = historyError.message || ''
+        
+        if (errorMessage.includes('unique_coupon_id')) {
+          // This shouldn't happen since we checked is_claimed, but handle it
+          throw new Error('COUPON_ALREADY_CLAIMED')
+        } else if (errorMessage.includes('unique_vendor_user_claim_month')) {
+          // Rollback: unclaim the coupon since user limit was hit
+          await supabaseAdmin
+            .from('coupons')
+            .update({
+              is_claimed: false,
+              claimed_by: null,
+              claimed_at: null,
+            })
+            .eq('id', couponId)
+          
+          throw new Error('USER_ALREADY_CLAIMED')
+        }
+      }
+      
+      // Other database errors - rollback coupon claim
+      await supabaseAdmin
+        .from('coupons')
+        .update({
+          is_claimed: false,
+          claimed_by: null,
+          claimed_at: null,
+        })
+        .eq('id', couponId)
+      
+      throw new Error(`Database error: ${historyError.message}`)
+    }
+  } else {
+    // For anonymous users, we skip claim_history insertion
+    // The coupon is still marked as claimed (in coupons table)
+    // Monthly limits for anonymous users are not enforced via claim_history
+    // (they're tracked via the coupon's claimed_by field)
+    console.log(`[atomicClaimCoupon] Skipping claim_history insert for anonymous user: ${userId}`)
   }
 
   // If we get here, the claim was successful
