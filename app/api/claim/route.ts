@@ -65,9 +65,23 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = claimSchema.parse(body)
 
+    // Reject anonymous users - only logged-in users can claim coupons
+    const isAnonymousUserId = (id: string): boolean => {
+      return id.startsWith('anon_') || id.startsWith('anonymous-')
+    }
+    
+    if (isAnonymousUserId(session.user_id)) {
+      console.error('[claim] Rejected anonymous user:', session.user_id.substring(0, 20) + '...')
+      return addCorsHeaders(
+        NextResponse.json(
+          { success: false, error: 'Authentication required. Only logged-in users can claim coupons.' },
+          { status: 401 }
+        )
+      )
+    }
+    
     // Log claim attempt for debugging
-    const isAnonymous = session.user_id.startsWith('anon_') || session.user_id.startsWith('anonymous-')
-    console.log(`[claim] Attempting claim: coupon=${validatedData.coupon_id}, user=${session.user_id} (anonymous: ${isAnonymous}), vendor=${session.vendor_id}`)
+    console.log(`[claim] Attempting claim: coupon=${validatedData.coupon_id}, user=${session.user_id}, vendor=${session.vendor_id}`)
     
     // Attempt atomic claim
     try {

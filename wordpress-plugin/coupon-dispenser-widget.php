@@ -238,7 +238,7 @@ class Coupon_Dispenser_Widget {
                 );
             }
             
-            // Try to determine user ID - prioritize logged-in users
+            // REQUIRE logged-in users - anonymous users are not allowed
             // Note: REST API calls need cookies for authentication
             $user_id = null;
             
@@ -256,38 +256,13 @@ class Coupon_Dispenser_Widget {
                 error_log('Coupon Dispenser Plugin: Using WordPress logged-in user ID: ' . $user_id);
             }
             
-            // Priority 3: For anonymous users, generate unique ID per request
-            // IMPORTANT: For anonymous users, we generate a new unique ID each time
-            // This ensures each actual user (even on the same browser) gets a different ID
-            // The widget will maintain this ID in localStorage/sessionStorage for consistency
-            if (empty($user_id)) {
-                $anonymous_id = $request->get_param('anonymous_id');
-                if (!empty($anonymous_id)) {
-                    // Use provided anonymous ID (from widget's localStorage/sessionStorage)
-                    $anonymous_id = sanitize_text_field($anonymous_id);
-                    error_log('Coupon Dispenser Plugin: Using provided anonymous ID from widget: ' . substr($anonymous_id, 0, 20) . '...');
-                } else {
-                    // Generate a NEW unique anonymous ID for this user
-                    // This ID will be stored by the widget in localStorage/sessionStorage
-                    // Different users on the same browser will get different IDs
-                    $unique_suffix = wp_generate_password(20, false); // Longer for better uniqueness
-                    $timestamp = time();
-                    $microtime = microtime(true);
-                    $random_bytes = bin2hex(random_bytes(8));
-                    
-                    // Create truly unique anonymous ID: timestamp + microtime + random
-                    $anonymous_id = 'anon_' . $timestamp . '_' . substr($microtime, -6) . '_' . $random_bytes;
-                    
-                    error_log('Coupon Dispenser Plugin: Generated new unique anonymous ID: ' . substr($anonymous_id, 0, 30) . '...');
-                }
-                $user_id = $anonymous_id;
-            }
-            
-            if (empty($user_id)) {
+            // REQUIRE logged-in user - reject anonymous users
+            if (empty($user_id) || !is_user_logged_in()) {
+                error_log('Coupon Dispenser Plugin: User must be logged in to access coupons');
                 return new WP_Error(
-                    'user_id_required',
-                    'Unable to determine user identifier',
-                    array('status' => 400)
+                    'authentication_required',
+                    'You must be logged in to view and claim coupons. Please log in to your account.',
+                    array('status' => 401)
                 );
             }
             

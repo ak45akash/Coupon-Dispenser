@@ -61,13 +61,16 @@ export async function POST(request: NextRequest) {
     let userId: string | undefined
 
     if (validatedData.user_id) {
-      // Check if it's an anonymous user ID (supports both anon_ and anonymous- prefixes)
+      // Reject anonymous users - only logged-in users can claim coupons
       const isAnonymous = validatedData.user_id.startsWith('anon_') || validatedData.user_id.startsWith('anonymous-')
       if (isAnonymous) {
-        // For anonymous users, we'll create a guest user or use the anonymous ID directly
-        // The claimCoupon function will handle this
-        userId = validatedData.user_id
-        console.log(`[widget/claim] Using anonymous user ID: ${userId.substring(0, 20)}...`)
+        console.error('[widget/claim] Rejected anonymous user:', validatedData.user_id.substring(0, 20) + '...')
+        return addCorsHeaders(
+          NextResponse.json(
+            { success: false, error: 'Authentication required. Only logged-in users can claim coupons.' },
+            { status: 401 }
+          )
+        )
       } else {
         // Use user_id directly - must exist in database
         const user = await getUserById(validatedData.user_id)

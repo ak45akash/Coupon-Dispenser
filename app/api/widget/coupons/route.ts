@@ -67,8 +67,17 @@ export async function GET(request: NextRequest) {
       return id.startsWith('anon_') || id.startsWith('anonymous-')
     }
     
-    // Validate user_id if provided (skip validation for anonymous users)
-    if (userId && !isAnonymousUserId(userId)) {
+    // Reject anonymous users - only logged-in users can access coupons
+    if (userId && isAnonymousUserId(userId)) {
+      console.error('[widget/coupons] Rejected anonymous user:', userId.substring(0, 20) + '...')
+      return NextResponse.json(
+        { success: false, error: 'Authentication required. Only logged-in users can access coupons.' },
+        { status: 401 }
+      )
+    }
+    
+    // Validate user_id if provided
+    if (userId) {
       try {
         // Only validate UUID format for non-anonymous users
         widgetCouponsSchema.parse({ vendor_id: vendorId, user_id: userId })
@@ -94,14 +103,12 @@ export async function GET(request: NextRequest) {
     console.log(`[widget/coupons] Fetching coupons for vendor: ${vendorId}, user: ${userId || 'none'} (anonymous: ${isAnonymousUserId(userId || '')})`)
 
     // Get available coupons for this vendor (respects active claims if user_id provided)
-    // Skip active claim check for anonymous users
-    const isAnonymous = userId ? (userId.startsWith('anon_') || userId.startsWith('anonymous-')) : false
-    const coupons = await getAvailableCouponsByVendor(vendorId, (!isAnonymous && userId) ? userId : undefined)
+    const coupons = await getAvailableCouponsByVendor(vendorId, userId || undefined)
     
-    // Check if user has an active claim (skip for anonymous users)
+    // Check if user has an active claim
     let activeClaim = null
     let hasActiveClaim = false
-    if (userId && !isAnonymous) {
+    if (userId) {
       try {
         activeClaim = await getUserActiveClaim(userId, vendorId)
         hasActiveClaim = activeClaim !== null

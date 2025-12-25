@@ -79,54 +79,54 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Helper function to check if user ID is anonymous
+    // Step 3: Reject anonymous users - only logged-in users are allowed
+    // Check if user ID is anonymous (starts with anon_ or anonymous-)
     const isAnonymousUserId = (id: string): boolean => {
       return id.startsWith('anon_') || id.startsWith('anonymous-')
     }
-
-    // Step 3: Handle user mapping
-    // For anonymous users, use the anonymous ID directly (don't create database user)
-    // For real users, upsert user mapping
-    let internalUserId: string
-    const isAnonymous = isAnonymousUserId(externalUserId)
     
-    if (isAnonymous) {
-      // For anonymous users, use the anonymous ID directly in the session token
-      // This avoids creating database users for anonymous visitors
-      internalUserId = externalUserId
-      console.log(`[widget-session] Using anonymous user ID directly: ${internalUserId.substring(0, 20)}...`)
-    } else {
-      // For real users, create/retrieve user mapping
-      try {
-        const user = await upsertUserFromExternalId(
-          validatedData.vendor_id,
-          externalUserId
-        )
-        internalUserId = user.id
-        console.log(`[widget-session] Created/retrieved user mapping: ${internalUserId}`)
-      } catch (error: any) {
-        console.error('[widget-session] Error upserting user:', {
-          error: error instanceof Error ? error.message : String(error),
-          stack: error instanceof Error ? error.stack : undefined,
-          externalUserId: externalUserId.substring(0, 20) + '...',
-        })
-        
-        // Return detailed error for API debugging
-        const errorMessage = `Failed to create user mapping: ${error?.message || error?.toString()}`
-        const isDevelopment = process.env.NODE_ENV === 'development'
-        
-        return NextResponse.json(
-          { 
-            success: false, 
-            error: errorMessage,
-            ...(isDevelopment && { details: error?.stack })
-          },
-          { status: 500 }
-        )
-      }
+    if (isAnonymousUserId(externalUserId)) {
+      console.error('[widget-session] Rejected anonymous user:', externalUserId.substring(0, 20) + '...')
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: 'Authentication required. Only logged-in users can access coupons.' 
+        },
+        { status: 401 }
+      )
     }
 
-    // Step 4: Create and return widget session token
+    // Step 4: Create/retrieve user mapping for logged-in users
+    let internalUserId: string
+    try {
+      const user = await upsertUserFromExternalId(
+        validatedData.vendor_id,
+        externalUserId
+      )
+      internalUserId = user.id
+      console.log(`[widget-session] Created/retrieved user mapping: ${internalUserId}`)
+    } catch (error: any) {
+      console.error('[widget-session] Error upserting user:', {
+        error: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        externalUserId: externalUserId.substring(0, 20) + '...',
+      })
+      
+      // Return detailed error for API debugging
+      const errorMessage = `Failed to create user mapping: ${error?.message || error?.toString()}`
+      const isDevelopment = process.env.NODE_ENV === 'development'
+      
+      return NextResponse.json(
+        { 
+          success: false, 
+          error: errorMessage,
+          ...(isDevelopment && { details: error?.stack })
+        },
+        { status: 500 }
+      )
+    }
+
+    // Step 5: Create and return widget session token
     let widgetSessionToken: string
     try {
       widgetSessionToken = signWidgetSession({
