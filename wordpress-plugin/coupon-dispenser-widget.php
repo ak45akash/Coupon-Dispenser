@@ -91,8 +91,9 @@ class Coupon_Dispenser_Widget {
             Coupon_Dispenser_Settings::get_instance();
         }
         
-        // Enqueue scripts
-        add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'));
+        // Enqueue scripts with high priority (25) to load after Elementor (20)
+        // This prevents conflicts with Elementor's initialization
+        add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'), 25);
         
         // Register REST API endpoint for widget session token
         add_action('rest_api_init', array($this, 'register_rest_routes'));
