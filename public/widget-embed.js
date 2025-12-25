@@ -1421,20 +1421,53 @@
     }
   }
 
-  // Initialize immediately if DOM is ready
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initializeWidget)
-  } else {
-    // DOM already ready, initialize immediately
-    initializeWidget()
+  // Initialize widget with Elementor compatibility
+  // Wait for Elementor to be fully ready before initializing
+  function safeInitialize() {
+    // Check if Elementor is present and wait for it to be ready
+    if (typeof window.elementorFrontend !== 'undefined') {
+      // Elementor is present - wait for it to finish initializing
+      if (window.elementorFrontend.hooks) {
+        // Elementor is ready, but wait a bit more to ensure all modules are loaded
+        setTimeout(function() {
+          try {
+            initializeWidget()
+          } catch (e) {
+            console.error('CouponWidget: Error during initialization:', e)
+          }
+        }, 300)
+      } else {
+        // Elementor is loading, wait and retry
+        setTimeout(safeInitialize, 100)
+      }
+    } else if (typeof window.elementor !== 'undefined') {
+      // Elementor Pro might be loading differently
+      setTimeout(safeInitialize, 100)
+    } else {
+      // No Elementor detected, safe to initialize normally
+      if (document.readyState === 'loading') {
+        document.addEventListener('DOMContentLoaded', function() {
+          setTimeout(initializeWidget, 100)
+        })
+      } else {
+        setTimeout(initializeWidget, 100)
+      }
+    }
   }
 
-  // Also initialize after delays (for WordPress/Elementor dynamic content)
-  setTimeout(initializeWidget, 100)
-  setTimeout(initializeWidget, 500)
-  setTimeout(initializeWidget, 1000)
-  setTimeout(initializeWidget, 2000)
-  setTimeout(initializeWidget, 3000)
+  // Start safe initialization
+  if (document.readyState === 'complete') {
+    safeInitialize()
+  } else {
+    window.addEventListener('load', safeInitialize)
+  }
+
+  // Also initialize after delays for dynamic content (but only if Elementor is not present)
+  // Reduced frequency to avoid conflicts
+  if (typeof window.elementorFrontend === 'undefined' && typeof window.elementor === 'undefined') {
+    setTimeout(initializeWidget, 1000)
+    setTimeout(initializeWidget, 3000)
+  }
 
   // Support for MutationObserver to detect dynamically added containers (WordPress/Elementor)
   if (typeof MutationObserver !== 'undefined') {
