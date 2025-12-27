@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { extractWidgetSession } from '@/lib/jwt/widget-session'
 import { getCouponsByVendor } from '@/lib/db/coupons'
 import { supabaseAdmin } from '@/lib/supabase/server'
+import { getVendorById } from '@/lib/db/vendors'
 
 /**
  * Helper function to add CORS headers to responses
