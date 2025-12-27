@@ -862,10 +862,173 @@
         if (button) {
           button.disabled = false
           button.classList.remove('loading')
-          button.textContent = 'Get Code'
+          button.textContent = 'Generate Code'
         }
       }
     }
+
+    /**
+     * Minimal card UI render (defensive).
+     * Only prevents runtime errors and keeps the widget usable.
+     */
+    render() {
+      if (!this.container) return
+
+      if (this.state.loading) {
+        this.container.innerHTML = `<div class="coupon-widget-loading">Loading coupons...</div>`
+        return
+      }
+
+      if (this.state.error) {
+        this.container.innerHTML = `<div class="coupon-widget-error">${this.escapeHtml(this.state.error)}</div>`
+        return
+      }
+
+      const vendor = this.state.vendor || {}
+      const coupons = Array.isArray(this.state.coupons) ? this.state.coupons : []
+
+      if (!coupons.length) {
+        this.container.innerHTML = `<div class="coupon-widget-empty">No coupons available.</div>`
+        return
+      }
+
+      let html = `<div class="coupon-widget-grid">`
+      coupons.forEach((coupon) => {
+        const couponId = coupon.id
+        const claimedCoupon = this.state.claimedCoupons.get(couponId)
+        const error = this.state.errors.get(couponId)
+
+        const brandName = vendor.name || ''
+        const offerText = coupon.discount_value || 'Special Offer'
+
+        html += `
+          <div class="coupon-widget-card" data-coupon-card-id="${this.escapeHtml(String(couponId))}">`
+
+        if (vendor.logo_url) {
+          html += `<img src="${this.escapeHtml(String(vendor.logo_url))}" alt="${this.escapeHtml(String(brandName))}" class="coupon-widget-card-image" onerror="this.style.display='none'">`
+        } else {
+          html += '<div class="coupon-widget-card-image"></div>'
+        }
+
+        html += `
+            <div class="coupon-widget-card-content">
+              <div class="coupon-widget-card-brand">${this.escapeHtml(String(brandName))}</div>
+              <div class="coupon-widget-card-offer">${this.escapeHtml(String(offerText))}</div>
+              ${vendor.description ? `<div class="coupon-widget-card-description">${this.escapeHtml(String(vendor.description))}</div>` : ''}
+              <div class="coupon-widget-code-section">
+                ${error ? `<div class="coupon-widget-error">${this.escapeHtml(String(error))}</div>` : ''}
+                <div class="coupon-widget-code-display ${claimedCoupon ? 'show' : ''}">
+                  <div class="coupon-widget-code-label">Your Coupon Code</div>
+                  <div class="coupon-widget-code-value">${claimedCoupon ? this.escapeHtml(String(claimedCoupon.code)) : ''}</div>
+                </div>
+                <button
+                  class="coupon-widget-button"
+                  data-coupon-id="${this.escapeHtml(String(couponId))}"
+                  data-instance-id="${this.escapeHtml(String(this.config.containerId))}"
+                  ${claimedCoupon ? 'style="display:none"' : ''}
+                  onclick="CouponWidget.handleGenerateCode('${this.escapeHtml(String(this.config.containerId))}', '${this.escapeHtml(String(couponId))}')">
+                  Generate Code
+                </button>
+                <button
+                  class="coupon-widget-copy-button ${claimedCoupon ? 'show' : ''}"
+                  data-coupon-id="${this.escapeHtml(String(couponId))}"
+                  data-instance-id="${this.escapeHtml(String(this.config.containerId))}"
+                  onclick="CouponWidget.copyCode('${this.escapeHtml(String(this.config.containerId))}', '${this.escapeHtml(String(couponId))}')">
+                  Copy Code
+                </button>
+              </div>
+            </div>
+          </div>`
+      })
+      html += `</div>`
+
+      this.container.innerHTML = html
+    }
+
+    setState(partialState) {
+      this.state = { ...this.state, ...partialState }
+      this.render()
+    }
+
+    updateCouponCard(couponId, claimedCoupon = null) {
+      const card = document.querySelector(`[data-coupon-card-id="${couponId}"]`)
+      if (!card) return
+
+      const codeDisplay = card.querySelector('.coupon-widget-code-display')
+      const codeValue = card.querySelector('.coupon-widget-code-value')
+      const button = card.querySelector('.coupon-widget-button')
+      const copyButton = card.querySelector('.coupon-widget-copy-button')
+
+      // Remove old errors
+      const oldErrors = card.querySelectorAll('.coupon-widget-error')
+      oldErrors.forEach((n) => n.remove())
+
+      const errorMessage = this.state.errors.get(couponId)
+      if (errorMessage) {
+        const errorDiv = document.createElement('div')
+        errorDiv.className = 'coupon-widget-error'
+        errorDiv.textContent = String(errorMessage)
+        const codeSection = card.querySelector('.coupon-widget-code-section')
+        if (codeSection) codeSection.prepend(errorDiv)
+      }
+
+      if (claimedCoupon && claimedCoupon.code) {
+        if (codeDisplay) codeDisplay.classList.add('show')
+        if (codeValue) codeValue.textContent = String(claimedCoupon.code)
+        if (button) button.style.display = 'none'
+        if (copyButton) copyButton.classList.add('show')
+      } else {
+        if (codeDisplay) codeDisplay.classList.remove('show')
+        if (button) {
+          button.style.display = 'block'
+          button.disabled = false
+          button.classList.remove('loading')
+          button.textContent = 'Generate Code'
+        }
+        if (copyButton) copyButton.classList.remove('show')
+      }
+    }
+
+    showError(couponId, message) {
+      this.state.errors.set(couponId, message)
+      this.updateCouponCard(couponId, null)
+    }
+
+    copyCode(couponId) {
+      const claimedCoupon = this.state.claimedCoupons.get(couponId)
+      const code = claimedCoupon && claimedCoupon.code ? String(claimedCoupon.code) : ''
+      if (!code) return
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(code).catch(() => this.fallbackCopyCode(code))
+        return
+      }
+      this.fallbackCopyCode(code)
+    }
+
+    fallbackCopyCode(text) {
+      try {
+        const textarea = document.createElement('textarea')
+        textarea.value = text
+        textarea.style.position = 'fixed'
+        textarea.style.opacity = '0'
+        document.body.appendChild(textarea)
+        textarea.focus()
+        textarea.select()
+        document.execCommand('copy')
+        document.body.removeChild(textarea)
+      } catch (e) {
+        try { window.prompt('Copy coupon code:', text) } catch {}
+      }
+    }
+
+    escapeHtml(str) {
+      if (str === null || str === undefined) return ''
+      const div = document.createElement('div')
+      div.textContent = String(str)
+      return div.innerHTML
+    }
+
   }
 
   // Global CouponWidget object
