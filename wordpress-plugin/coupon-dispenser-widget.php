@@ -316,40 +316,23 @@ class Coupon_Dispenser_Widget {
             }
             
             // REQUIRE logged-in users - anonymous users are not allowed
-            // Note: In REST API context, we need to explicitly load the user from cookies
-            $user_id = null;
+            // Use get_current_user_id() - the correct WordPress function for server-side user detection
+            // This works in REST API context because WordPress handles authentication automatically
+            $user_id = get_current_user_id();
             
-            // Priority 1: Check if user_id is explicitly passed from widget (for logged-in users)
-            $widget_user_id = $request->get_param('widget_user_id');
-            if (!empty($widget_user_id)) {
-                $user_id = sanitize_text_field($widget_user_id);
-                error_log('Coupon Dispenser Plugin: Using user ID from widget parameter: ' . $user_id);
-            }
-            
-            // Priority 2: Check if user is logged in via WordPress cookies
-            // In REST API context, we need to explicitly load the user
-            if (empty($user_id)) {
-                // Load current user from cookies (works in REST API context)
-                $current_user = wp_get_current_user();
-                
-                // Check if user is logged in (ID > 0 means logged in)
-                if ($current_user && $current_user->ID > 0) {
-                    $user_id = (string) $current_user->ID;
-                    error_log('Coupon Dispenser Plugin: Using WordPress logged-in user ID from cookies: ' . $user_id);
-                } else {
-                    error_log('Coupon Dispenser Plugin: No logged-in user detected. User ID: ' . ($current_user ? $current_user->ID : 'null'));
-                }
-            }
-            
-            // REQUIRE logged-in user - reject anonymous users
-            if (empty($user_id)) {
-                error_log('Coupon Dispenser Plugin: User must be logged in to access coupons');
+            // get_current_user_id() returns 0 if user is not logged in
+            if ($user_id === 0) {
+                error_log('Coupon Dispenser Plugin: User is not logged in (get_current_user_id() returned 0)');
                 return new WP_Error(
                     'authentication_required',
                     'You must be logged in to view and claim coupons. Please log in to your account.',
                     array('status' => 401)
                 );
             }
+            
+            // Convert to string for API call
+            $user_id = (string) $user_id;
+            error_log('Coupon Dispenser Plugin: Using WordPress logged-in user ID: ' . $user_id);
             
             // Get API base URL from options (settings override constants)
             $api_base_url = get_option('cdw_api_base_url', '');
