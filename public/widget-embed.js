@@ -110,7 +110,7 @@
       }
       .coupon-widget-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        grid-template-columns: repeat(3, minmax(0, 1fr));
         gap: 24px;
         margin-top: 20px;
       }
@@ -293,7 +293,12 @@
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
       }
-      @media (max-width: 768px) {
+      @media (max-width: 1024px) {
+        .coupon-widget-grid {
+          grid-template-columns: repeat(2, minmax(0, 1fr));
+        }
+      }
+      @media (max-width: 640px) {
         .coupon-widget-grid {
           grid-template-columns: 1fr;
         }
@@ -913,8 +918,24 @@
         return
       }
 
+      // Always show the claimed coupon first (if present).
+      // Claimed coupon is identified by either local state (claimedCoupons map) or API-provided code.
+      const isClaimedFirst = (c) => {
+        try {
+          const id = c && c.id
+          return !!(id && (this.state.claimedCoupons.has(id) || (c.is_claimed && c.code)))
+        } catch {
+          return false
+        }
+      }
+      const sortedCoupons = [...coupons].sort((a, b) => {
+        const av = isClaimedFirst(a) ? 1 : 0
+        const bv = isClaimedFirst(b) ? 1 : 0
+        return bv - av
+      })
+
       let html = `<div class="coupon-widget-grid">`
-      coupons.forEach((coupon) => {
+      sortedCoupons.forEach((coupon) => {
         const couponId = coupon.id
         const claimedCoupon = this.state.claimedCoupons.get(couponId)
         const error = this.state.errors.get(couponId)
