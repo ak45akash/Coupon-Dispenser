@@ -3,6 +3,7 @@ import { extractWidgetSession } from '@/lib/jwt/widget-session'
 import { getCouponsByVendor } from '@/lib/db/coupons'
 import { supabaseAdmin } from '@/lib/supabase/server'
 import { getVendorById } from '@/lib/db/vendors'
+import { upsertUserFromExternalId } from '@/lib/db/users'
 
 /**
  * Helper function to add CORS headers to responses
@@ -112,6 +113,29 @@ export async function GET(request: NextRequest) {
     }
 
     const userId = session.user_id
+
+    // Ensure internal UUID user_id for DB reads (monthly enforcement).
+    // If token contains a non-UUID external id (e.g. WordPress `user_ref`), map it.
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    let internalUserId = userId
+    if (!uuidRegex.test(internalUserId)) {
+      try {
+        const mappedUser = await upsertUserFromExternalId(session.vendor_id, internalUserId)
+        internalUserId = mappedUser.id
+      } catch (e) {
+        console.error('[available-coupons] Failed to map external user id to internal UUID:', {
+          vendorId,
+          externalUserIdPrefix: String(userId).substring(0, 20) + '...',
+          error: e instanceof Error ? e.message : String(e),
+        })
+        return addCorsHeaders(
+          NextResponse.json(
+            { success: false, error: 'Authentication required. Only logged-in users can access coupons.' },
+            { status: 401 }
+          )
+        )
+      }
+    }
     
     // Reject anonymous users - only logged-in users are allowed
     const isAnonymousUserId = (id: string): boolean => {
@@ -153,7 +177,7 @@ export async function GET(request: NextRequest) {
         .from('claim_history')
         .select('coupon_id, claimed_at')
         .eq('vendor_id', vendorId)
-        .eq('user_id', userId)
+        .eq('user_id', internalUserId)
         .eq('claim_month', currentMonth)
         .limit(1)
         .maybeSingle()

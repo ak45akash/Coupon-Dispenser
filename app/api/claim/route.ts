@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { extractWidgetSession } from '@/lib/jwt/widget-session'
 import { atomicClaimCoupon } from '@/lib/db/coupons'
-import { supabaseAdmin } from '@/lib/supabase/server'
+import { upsertUserFromExternalId } from '@/lib/db/users'
 
 const claimSchema = z.object({
   coupon_id: z.string().uuid('Invalid coupon ID'),
@@ -65,6 +65,29 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const validatedData = claimSchema.parse(body)
 
+    // Ensure we have an internal UUID user_id for DB writes.
+    // Some integrations (e.g. WordPress plugin) use a stable pseudonymous `user_ref` (non-UUID).
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    let internalUserId = session.user_id
+    if (!uuidRegex.test(internalUserId)) {
+      try {
+        const mappedUser = await upsertUserFromExternalId(session.vendor_id, internalUserId)
+        internalUserId = mappedUser.id
+      } catch (e) {
+        console.error('[claim] Failed to map external user id to internal UUID:', {
+          vendorId: session.vendor_id,
+          externalUserIdPrefix: String(session.user_id).substring(0, 20) + '...',
+          error: e instanceof Error ? e.message : String(e),
+        })
+        return addCorsHeaders(
+          NextResponse.json(
+            { success: false, error: 'Authentication required. Only logged-in users can claim coupons.' },
+            { status: 401 }
+          )
+        )
+      }
+    }
+
     // Reject anonymous users - only logged-in users can claim coupons
     const isAnonymousUserId = (id: string): boolean => {
       return id.startsWith('anon_') || id.startsWith('anonymous-')
@@ -81,11 +104,11 @@ export async function POST(request: NextRequest) {
     }
     
     // Log claim attempt for debugging
-    console.log(`[claim] Attempting claim: coupon=${validatedData.coupon_id}, user=${session.user_id}, vendor=${session.vendor_id}`)
+    console.log(`[claim] Attempting claim: coupon=${validatedData.coupon_id}, user=${internalUserId}, vendor=${session.vendor_id}`)
     
     // Attempt atomic claim
     try {
-      const result = await atomicClaimCoupon(session.user_id, validatedData.coupon_id)
+      const result = await atomicClaimCoupon(internalUserId, validatedData.coupon_id)
 
       // Optional: Log claim event (non-blocking)
       try {
