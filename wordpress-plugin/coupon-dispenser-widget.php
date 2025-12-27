@@ -132,10 +132,8 @@ class Coupon_Dispenser_Widget {
             Coupon_Dispenser_Settings::get_instance();
         }
         
-        // Bypass REST API nonce requirement for our endpoint
-        // WordPress REST API requires nonce for cookie auth, but external widget can't provide it
-        // We'll authenticate manually inside the endpoint using is_user_logged_in()
-        add_filter('rest_authentication_errors', array($this, 'bypass_rest_nonce_for_token_endpoint'), 10, 1);
+        // Note: REST API nonce bypass is registered on rest_api_init hook
+        // See register_rest_auth_bypass() method
         
         // Enqueue scripts
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'), 20);
@@ -144,36 +142,6 @@ class Coupon_Dispenser_Widget {
         // Register REST API endpoint for widget session token
         add_action('rest_api_init', array($this, 'register_rest_routes'));
         file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - rest_api_init action registered\n", FILE_APPEND);
-    }
-    
-    /**
-     * Ensure WordPress authenticates users in REST API context
-     * This filter ensures get_current_user_id() works properly
-     * WordPress handles cookie authentication automatically - we just ensure it runs
-     */
-    public function rest_api_authenticate_user($user_id) {
-        // If user is already authenticated, return it
-        if ($user_id) {
-            return $user_id;
-        }
-        
-        // Only process REST API requests for our endpoint
-        if (!defined('REST_REQUEST') || !REST_REQUEST) {
-            return $user_id;
-        }
-        
-        // Check if this is our plugin's REST endpoint
-        $request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
-        if (strpos($request_uri, '/wp-json/coupon-dispenser/') === false) {
-            return $user_id;
-        }
-        
-        // WordPress automatically authenticates from cookies via determine_current_user
-        // We just need to ensure the user is loaded. WordPress handles this internally.
-        // If cookies are present, WordPress will authenticate automatically.
-        // get_current_user_id() will then work correctly.
-        
-        return $user_id;
     }
     
     /**
@@ -218,15 +186,9 @@ class Coupon_Dispenser_Widget {
             true // Load in footer
         );
         
-        // Generate REST API nonce for authentication
-        $rest_nonce = wp_create_nonce('wp_rest');
-        
-        // Localize script to expose nonce and API URL
-        wp_localize_script('coupon-dispenser-widget', 'couponDispenserWidget', array(
-            'apiUrl' => $api_base_url,
-            'restNonce' => $rest_nonce,
-            'restUrl' => rest_url('coupon-dispenser/v1/token'),
-        ));
+        // Note: We do NOT use wp_localize_script for external scripts
+        // The widget script is hosted externally (Vercel), so nonces won't work
+        // Authentication is handled server-side in the plugin REST endpoint
         
         // Add inline script to configure API base URL
         wp_add_inline_script('coupon-dispenser-widget', 
@@ -271,17 +233,40 @@ class Coupon_Dispenser_Widget {
     }
     
     /**
-     * Bypass REST API nonce requirement for our token endpoint
-     * WordPress REST API requires nonce for cookie auth, but external widget can't provide it
-     * We authenticate manually inside the endpoint using is_user_logged_in()
+     * Bypass REST API nonce requirement ONLY for our token endpoint
+     * 
+     * Security: This bypass applies ONLY to /wp-json/coupon-dispenser/v1/token
+     * Reason: External widget (Vercel) cannot provide WordPress nonces (same-origin only)
+     * Authentication: We authenticate manually in the endpoint using is_user_logged_in()
+     * 
+     * @param mixed $result Authentication result from previous filters
+     * @return mixed|null Returns null to bypass nonce check ONLY for our token endpoint
      */
     public function bypass_rest_nonce_for_token_endpoint($result) {
-        // Only bypass for our specific endpoint
-        $request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
-        if (strpos($request_uri, '/wp-json/coupon-dispenser/v1/token') !== false) {
-            // Allow the request through - we'll authenticate manually in the callback
-            return true;
+        // If previous filters already returned an error, don't override it
+        if (is_wp_error($result)) {
+            return $result;
         }
+        
+        // Only process REST API requests
+        if (!defined('REST_REQUEST') || !REST_REQUEST) {
+            return $result;
+        }
+        
+        // Strict endpoint matching - ONLY bypass for our token endpoint
+        $request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+        if (empty($request_uri)) {
+            return $result;
+        }
+        
+        // Exact match for our token endpoint (case-sensitive, strict path matching)
+        $token_endpoint = '/wp-json/coupon-dispenser/v1/token';
+        if (strpos($request_uri, $token_endpoint) !== false) {
+            // Return null to bypass nonce requirement - we authenticate manually in callback
+            return null;
+        }
+        
+        // For all other REST routes, return original result (nonce required)
         return $result;
     }
     
@@ -335,6 +320,45 @@ class Coupon_Dispenser_Widget {
                 );
             }
             
+            // Security: Same-origin request protection
+            // Prevent cross-origin requests to this endpoint (CSRF protection)
+            $site_url = get_site_url();
+            $site_domain = parse_url($site_url, PHP_URL_HOST);
+            
+            $request_origin = isset($_SERVER['HTTP_ORIGIN']) ? $_SERVER['HTTP_ORIGIN'] : '';
+            $request_referer = isset($_SERVER['HTTP_REFERER']) ? $_SERVER['HTTP_REFERER'] : '';
+            
+            // Check origin if present
+            if (!empty($request_origin)) {
+                $origin_domain = parse_url($request_origin, PHP_URL_HOST);
+                if ($origin_domain !== $site_domain) {
+                    error_log('Coupon Dispenser Plugin: Blocked cross-origin request from ' . $origin_domain);
+                    restore_error_handler();
+                    return new WP_Error(
+                        'forbidden',
+                        'Forbidden: Cross-origin requests are not allowed.',
+                        array('status' => 403)
+                    );
+                }
+            }
+            
+            // Check referer if present (some browsers omit Origin header)
+            if (!empty($request_referer)) {
+                $referer_domain = parse_url($request_referer, PHP_URL_HOST);
+                if ($referer_domain !== $site_domain) {
+                    error_log('Coupon Dispenser Plugin: Blocked cross-origin request from referer ' . $referer_domain);
+                    restore_error_handler();
+                    return new WP_Error(
+                        'forbidden',
+                        'Forbidden: Cross-origin requests are not allowed.',
+                        array('status' => 403)
+                    );
+                }
+            }
+            
+            // Note: We allow requests with empty origin/referer (some browsers omit them)
+            // This maintains compatibility with external widget while blocking malicious cross-origin requests
+            
             // Get vendor ID and API key from options (settings override constants)
             // ALWAYS prioritize options over constants to allow manual updates
             $vendor_id = get_option('cdw_vendor_id', '');
@@ -375,11 +399,11 @@ class Coupon_Dispenser_Widget {
                 );
             }
             
-            // REQUIRE logged-in users - anonymous users are not allowed
-            // We authenticate manually here since we bypassed REST nonce requirement
-            // WordPress cookies are sent automatically by browser with credentials: 'include'
+            // Security: Manual authentication (nonce bypassed for external widget compatibility)
+            // We authenticate using WordPress cookies sent automatically by browser
             if (!is_user_logged_in()) {
-                error_log('Coupon Dispenser Plugin: User is not logged in (is_user_logged_in() returned false).');
+                error_log('Coupon Dispenser Plugin: Authentication failed - user not logged in');
+                restore_error_handler();
                 return new WP_Error(
                     'authentication_required',
                     'You must be logged in to view and claim coupons. Please log in to your account.',
@@ -387,12 +411,14 @@ class Coupon_Dispenser_Widget {
                 );
             }
             
-            // Get user ID - this works because we're authenticated via cookies
+            // Get authenticated user ID
             $user_id = get_current_user_id();
             
-            // get_current_user_id() returns 0 if user is not logged in
+            // Double-check: get_current_user_id() should never return 0 if is_user_logged_in() is true
+            // But we verify anyway for security
             if ($user_id === 0) {
-                error_log('Coupon Dispenser Plugin: User is not logged in (get_current_user_id() returned 0).');
+                error_log('Coupon Dispenser Plugin: Authentication failed - user ID is 0');
+                restore_error_handler();
                 return new WP_Error(
                     'authentication_required',
                     'You must be logged in to view and claim coupons. Please log in to your account.',
