@@ -101,7 +101,9 @@
 
   function createStyles() {
     return `
-      .coupon-widget-container {
+      /* Apply sizing to both the widget's internal class and the WP plugin container class */
+      .coupon-widget-container,
+      .coupon-dispenser-widget-container {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         width: 100%;
         max-width: 100%;
@@ -690,6 +692,13 @@
       if (!this.container) {
         console.error(`CouponWidget: Container #${this.config.containerId} not found`)
         return
+      }
+
+      // Ensure our container styles apply even if the host page doesn't add our class.
+      try {
+        this.container.classList.add('coupon-widget-container')
+      } catch (e) {
+        // no-op
       }
 
       injectStyles()
