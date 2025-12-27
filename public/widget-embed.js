@@ -535,7 +535,7 @@
     } catch (error) {
       if (retries < CONFIG.MAX_RETRIES) {
         await new Promise((resolve) => setTimeout(resolve, CONFIG.RETRY_DELAY))
-        return fetchCouponsData(vendorId, userId, previewMode, retries + 1)
+        return fetchCouponsData(vendorId, userId, previewMode, retries + 1, widgetSessionToken)
       }
       throw error
     }
@@ -615,7 +615,7 @@
     } catch (error) {
       if (retries < CONFIG.MAX_RETRIES) {
         await new Promise((resolve) => setTimeout(resolve, CONFIG.RETRY_DELAY))
-        return claimCoupon(couponId, userId, previewMode, retries + 1)
+        return claimCoupon(couponId, userId, previewMode, retries + 1, widgetSessionToken)
       }
       throw error
     }
@@ -862,236 +862,9 @@
         if (button) {
           button.disabled = false
           button.classList.remove('loading')
-          button.textContent = 'Get Code'
+          button.textContent = 'Generate Code'
         }
       }
-    }
-
-    /**
-     * Render the widget UI
-     * Safely renders a basic widget container
-     */
-    render() {
-      if (!this.container) {
-        console.warn('CouponWidget: Cannot render - container not found')
-        return
-      }
-
-      const { loading, vendor, coupons, error, claimedCoupons, errors, hasActiveClaim } = this.state
-
-      let html = '<div class="coupon-widget-container">'
-
-      if (loading) {
-        html += '<div class="coupon-widget-empty">Loading coupons...</div>'
-      } else if (error) {
-        html += `<div class="coupon-widget-error">${this.escapeHtml(error)}</div>`
-      } else if (!vendor || !coupons || coupons.length === 0) {
-        html += '<div class="coupon-widget-empty">No coupons available at this time.</div>'
-      } else {
-        html += '<div class="coupon-widget-grid">'
-        coupons.forEach((coupon) => {
-          const claimedCoupon = claimedCoupons.get(coupon.id)
-          const couponError = errors.get(coupon.id)
-          const offerText = coupon.discount_value || 'Special Offer'
-          const isActiveClaim = hasActiveClaim && coupon.is_claimed && claimedCoupon
-          const isDisabled = hasActiveClaim && !isActiveClaim && !claimedCoupon
-
-          html += `
-            <div class="coupon-widget-card ${isDisabled ? 'opacity-60' : ''}" data-coupon-card-id="${coupon.id}" style="${isDisabled ? 'pointer-events: none;' : ''}">
-              ${vendor.logo_url ? `<img src="${this.escapeHtml(vendor.logo_url)}" alt="${this.escapeHtml(vendor.name)}" class="coupon-widget-card-image" onerror="this.style.display='none'">` : '<div class="coupon-widget-card-image"></div>'}
-              <div class="coupon-widget-card-content">
-                <div class="coupon-widget-card-brand">${this.escapeHtml(vendor.name)}</div>
-                <div class="coupon-widget-card-offer">${this.escapeHtml(offerText)}</div>
-                ${vendor.description ? `<div class="coupon-widget-card-description">${this.escapeHtml(vendor.description)}</div>` : ''}
-                <div class="coupon-widget-code-section">
-                  ${couponError ? `<div class="coupon-widget-error">${this.escapeHtml(couponError)}</div>` : ''}
-                  ${isDisabled ? '<div class="coupon-widget-error" style="background: #7c2d12; border-color: #991b1b; color: #fca5a5;">You already have an active coupon. Please wait until it expires.</div>' : ''}
-                  <div class="coupon-widget-code-display ${claimedCoupon || isActiveClaim ? 'show' : ''}">
-                    <div class="coupon-widget-code-label">Your Coupon Code</div>
-                    <div class="coupon-widget-code-value">${claimedCoupon ? this.escapeHtml(claimedCoupon.code) : (isActiveClaim && coupon.code ? this.escapeHtml(coupon.code) : '')}</div>
-                  </div>
-                  <button 
-                    class="coupon-widget-button" 
-                    data-coupon-id="${coupon.id}"
-                    data-instance-id="${this.config.containerId}"
-                    ${claimedCoupon || isActiveClaim || isDisabled ? 'style="display:none"' : ''}
-                    ${isDisabled ? 'disabled' : ''}
-                    onclick="CouponWidget.handleGenerateCode('${this.config.containerId}', '${coupon.id}')">
-                    ${claimedCoupon || isActiveClaim ? '' : 'Generate Code'}
-                  </button>
-                  <button 
-                    class="coupon-widget-copy-button ${claimedCoupon || isActiveClaim ? 'show' : ''}"
-                    data-coupon-id="${coupon.id}"
-                    onclick="CouponWidget.copyCode('${this.config.containerId}', '${coupon.id}')">
-                    Copy Code
-                  </button>
-                </div>
-              </div>
-            </div>
-          `
-        })
-        html += '</div>'
-      }
-
-      html += '</div>'
-      this.container.innerHTML = html
-    }
-
-    /**
-     * Update state and re-render
-     * @param {Object} partialState - Partial state object to merge
-     */
-    setState(partialState) {
-      if (!partialState || typeof partialState !== 'object') {
-        return
-      }
-
-      // Merge partial state into current state
-      Object.assign(this.state, partialState)
-
-      // Re-render if container exists
-      if (this.container) {
-        this.render()
-      }
-    }
-
-    /**
-     * Update a specific coupon card UI
-     * @param {string} couponId - Coupon ID
-     * @param {Object|null} claimedCoupon - Claimed coupon data or null
-     */
-    updateCouponCard(couponId, claimedCoupon = null) {
-      if (!couponId) return
-
-      const card = document.querySelector(`[data-coupon-card-id="${couponId}"]`)
-      if (!card) return
-
-      const codeDisplay = card.querySelector('.coupon-widget-code-display')
-      const codeValue = card.querySelector('.coupon-widget-code-value')
-      const button = card.querySelector('[data-coupon-id]')
-      const copyButton = card.querySelector('.coupon-widget-copy-button')
-      const errorDiv = card.querySelector('.coupon-widget-error')
-
-      // Clear existing error
-      if (errorDiv) {
-        errorDiv.remove()
-      }
-
-      if (claimedCoupon && claimedCoupon.code) {
-        // Show code
-        if (codeDisplay) {
-          codeDisplay.classList.add('show')
-        }
-        if (codeValue) {
-          codeValue.textContent = claimedCoupon.code
-        }
-        if (button) {
-          button.style.display = 'none'
-        }
-        if (copyButton) {
-          copyButton.classList.add('show')
-        }
-      } else {
-        // Show error if present
-        const error = this.state.errors.get(couponId)
-        if (error) {
-          const errorElement = document.createElement('div')
-          errorElement.className = 'coupon-widget-error'
-          errorElement.textContent = error
-          const codeSection = card.querySelector('.coupon-widget-code-section')
-          if (codeSection) {
-            codeSection.insertBefore(errorElement, codeSection.firstChild)
-          }
-        }
-      }
-    }
-
-    /**
-     * Show error for a specific coupon
-     * @param {string} couponId - Coupon ID
-     * @param {string} message - Error message
-     */
-    showError(couponId, message) {
-      if (!couponId || !message) return
-
-      this.state.errors.set(couponId, message)
-      this.updateCouponCard(couponId, null)
-    }
-
-    /**
-     * Copy coupon code to clipboard
-     * @param {string} couponId - Coupon ID
-     */
-    copyCode(couponId) {
-      if (!couponId) return
-
-      const claimedCoupon = this.state.claimedCoupons.get(couponId)
-      if (!claimedCoupon || !claimedCoupon.code) {
-        console.warn('CouponWidget: No code available to copy for coupon', couponId)
-        return
-      }
-
-      const code = claimedCoupon.code
-
-      // Try modern clipboard API first
-      if (navigator.clipboard && navigator.clipboard.writeText) {
-        navigator.clipboard.writeText(code).then(() => {
-          console.log('CouponWidget: Code copied to clipboard:', code)
-          // Update button to show copied state
-          const copyButton = document.querySelector(`[data-coupon-id="${couponId}"].coupon-widget-copy-button`)
-          if (copyButton) {
-            const originalText = copyButton.textContent
-            copyButton.textContent = 'Copied!'
-            copyButton.classList.add('copied')
-            setTimeout(() => {
-              copyButton.textContent = originalText
-              copyButton.classList.remove('copied')
-            }, 2000)
-          }
-        }).catch((err) => {
-          console.error('CouponWidget: Failed to copy code:', err)
-          this.fallbackCopyCode(code)
-        })
-      } else {
-        // Fallback for older browsers
-        this.fallbackCopyCode(code)
-      }
-    }
-
-    /**
-     * Fallback copy method for older browsers
-     * @param {string} text - Text to copy
-     */
-    fallbackCopyCode(text) {
-      const textArea = document.createElement('textarea')
-      textArea.value = text
-      textArea.style.position = 'fixed'
-      textArea.style.left = '-999999px'
-      textArea.style.top = '-999999px'
-      document.body.appendChild(textArea)
-      textArea.focus()
-      textArea.select()
-
-      try {
-        document.execCommand('copy')
-        console.log('CouponWidget: Code copied to clipboard (fallback):', text)
-        document.body.removeChild(textArea)
-      } catch (err) {
-        console.error('CouponWidget: Fallback copy failed:', err)
-        document.body.removeChild(textArea)
-      }
-    }
-
-    /**
-     * Escape HTML to prevent XSS
-     * @param {string} str - String to escape
-     * @returns {string} Escaped string
-     */
-    escapeHtml(str) {
-      if (!str) return ''
-      const div = document.createElement('div')
-      div.textContent = str
-      return div.innerHTML
     }
   }
 

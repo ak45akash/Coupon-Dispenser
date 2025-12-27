@@ -129,6 +129,17 @@ export async function GET(request: NextRequest) {
     
     // Log request for debugging
     console.log(`[available-coupons] Fetching coupons for vendor: ${vendorId}, user: ${userId}`)
+
+    // Vendor details (to keep response shape compatible with legacy widget endpoint)
+    const vendor = await getVendorById(vendorId)
+    if (!vendor) {
+      return addCorsHeaders(
+        NextResponse.json(
+          { success: false, error: 'Vendor not found' },
+          { status: 404 }
+        )
+      )
+    }
     
     // Calculate current month in YYYYMM format
     const now = new Date()
@@ -153,15 +164,12 @@ export async function GET(request: NextRequest) {
           vendorId,
           currentMonth,
         })
-        return addCorsHeaders(
-          NextResponse.json(
-            { success: false, error: 'Internal server error' },
-            { status: 500 }
-          )
-        )
+        // Don't fail coupon loading if claim history query fails (prevents widget from breaking).
+        // Monthly enforcement still happens in /api/claim.
+        userAlreadyClaimed = false
+      } else {
+        userAlreadyClaimed = existingClaim !== null
       }
-
-      userAlreadyClaimed = existingClaim !== null
     } catch (error) {
       console.error('[available-coupons] Exception checking existing claim:', {
         error: error instanceof Error ? error.message : String(error),
@@ -177,10 +185,20 @@ export async function GET(request: NextRequest) {
         NextResponse.json({
           success: true,
           data: {
+            vendor: {
+              id: vendor.id,
+              name: vendor.name,
+              description: vendor.description,
+              website: vendor.website,
+              logo_url: vendor.logo_url,
+            },
             coupons: [],
+            has_active_claim: true,
+            active_claim_expiry: null,
             user_already_claimed: true,
             claim_month: currentMonth,
           },
+          count: 0,
         })
       )
     }
@@ -205,22 +223,15 @@ export async function GET(request: NextRequest) {
     // Claimed coupons are only visible to the user who claimed them
     const availableCoupons = allCoupons
       .filter((coupon) => !coupon.deleted_at)
-      .filter((coupon) => {
-        // Show coupon if:
-        // - It's not claimed yet, OR
-        // - It's claimed by this user
-        return !coupon.is_claimed || coupon.claimed_by === userId
-      })
+      .filter((coupon) => !coupon.is_claimed || coupon.claimed_by === userId)
       .map((coupon) => ({
         id: coupon.id,
-        title: coupon.description || 'Coupon',
-        summary: coupon.discount_value || '',
         code: coupon.code,
-        is_claimed_by_user: coupon.is_claimed && coupon.claimed_by === userId, // True if user claimed this coupon
-        schedule_info: {
-          start_at: null, // Can be extended if coupons have start/end dates
-          end_at: coupon.expiry_date || null,
-        },
+        description: coupon.description,
+        discount_value: coupon.discount_value,
+        is_claimed: coupon.is_claimed || false,
+        claimed_at: coupon.claimed_at || null,
+        expiry_date: coupon.expiry_date || null,
       }))
     
     console.log(`[available-coupons] Returning ${availableCoupons.length} available coupons`)
@@ -229,10 +240,20 @@ export async function GET(request: NextRequest) {
       NextResponse.json({
         success: true,
         data: {
+          vendor: {
+            id: vendor.id,
+            name: vendor.name,
+            description: vendor.description,
+            website: vendor.website,
+            logo_url: vendor.logo_url,
+          },
           coupons: availableCoupons,
+          has_active_claim: false,
+          active_claim_expiry: null,
           user_already_claimed: false,
           claim_month: currentMonth,
         },
+        count: availableCoupons.length,
       })
     )
   } catch (error: any) {
