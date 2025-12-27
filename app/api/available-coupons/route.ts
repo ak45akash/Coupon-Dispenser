@@ -211,20 +211,47 @@ export async function GET(request: NextRequest) {
 
 
     // Determine active claim (visible for 30 days) so the UI can show the claimed coupon and disable others.
-    const { data: activeClaimCoupon } = await supabaseAdmin
-      .from('coupons')
-      .select('id, code, claimed_at, expiry_date')
-      .eq('vendor_id', vendorId)
-      .eq('claimed_by', internalUserId)
-      .eq('is_claimed', true)
-      .is('deleted_at', null)
-      .gte('expiry_date', now.toISOString())
-      .order('claimed_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
+    // Prefer `expiry_date` (newer claims), fall back to `claimed_at` (older claims missing expiry_date).
+    const thirtyDaysAgo = new Date(now)
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+    let activeClaimCoupon: any = null
+    {
+      const { data } = await supabaseAdmin
+        .from('coupons')
+        .select('id, code, claimed_at, expiry_date, description, discount_value')
+        .eq('vendor_id', vendorId)
+        .eq('claimed_by', internalUserId)
+        .eq('is_claimed', true)
+        .is('deleted_at', null)
+        .gte('expiry_date', now.toISOString())
+        .order('claimed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      activeClaimCoupon = data || null
+    }
+
+    if (!activeClaimCoupon) {
+      const { data } = await supabaseAdmin
+        .from('coupons')
+        .select('id, code, claimed_at, expiry_date, description, discount_value')
+        .eq('vendor_id', vendorId)
+        .eq('claimed_by', internalUserId)
+        .eq('is_claimed', true)
+        .is('deleted_at', null)
+        .gte('claimed_at', thirtyDaysAgo.toISOString())
+        .order('claimed_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      activeClaimCoupon = data || null
+    }
 
     const hasActiveClaim = !!activeClaimCoupon
-    const activeClaimExpiry = activeClaimCoupon?.expiry_date || null
+    const activeClaimExpiry =
+      activeClaimCoupon?.expiry_date ||
+      (activeClaimCoupon?.claimed_at
+        ? new Date(new Date(activeClaimCoupon.claimed_at).getTime() + 30 * 24 * 60 * 60 * 1000).toISOString()
+        : null)
     // Get all coupons for this vendor
     let allCoupons
     try {
@@ -245,10 +272,23 @@ export async function GET(request: NextRequest) {
     // Claimed coupons are only visible to the user who claimed them
     const availableCoupons = allCoupons
       .filter((coupon) => !coupon.deleted_at)
-      .filter((coupon) => !coupon.is_claimed || coupon.claimed_by === internalUserId)
+      .filter((coupon) => {
+        if (!coupon.is_claimed) return true
+        if (coupon.claimed_by !== internalUserId) return false
+
+        // Only show the user's claimed coupon while it's active (30 days).
+        if (coupon.expiry_date) {
+          return new Date(coupon.expiry_date).getTime() >= now.getTime()
+        }
+        if (coupon.claimed_at) {
+          return new Date(coupon.claimed_at).getTime() >= thirtyDaysAgo.getTime()
+        }
+        return false
+      })
       .map((coupon) => ({
         id: coupon.id,
-        code: coupon.is_claimed && coupon.claimed_by === internalUserId && hasActiveClaim && activeClaimCoupon && activeClaimCoupon.id === coupon.id ? coupon.code : null,
+        // Only include code for the active claimed coupon (prevents leaking unclaimed codes).
+        code: activeClaimCoupon && activeClaimCoupon.id === coupon.id ? coupon.code : null,
         description: coupon.description,
         discount_value: coupon.discount_value,
         is_claimed: coupon.is_claimed || false,
@@ -256,6 +296,20 @@ export async function GET(request: NextRequest) {
         expiry_date: coupon.expiry_date || null,
       }))
     
+
+    // If the active claimed coupon isn't in the list for any reason, ensure it is included.
+    if (activeClaimCoupon && !availableCoupons.some((c) => c.id === activeClaimCoupon.id)) {
+      availableCoupons.unshift({
+        id: activeClaimCoupon.id,
+        code: activeClaimCoupon.code || null,
+        description: activeClaimCoupon.description || null,
+        discount_value: activeClaimCoupon.discount_value || null,
+        is_claimed: true,
+        claimed_at: activeClaimCoupon.claimed_at || null,
+        expiry_date: activeClaimCoupon.expiry_date || activeClaimExpiry,
+      })
+    }
+
     console.log(`[available-coupons] Returning ${availableCoupons.length} available coupons`)
 
     return addCorsHeaders(
