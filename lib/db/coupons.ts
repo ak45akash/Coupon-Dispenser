@@ -347,6 +347,47 @@ export async function atomicClaimCoupon(
   const expiryDate = new Date(now)
   expiryDate.setDate(expiryDate.getDate() + 30)
 
+  // Enforce "single claim per vendor per month" AND keep claimed coupon active/visible for 30 days.
+  // We use the coupons table for enforcement so we don't depend on claim_history migrations.
+  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  startOfMonth.setHours(0, 0, 0, 0)
+
+  // Active-claim lock (30 days): if user already has an active claim for this vendor, block new claims.
+  const { data: activeClaim, error: activeClaimError } = await supabaseAdmin
+    .from('coupons')
+    .select('id')
+    .eq('vendor_id', coupon.vendor_id)
+    .eq('claimed_by', userId)
+    .eq('is_claimed', true)
+    .is('deleted_at', null)
+    .gte('expiry_date', now.toISOString())
+    .limit(1)
+    .maybeSingle()
+
+  if (activeClaimError) {
+    console.error('[atomicClaimCoupon] Active-claim check failed:', activeClaimError)
+  } else if (activeClaim) {
+    throw new Error('USER_ALREADY_CLAIMED')
+  }
+
+  // Monthly limit (1 per vendor per user per month)
+  const { data: monthClaim, error: monthClaimError } = await supabaseAdmin
+    .from('coupons')
+    .select('id')
+    .eq('vendor_id', coupon.vendor_id)
+    .eq('claimed_by', userId)
+    .eq('is_claimed', true)
+    .is('deleted_at', null)
+    .gte('claimed_at', startOfMonth.toISOString())
+    .limit(1)
+    .maybeSingle()
+
+  if (monthClaimError) {
+    console.error('[atomicClaimCoupon] Monthly-claim check failed:', monthClaimError)
+  } else if (monthClaim) {
+    throw new Error('USER_ALREADY_CLAIMED')
+  }
+
   // Atomic transaction: Mark coupon as claimed AND insert claim history
   // We'll do this in two steps, but the unique constraints ensure atomicity
   

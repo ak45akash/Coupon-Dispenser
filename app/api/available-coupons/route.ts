@@ -207,31 +207,24 @@ export async function GET(request: NextRequest) {
       })
       // Continue - don't block coupon fetching if claim check fails
     }
+    // If user already claimed this month, we still return coupons, but the UI will disable claiming.
 
-    // If user already claimed, return empty list with flag
-    if (userAlreadyClaimed) {
-      return addCorsHeaders(
-        NextResponse.json({
-          success: true,
-          data: {
-            vendor: {
-              id: vendor.id,
-              name: vendor.name,
-              description: vendor.description,
-              website: vendor.website,
-              logo_url: vendor.logo_url,
-            },
-            coupons: [],
-            has_active_claim: true,
-            active_claim_expiry: null,
-            user_already_claimed: true,
-            claim_month: currentMonth,
-          },
-          count: 0,
-        })
-      )
-    }
 
+    // Determine active claim (visible for 30 days) so the UI can show the claimed coupon and disable others.
+    const { data: activeClaimCoupon } = await supabaseAdmin
+      .from('coupons')
+      .select('id, code, claimed_at, expiry_date')
+      .eq('vendor_id', vendorId)
+      .eq('claimed_by', internalUserId)
+      .eq('is_claimed', true)
+      .is('deleted_at', null)
+      .gte('expiry_date', now.toISOString())
+      .order('claimed_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const hasActiveClaim = !!activeClaimCoupon
+    const activeClaimExpiry = activeClaimCoupon?.expiry_date || null
     // Get all coupons for this vendor
     let allCoupons
     try {
@@ -252,10 +245,10 @@ export async function GET(request: NextRequest) {
     // Claimed coupons are only visible to the user who claimed them
     const availableCoupons = allCoupons
       .filter((coupon) => !coupon.deleted_at)
-      .filter((coupon) => !coupon.is_claimed || coupon.claimed_by === userId)
+      .filter((coupon) => !coupon.is_claimed || coupon.claimed_by === internalUserId)
       .map((coupon) => ({
         id: coupon.id,
-        code: coupon.code,
+        code: coupon.is_claimed && coupon.claimed_by === internalUserId && hasActiveClaim && activeClaimCoupon && activeClaimCoupon.id === coupon.id ? coupon.code : null,
         description: coupon.description,
         discount_value: coupon.discount_value,
         is_claimed: coupon.is_claimed || false,
@@ -277,9 +270,9 @@ export async function GET(request: NextRequest) {
             logo_url: vendor.logo_url,
           },
           coupons: availableCoupons,
-          has_active_claim: false,
-          active_claim_expiry: null,
-          user_already_claimed: false,
+          has_active_claim: hasActiveClaim || userAlreadyClaimed,
+          active_claim_expiry: activeClaimExpiry,
+          user_already_claimed: userAlreadyClaimed,
           claim_month: currentMonth,
         },
         count: availableCoupons.length,

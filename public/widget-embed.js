@@ -783,6 +783,18 @@
           0,
           this.state.widgetSessionToken
         )
+        // Seed claimed coupon state from API response (supports refresh).
+        // Backend only includes coupon.code for the user's active claimed coupon.
+        try {
+          this.state.claimedCoupons.clear()
+          const claimedFromApi = (data.coupons || []).find((c) => c && c.is_claimed && c.code)
+          if (claimedFromApi) {
+            this.state.claimedCoupons.set(claimedFromApi.id, { code: claimedFromApi.code })
+          }
+        } catch (e) {
+          // Non-fatal; widget will still render coupons list
+        }
+
         this.setState({
           loading: false,
           vendor: data.vendor,
@@ -851,6 +863,15 @@
         
         // Update UI
         this.updateCouponCard(couponId, claimedCoupon)
+
+        // Disable other coupons after successful claim (single claim per vendor per month).
+        this.state.hasActiveClaim = true
+        if (claimedCoupon && claimedCoupon.expiry_date) {
+          this.state.activeClaimExpiry = claimedCoupon.expiry_date
+        }
+        // Re-render so non-claimed cards become disabled immediately
+        this.render()
+
       } catch (error) {
         console.error('Claim error:', error)
 
