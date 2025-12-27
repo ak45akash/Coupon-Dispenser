@@ -43,15 +43,8 @@ export async function GET(
       )
     }
 
-    // Get API key
-    const apiKey = (vendor as any)?.api_key || null
-    
-    if (!apiKey) {
-      return NextResponse.json(
-        { success: false, error: 'Vendor does not have API key configured. Please generate an API key first.' },
-        { status: 400 }
-      )
-    }
+    // API key is optional - vendors can add it manually in WordPress admin panel
+    const apiKey = (vendor as any)?.api_key || ''
 
     // Get API base URL from the request (where the plugin is downloaded from)
     // Priority: referer > origin > host > env variables > default
@@ -147,8 +140,9 @@ export async function GET(
     )
 
     // Replace configuration placeholders in main plugin file
+    // Vendor ID is pre-configured, but API key is left empty for vendors to add manually
     mainPluginContent = mainPluginContent.replace(/PLUGIN_CONFIG_VENDOR_ID/g, id)
-    mainPluginContent = mainPluginContent.replace(/PLUGIN_CONFIG_API_KEY/g, apiKey)
+    mainPluginContent = mainPluginContent.replace(/PLUGIN_CONFIG_API_KEY/g, '') // Leave empty - vendors add it in WordPress admin
     mainPluginContent = mainPluginContent.replace(/PLUGIN_CONFIG_API_BASE_URL/g, cleanApiBaseUrl)
 
     // Add README file
@@ -158,7 +152,7 @@ Tags: coupons, widget, ecommerce
 Requires at least: 5.0
 Tested up to: 6.4
 Requires PHP: 7.4
-Stable tag: 1.0.0
+Stable tag: 1.1.2
 License: GPLv2 or later
 License URI: https://www.gnu.org/licenses/gpl-2.0.html
 Plugin URI: https://iakash.dev
@@ -169,18 +163,18 @@ Embed coupon widgets from Coupon Dispenser platform. Zero-code integration for W
 
 == Description ==
 
-This plugin allows you to embed coupon widgets from the Coupon Dispenser platform directly into your WordPress site. The plugin is pre-configured with your vendor ID and API key, so you can start using it immediately after installation.
+This plugin allows you to embed coupon widgets from the Coupon Dispenser platform directly into your WordPress site. The plugin is pre-configured with your vendor ID. You'll need to add your API key in the WordPress admin panel after installation.
 
 == Important Notes ==
 
-* **API Key Updates:** If you regenerate your API key in the dashboard, you can update it directly in WordPress. Go to Settings → Coupon Dispenser and paste your new API key. No need to download a new plugin!
-* **One Plugin Per Vendor:** Each plugin is pre-configured with one vendor ID and API key. Use separate plugin installations for different vendors.
+* **API Key Setup:** After installation, go to **Settings → Coupon Dispenser** in your WordPress admin panel and enter your API key. You can find your API key in the Coupon Dispenser dashboard.
+* **One Plugin Per Vendor:** Each plugin is pre-configured with one vendor ID. Use separate plugin installations for different vendors.
 
 == Installation ==
 
 1. Upload the plugin ZIP file through the WordPress 'Plugins' menu
 2. Activate the plugin through the 'Plugins' menu in WordPress
-3. The plugin is already configured with your vendor ID and API key
+3. Go to **Settings → Coupon Dispenser** and enter your API key
 4. Use the shortcode [coupon_widget] to display coupons on any page or post
 
 == Frequently Asked Questions ==
@@ -196,16 +190,18 @@ Yes, you can change the container ID using the container_id attribute:
 
 == Changelog ==
 
-= 1.0.0 =
-* Initial release
-* Pre-configured with vendor ID and API key
-* Automatic user detection
-* WordPress REST API integration
+= 1.1.2 =
+* Pre-configured with vendor ID
+* Manual API key entry via WordPress admin panel
+* Auto-fix for Vercel preview URLs
+* Enhanced logging and diagnostics
+* Improved user authentication detection
+* Better error handling and PHP 7.4+ compatibility
 
 == Upgrade Notice ==
 
-= 1.0.0 =
-Initial release.
+= 1.1.2 =
+Current stable version. Recommended for all users.
 `
 
     // Create ZIP file in memory

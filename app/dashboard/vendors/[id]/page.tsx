@@ -587,7 +587,7 @@ app.get('/api/coupon-token', authenticateUser, async (req, res) => {
                     </div>
                     <div className="mt-4 pt-4 border-t border-blue-200">
                       <p className="text-sm text-blue-600 mb-3">
-                        Download the plugin ZIP file pre-configured with your vendor ID and API key. Simply upload and activate in WordPress.
+                        Download the plugin ZIP file pre-configured with your vendor ID. After installation, add your API key in WordPress Settings → Coupon Dispenser.
                       </p>
                       <Button 
                         onClick={() => {
@@ -595,23 +595,15 @@ app.get('/api/coupon-token', authenticateUser, async (req, res) => {
                         }}
                         variant="outline" 
                         size="sm"
-                        disabled={!apiKey || apiKey === 'exists'}
                       >
                         <Download className="h-4 w-4 mr-2" />
-                        {(!apiKey || apiKey === 'exists') ? 'Generate API Key First' : 'Download Plugin'}
+                        Download Plugin
                       </Button>
-                      {(!apiKey || apiKey === 'exists') && (
-                        <p className="text-xs text-blue-500 mt-2">
-                          You need to generate an API key first. Go to the &quot;API Key Method&quot; tab to generate one.
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 mt-3">
+                        <p className="text-xs text-blue-800">
+                          <strong>Setup Instructions:</strong> After installing the plugin, go to <strong>Settings → Coupon Dispenser</strong> in your WordPress admin panel and enter your API key. You can find your API key in the &quot;API Key Method&quot; tab above.
                         </p>
-                      )}
-                      {apiKey && apiKey !== 'exists' && (
-                        <div className="bg-green-50 border border-green-200 rounded-lg p-3 mt-3">
-                          <p className="text-xs text-green-800">
-                            <strong>API Key Updates:</strong> If you regenerate your API key, you can update it directly in WordPress. Go to <strong>Settings → Coupon Dispenser</strong> and paste your new API key. No need to download a new plugin!
-                          </p>
-                        </div>
-                      )}
+                      </div>
                     </div>
                   </div>
                 </div>
