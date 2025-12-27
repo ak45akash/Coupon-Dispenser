@@ -130,7 +130,9 @@ export async function GET(request: NextRequest) {
         },
         coupons: coupons.map(coupon => ({
           id: coupon.id,
-          code: coupon.code,
+          // Don't expose coupon codes for unclaimed coupons.
+          // Only return the code for the user's active claimed coupon (if any).
+          code: userId && activeClaim && coupon.id === activeClaim.id ? coupon.code : null,
           description: coupon.description,
           discount_value: coupon.discount_value,
           is_claimed: coupon.is_claimed || false,
@@ -147,6 +149,7 @@ export async function GET(request: NextRequest) {
     response.headers.set('Access-Control-Allow-Origin', '*')
     response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
     response.headers.set('Access-Control-Allow-Headers', 'Content-Type')
+    response.headers.set('Cache-Control', 'no-store')
 
     return response
   } catch (error) {
@@ -164,6 +167,7 @@ export async function GET(request: NextRequest) {
     errorResponse.headers.set('Access-Control-Allow-Origin', '*')
     errorResponse.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
     errorResponse.headers.set('Access-Control-Allow-Headers', 'Content-Type')
+    errorResponse.headers.set('Cache-Control', 'no-store')
     return errorResponse
   }
 }

@@ -15,6 +15,8 @@ function addCorsHeaders(response: NextResponse): NextResponse {
   response.headers.set('Access-Control-Allow-Origin', '*')
   response.headers.set('Access-Control-Allow-Methods', 'POST, OPTIONS')
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  // Prevent caching of claim responses.
+  response.headers.set('Cache-Control', 'no-store')
   return response
 }
 

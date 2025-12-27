@@ -12,6 +12,9 @@ function addCorsHeaders(response: NextResponse): NextResponse {
   response.headers.set('Access-Control-Allow-Origin', '*')
   response.headers.set('Access-Control-Allow-Methods', 'GET, OPTIONS')
   response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+  // Prevent cross-user caching of personalized responses (includes claimed coupon state).
+  response.headers.set('Cache-Control', 'no-store')
+  response.headers.set('Vary', 'Authorization')
   return response
 }
 

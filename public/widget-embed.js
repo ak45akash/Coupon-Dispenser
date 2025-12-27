@@ -896,7 +896,8 @@
 
         // Reset button state
         if (button) {
-          button.disabled = false
+          // Respect global disable state when user already has an active claim.
+          button.disabled = !!this.state.hasActiveClaim
           button.classList.remove('loading')
           button.textContent = 'Generate Code'
         }
@@ -953,8 +954,12 @@
         const brandName = vendor.name || ''
         const offerText = coupon.discount_value || 'Special Offer'
 
+        const isClaimed = !!claimedCoupon
+        const isDisabled = !!this.state.hasActiveClaim && !isClaimed
+        const disabledMsg = 'You already have an active coupon. Please wait until it expires.'
+
         html += `
-          <div class="coupon-widget-card" data-coupon-card-id="${this.escapeHtml(String(couponId))}">`
+          <div class="coupon-widget-card ${isDisabled ? 'coupon-widget-card-disabled' : ''}" data-coupon-card-id="${this.escapeHtml(String(couponId))}">            ${isDisabled ? `<div class="coupon-widget-disabled-tooltip">${this.escapeHtml(String(disabledMsg))}</div>` : ''}`
 
         if (vendor.logo_url) {
           html += `<img src="${this.escapeHtml(String(vendor.logo_url))}" alt="${this.escapeHtml(String(brandName))}" class="coupon-widget-card-image" onerror="this.style.display='none'">`
@@ -978,6 +983,7 @@
                   data-coupon-id="${this.escapeHtml(String(couponId))}"
                   data-instance-id="${this.escapeHtml(String(this.config.containerId))}"
                   ${claimedCoupon ? 'style="display:none"' : ''}
+                  ${isDisabled ? 'disabled title="You already have an active coupon."' : ''}
                   onclick="CouponWidget.handleGenerateCode('${this.escapeHtml(String(this.config.containerId))}', '${this.escapeHtml(String(couponId))}')">
                   Generate Code
                 </button>
