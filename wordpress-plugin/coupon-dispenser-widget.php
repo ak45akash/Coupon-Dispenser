@@ -132,6 +132,11 @@ class Coupon_Dispenser_Widget {
             Coupon_Dispenser_Settings::get_instance();
         }
         
+        // Bypass REST API nonce requirement for our endpoint
+        // WordPress REST API requires nonce for cookie auth, but external widget can't provide it
+        // We'll authenticate manually inside the endpoint using is_user_logged_in()
+        add_filter('rest_authentication_errors', array($this, 'bypass_rest_nonce_for_token_endpoint'), 10, 1);
+        
         // Enqueue scripts
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'), 20);
         file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - wp_enqueue_scripts action registered\n", FILE_APPEND);
@@ -254,7 +259,7 @@ class Coupon_Dispenser_Widget {
         register_rest_route('coupon-dispenser/v1', '/token', array(
             'methods' => 'GET',
             'callback' => array($this, 'get_widget_session_token'),
-            'permission_callback' => array($this, 'rest_api_permission_check'), // Check if user is logged in
+            'permission_callback' => '__return_true', // Allow all requests - we authenticate manually inside
         ));
         
         // Debug endpoint (remove in production)
@@ -266,19 +271,18 @@ class Coupon_Dispenser_Widget {
     }
     
     /**
-     * REST API permission callback
-     * Returns true if user is logged in, false otherwise
+     * Bypass REST API nonce requirement for our token endpoint
+     * WordPress REST API requires nonce for cookie auth, but external widget can't provide it
+     * We authenticate manually inside the endpoint using is_user_logged_in()
      */
-    public function rest_api_permission_check() {
-        return is_user_logged_in();
-    }
-        
-        // Debug endpoint (remove in production)
-        register_rest_route('coupon-dispenser/v1', '/debug', array(
-            'methods' => 'GET',
-            'callback' => array($this, 'debug_config'),
-            'permission_callback' => '__return_true',
-        ));
+    public function bypass_rest_nonce_for_token_endpoint($result) {
+        // Only bypass for our specific endpoint
+        $request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+        if (strpos($request_uri, '/wp-json/coupon-dispenser/v1/token') !== false) {
+            // Allow the request through - we'll authenticate manually in the callback
+            return true;
+        }
+        return $result;
     }
     
     /**
@@ -372,12 +376,23 @@ class Coupon_Dispenser_Widget {
             }
             
             // REQUIRE logged-in users - anonymous users are not allowed
-            // Use get_current_user_id() - WordPress REST API authenticates automatically when nonce is provided
+            // We authenticate manually here since we bypassed REST nonce requirement
+            // WordPress cookies are sent automatically by browser with credentials: 'include'
+            if (!is_user_logged_in()) {
+                error_log('Coupon Dispenser Plugin: User is not logged in (is_user_logged_in() returned false).');
+                return new WP_Error(
+                    'authentication_required',
+                    'You must be logged in to view and claim coupons. Please log in to your account.',
+                    array('status' => 401)
+                );
+            }
+            
+            // Get user ID - this works because we're authenticated via cookies
             $user_id = get_current_user_id();
             
-            // get_current_user_id() returns 0 if user is not logged in or nonce is invalid
+            // get_current_user_id() returns 0 if user is not logged in
             if ($user_id === 0) {
-                error_log('Coupon Dispenser Plugin: User is not logged in (get_current_user_id() returned 0). This usually means the REST API nonce is missing or invalid.');
+                error_log('Coupon Dispenser Plugin: User is not logged in (get_current_user_id() returned 0).');
                 return new WP_Error(
                     'authentication_required',
                     'You must be logged in to view and claim coupons. Please log in to your account.',
