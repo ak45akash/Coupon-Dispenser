@@ -254,8 +254,24 @@ class Coupon_Dispenser_Widget {
         register_rest_route('coupon-dispenser/v1', '/token', array(
             'methods' => 'GET',
             'callback' => array($this, 'get_widget_session_token'),
-            'permission_callback' => 'is_user_logged_in', // WordPress REST API standard: require logged-in user
+            'permission_callback' => array($this, 'rest_api_permission_check'), // Check if user is logged in
         ));
+        
+        // Debug endpoint (remove in production)
+        register_rest_route('coupon-dispenser/v1', '/debug', array(
+            'methods' => 'GET',
+            'callback' => array($this, 'debug_config'),
+            'permission_callback' => '__return_true',
+        ));
+    }
+    
+    /**
+     * REST API permission callback
+     * Returns true if user is logged in, false otherwise
+     */
+    public function rest_api_permission_check() {
+        return is_user_logged_in();
+    }
         
         // Debug endpoint (remove in production)
         register_rest_route('coupon-dispenser/v1', '/debug', array(
