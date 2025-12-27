@@ -169,6 +169,8 @@ export async function GET(request: NextRequest) {
     // Calculate current month in YYYYMM format
     const now = new Date()
     const currentMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}` // YYYYMM
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+    startOfMonth.setHours(0, 0, 0, 0)
 
     // Check if user already claimed a coupon this month for this vendor
     let userAlreadyClaimed = false
@@ -178,7 +180,9 @@ export async function GET(request: NextRequest) {
         .select('coupon_id, claimed_at')
         .eq('vendor_id', vendorId)
         .eq('user_id', internalUserId)
-        .eq('claim_month', currentMonth)
+        // Use claimed_at range instead of claim_month equality to support older DB schemas
+        // where claim_month may still be DATE (migration not applied).
+        .gte('claimed_at', startOfMonth.toISOString())
         .limit(1)
         .maybeSingle()
 

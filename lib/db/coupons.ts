@@ -341,9 +341,8 @@ export async function atomicClaimCoupon(
     throw new Error('COUPON_ALREADY_CLAIMED')
   }
 
-  // Calculate claim_month in YYYYMM format
+  // Calculate claim timestamps
   const now = new Date()
-  const claimMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}` // YYYYMM
   const claimedAt = now.toISOString()
   const expiryDate = new Date(now)
   expiryDate.setDate(expiryDate.getDate() + 30)
@@ -391,7 +390,6 @@ export async function atomicClaimCoupon(
       vendor_id: coupon.vendor_id,
       coupon_id: coupon.id,
       claimed_at: claimedAt,
-      claim_month: claimMonth,
     })
 
   if (historyError) {
