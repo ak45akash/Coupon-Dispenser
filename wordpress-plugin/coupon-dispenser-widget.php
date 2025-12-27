@@ -435,11 +435,29 @@ class Coupon_Dispenser_Widget {
                 );
             }
             
+            /**
+             * IMPORTANT HOSTING QUIRK HANDLING:
+             * Some hosts/security plugins disable WordPress's cookie->user resolution specifically for REST requests.
+             * We do NOT read cookies in JS. We also avoid custom cookie parsing in PHP.
+             * Instead, we ensure WordPress core cookie auth callback is available and then prime the current user.
+             */
+            if (function_exists('wp_validate_auth_cookie') && !has_filter('determine_current_user', 'wp_validate_auth_cookie')) {
+                // Re-add core cookie validator ONLY if something removed it.
+                add_filter('determine_current_user', 'wp_validate_auth_cookie', 20);
+                error_log('Coupon Dispenser Plugin: Re-added wp_validate_auth_cookie to determine_current_user (was missing).');
+            }
+
+            // Prime current user from cookies (if available)
+            if (function_exists('wp_get_current_user')) {
+                wp_get_current_user();
+            }
+
             // REQUIRE logged-in users - anonymous users are not allowed
             // We authenticate manually here since we bypassed REST nonce requirement
             // WordPress cookies are sent automatically by browser with credentials: 'include'
             if (!is_user_logged_in()) {
-                error_log('Coupon Dispenser Plugin: User is not logged in (is_user_logged_in() returned false).');
+                $has_cookie = (isset($_COOKIE) && is_array($_COOKIE) && !empty($_COOKIE));
+                error_log('Coupon Dispenser Plugin: User is not logged in (is_user_logged_in() returned false). Cookies present: ' . ($has_cookie ? 'yes' : 'no'));
                 return new WP_Error(
                     'authentication_required',
                     'You must be logged in to view and claim coupons. Please log in to your account.',
