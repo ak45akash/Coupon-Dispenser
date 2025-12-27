@@ -862,7 +862,7 @@
         if (button) {
           button.disabled = false
           button.classList.remove('loading')
-          button.textContent = 'Generate Code'
+          button.textContent = 'Get Code'
         }
       }
     }
