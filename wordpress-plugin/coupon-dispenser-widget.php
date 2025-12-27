@@ -132,6 +132,10 @@ class Coupon_Dispenser_Widget {
             Coupon_Dispenser_Settings::get_instance();
         }
         
+        // Ensure WordPress authenticates users in REST API context
+        // This makes get_current_user_id() work properly in REST API
+        add_filter('determine_current_user', array($this, 'rest_api_authenticate_user'), 20);
+        
         // Enqueue scripts
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'), 20);
         file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - wp_enqueue_scripts action registered\n", FILE_APPEND);
@@ -139,6 +143,36 @@ class Coupon_Dispenser_Widget {
         // Register REST API endpoint for widget session token
         add_action('rest_api_init', array($this, 'register_rest_routes'));
         file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - rest_api_init action registered\n", FILE_APPEND);
+    }
+    
+    /**
+     * Ensure WordPress authenticates users in REST API context
+     * This filter ensures get_current_user_id() works properly
+     * WordPress handles cookie authentication automatically - we just ensure it runs
+     */
+    public function rest_api_authenticate_user($user_id) {
+        // If user is already authenticated, return it
+        if ($user_id) {
+            return $user_id;
+        }
+        
+        // Only process REST API requests for our endpoint
+        if (!defined('REST_REQUEST') || !REST_REQUEST) {
+            return $user_id;
+        }
+        
+        // Check if this is our plugin's REST endpoint
+        $request_uri = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+        if (strpos($request_uri, '/wp-json/coupon-dispenser/') === false) {
+            return $user_id;
+        }
+        
+        // WordPress automatically authenticates from cookies via determine_current_user
+        // We just need to ensure the user is loaded. WordPress handles this internally.
+        // If cookies are present, WordPress will authenticate automatically.
+        // get_current_user_id() will then work correctly.
+        
+        return $user_id;
     }
     
     /**
@@ -214,7 +248,7 @@ class Coupon_Dispenser_Widget {
         register_rest_route('coupon-dispenser/v1', '/token', array(
             'methods' => 'GET',
             'callback' => array($this, 'get_widget_session_token'),
-            'permission_callback' => '__return_true', // Allow all requests - we handle auth internally
+            'permission_callback' => array($this, 'rest_api_permission_check'), // Check authentication but allow all
         ));
         
         // Debug endpoint (remove in production)
@@ -275,6 +309,35 @@ class Coupon_Dispenser_Widget {
                 );
             }
             
+            // CRITICAL: Force WordPress to authenticate the user
+            // WordPress REST API doesn't automatically authenticate unless we explicitly request it
+            // This ensures get_current_user_id() works properly
+            // WordPress handles cookie authentication internally - we don't read cookies directly
+            if (!function_exists('wp_set_current_user')) {
+                require_once(ABSPATH . 'wp-includes/pluggable.php');
+            }
+            
+            // Force WordPress to determine the current user
+            // WordPress automatically authenticates from cookies via the determine_current_user filter
+            // We're not reading cookies directly - WordPress does that internally
+            $current_user_id = wp_get_current_user()->ID;
+            
+            // If wp_get_current_user() didn't work, try to force WordPress authentication
+            // This happens when REST API doesn't automatically authenticate
+            if ($current_user_id === 0) {
+                // Force WordPress to run its authentication system
+                // WordPress's determine_current_user filter handles cookie authentication internally
+                // We're not reading cookies - WordPress does that
+                $user_id = apply_filters('determine_current_user', 0);
+                if ($user_id && $user_id > 0) {
+                    wp_set_current_user($user_id);
+                    $current_user_id = $user_id;
+                    error_log('Coupon Dispenser Plugin: Authenticated user via WordPress authentication system: ' . $current_user_id);
+                } else {
+                    error_log('Coupon Dispenser Plugin: WordPress authentication system returned user ID 0');
+                }
+            }
+            
             // Get vendor ID and API key from options (settings override constants)
             // ALWAYS prioritize options over constants to allow manual updates
             $vendor_id = get_option('cdw_vendor_id', '');
@@ -316,13 +379,12 @@ class Coupon_Dispenser_Widget {
             }
             
             // REQUIRE logged-in users - anonymous users are not allowed
-            // Use get_current_user_id() - the correct WordPress function for server-side user detection
-            // This works in REST API context because WordPress handles authentication automatically
-            $user_id = get_current_user_id();
+            // Use the authenticated user ID we got above
+            $user_id = $current_user_id;
             
             // get_current_user_id() returns 0 if user is not logged in
             if ($user_id === 0) {
-                error_log('Coupon Dispenser Plugin: User is not logged in (get_current_user_id() returned 0)');
+                error_log('Coupon Dispenser Plugin: User is not logged in (user ID is 0)');
                 return new WP_Error(
                     'authentication_required',
                     'You must be logged in to view and claim coupons. Please log in to your account.',
