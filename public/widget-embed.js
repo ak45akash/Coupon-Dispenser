@@ -361,28 +361,9 @@
 
       console.log('CouponWidget: Fetching widget session token from partner backend:', apiKeyEndpoint)
 
-      // Try to detect WordPress user ID if available
-      const wpUserId = detectUserId()
-      
-      // Build query parameters
-      const queryParams = new URLSearchParams()
-      
-      // Only pass user ID if we detected a REAL WordPress user ID (not anonymous)
-      // If we can't detect a user ID, don't pass any user parameter
-      // The plugin will detect logged-in users via WordPress cookies (is_user_logged_in())
-      // Anonymous users are not allowed - the plugin will return 401
-      if (wpUserId && !wpUserId.startsWith('anon_') && !wpUserId.startsWith('anonymous-')) {
-        // This is a real WordPress user ID (numeric)
-        queryParams.append('widget_user_id', wpUserId)
-        console.log('CouponWidget: Passing WordPress user ID to plugin endpoint:', wpUserId)
-      } else {
-        // No user ID detected - don't pass any user parameter
-        // Let the plugin detect logged-in users via WordPress cookies
-        // If user is not logged in, plugin will return 401 (which is correct)
-        console.log('CouponWidget: No WordPress user ID detected. Plugin will detect logged-in user via cookies.')
-      }
-
-      const url = queryParams.toString() ? `${apiKeyEndpoint}?${queryParams.toString()}` : apiKeyEndpoint
+      // Authentication is handled server-side by the WordPress plugin
+      // We just call the endpoint - the plugin authenticates via WordPress cookies
+      const url = apiKeyEndpoint
 
       // Get REST API nonce from WordPress (exposed via wp_localize_script)
       const restNonce = typeof couponDispenserWidget !== 'undefined' && couponDispenserWidget.restNonce
@@ -402,7 +383,7 @@
       const response = await fetch(url, {
         method: 'GET',
         headers: headers,
-        credentials: 'same-origin', // WordPress REST API requires same-origin for cookie auth
+        credentials: 'include', // Include cookies for WordPress authentication
         mode: 'cors',
       })
 
@@ -410,16 +391,8 @@
         const errorData = await response.json().catch(() => ({}))
         
         // If we get 401, it means user is not logged in
-        // Clear any cached anonymous ID and show helpful message
         if (response.status === 401) {
-          try {
-            localStorage.removeItem('coupon_widget_anonymous_id')
-            console.warn('CouponWidget: Authentication required. User must be logged in to access coupons.')
-          } catch (e) {
-            // Ignore localStorage errors
-          }
-          
-          const errorMessage = errorData.error || errorData.message || 'You must be logged in to view and claim coupons. Please log in to your WordPress account.'
+          const errorMessage = errorData.error || errorData.message || 'You must be logged in to view and claim coupons. Please log in to your account.'
           throw new Error(errorMessage)
         }
         
@@ -858,44 +831,15 @@
       }
 
       try {
-        // Determine which user ID to use - try multiple methods
-        let userIdToUse = this.config.userId
-        
-        // Method 1: Try auto-detection (WordPress globals, meta tags, etc.)
-        if (!userIdToUse) {
-          userIdToUse = detectUserId()
-          if (userIdToUse) {
-            this.config.userId = userIdToUse
-            console.log('CouponWidget: Using auto-detected user ID:', userIdToUse)
-          }
-        }
-        
-        // Method 2: Try WordPress REST API fetch (async)
-        if (!userIdToUse) {
-          try {
-            const wpUserId = await fetchWordPressUserIdSync()
-            if (wpUserId) {
-              userIdToUse = wpUserId
-              this.config.userId = userIdToUse
-              console.log('CouponWidget: Fetched WordPress user ID from REST API:', userIdToUse)
-            }
-          } catch (e) {
-            console.debug('CouponWidget: WordPress REST API fetch failed:', e)
-          }
-        }
-        
-        // Method 3: No fallback - anonymous users are not allowed
-        // If we can't detect a user ID, the claim will fail with authentication error
-        // This is intentional - only logged-in users can claim coupons
-        if (!userIdToUse) {
-          throw new Error('Authentication required. You must be logged in to claim coupons. Please log in to your WordPress account.')
-        }
-        
-        console.log('CouponWidget: Attempting to claim coupon with user ID:', userIdToUse)
+        // User ID is managed by the widget session token from the plugin endpoint
+        // The plugin authenticates the user server-side and includes user_id in the session token
+        // We don't need to detect or pass user ID here
+        // Removed all WordPress user detection - authentication handled by plugin
+        console.log('CouponWidget: Attempting to claim coupon')
         
         const claimedCoupon = await claimCoupon(
           couponId, 
-          userIdToUse,
+          null, // User ID is in the session token
           this.config.previewMode,
           0,
           this.state.widgetSessionToken
@@ -909,23 +853,116 @@
         this.updateCouponCard(couponId, claimedCoupon)
       } catch (error) {
         console.error('Claim error:', error)
-        this.showError(couponId, error.message || 'Failed to generate code. Please try again.')
-        
-        // Reset button
+
+        // Show error to user
+        this.state.errors.set(couponId, error.message || 'Failed to claim coupon')
+        this.updateCouponCard(couponId, null)
+
+        // Reset button state
         if (button) {
           button.disabled = false
           button.classList.remove('loading')
-          button.textContent = 'Generate Code'
+          button.textContent = 'Get Code'
         }
       }
     }
 
-    showError(couponId, message) {
-      this.state.errors.set(couponId, message)
-      this.updateCouponCard(couponId)
+    /**
+     * Render the widget UI
+     * Safely renders a basic widget container
+     */
+    render() {
+      if (!this.container) {
+        console.warn('CouponWidget: Cannot render - container not found')
+        return
+      }
+
+      const { loading, vendor, coupons, error, claimedCoupons, errors, hasActiveClaim } = this.state
+
+      let html = '<div class="coupon-widget-container">'
+
+      if (loading) {
+        html += '<div class="coupon-widget-empty">Loading coupons...</div>'
+      } else if (error) {
+        html += `<div class="coupon-widget-error">${this.escapeHtml(error)}</div>`
+      } else if (!vendor || !coupons || coupons.length === 0) {
+        html += '<div class="coupon-widget-empty">No coupons available at this time.</div>'
+      } else {
+        html += '<div class="coupon-widget-grid">'
+        coupons.forEach((coupon) => {
+          const claimedCoupon = claimedCoupons.get(coupon.id)
+          const couponError = errors.get(coupon.id)
+          const offerText = coupon.discount_value || 'Special Offer'
+          const isActiveClaim = hasActiveClaim && coupon.is_claimed && claimedCoupon
+          const isDisabled = hasActiveClaim && !isActiveClaim && !claimedCoupon
+
+          html += `
+            <div class="coupon-widget-card ${isDisabled ? 'opacity-60' : ''}" data-coupon-card-id="${coupon.id}" style="${isDisabled ? 'pointer-events: none;' : ''}">
+              ${vendor.logo_url ? `<img src="${this.escapeHtml(vendor.logo_url)}" alt="${this.escapeHtml(vendor.name)}" class="coupon-widget-card-image" onerror="this.style.display='none'">` : '<div class="coupon-widget-card-image"></div>'}
+              <div class="coupon-widget-card-content">
+                <div class="coupon-widget-card-brand">${this.escapeHtml(vendor.name)}</div>
+                <div class="coupon-widget-card-offer">${this.escapeHtml(offerText)}</div>
+                ${vendor.description ? `<div class="coupon-widget-card-description">${this.escapeHtml(vendor.description)}</div>` : ''}
+                <div class="coupon-widget-code-section">
+                  ${couponError ? `<div class="coupon-widget-error">${this.escapeHtml(couponError)}</div>` : ''}
+                  ${isDisabled ? '<div class="coupon-widget-error" style="background: #7c2d12; border-color: #991b1b; color: #fca5a5;">You already have an active coupon. Please wait until it expires.</div>' : ''}
+                  <div class="coupon-widget-code-display ${claimedCoupon || isActiveClaim ? 'show' : ''}">
+                    <div class="coupon-widget-code-label">Your Coupon Code</div>
+                    <div class="coupon-widget-code-value">${claimedCoupon ? this.escapeHtml(claimedCoupon.code) : (isActiveClaim && coupon.code ? this.escapeHtml(coupon.code) : '')}</div>
+                  </div>
+                  <button 
+                    class="coupon-widget-button" 
+                    data-coupon-id="${coupon.id}"
+                    data-instance-id="${this.config.containerId}"
+                    ${claimedCoupon || isActiveClaim || isDisabled ? 'style="display:none"' : ''}
+                    ${isDisabled ? 'disabled' : ''}
+                    onclick="CouponWidget.handleGenerateCode('${this.config.containerId}', '${coupon.id}')">
+                    ${claimedCoupon || isActiveClaim ? '' : 'Generate Code'}
+                  </button>
+                  <button 
+                    class="coupon-widget-copy-button ${claimedCoupon || isActiveClaim ? 'show' : ''}"
+                    data-coupon-id="${coupon.id}"
+                    onclick="CouponWidget.copyCode('${this.config.containerId}', '${coupon.id}')">
+                    Copy Code
+                  </button>
+                </div>
+              </div>
+            </div>
+          `
+        })
+        html += '</div>'
+      }
+
+      html += '</div>'
+      this.container.innerHTML = html
     }
 
+    /**
+     * Update state and re-render
+     * @param {Object} partialState - Partial state object to merge
+     */
+    setState(partialState) {
+      if (!partialState || typeof partialState !== 'object') {
+        return
+      }
+
+      // Merge partial state into current state
+      Object.assign(this.state, partialState)
+
+      // Re-render if container exists
+      if (this.container) {
+        this.render()
+      }
+    }
+
+    /**
+     * Update a specific coupon card UI
+     * @param {string} couponId - Coupon ID
+     * @param {Object|null} claimedCoupon - Claimed coupon data or null
+     */
     updateCouponCard(couponId, claimedCoupon = null) {
+      if (!couponId) return
+
       const card = document.querySelector(`[data-coupon-card-id="${couponId}"]`)
       if (!card) return
 
@@ -935,12 +972,12 @@
       const copyButton = card.querySelector('.coupon-widget-copy-button')
       const errorDiv = card.querySelector('.coupon-widget-error')
 
-      // Clear error
+      // Clear existing error
       if (errorDiv) {
         errorDiv.remove()
       }
 
-      if (claimedCoupon) {
+      if (claimedCoupon && claimedCoupon.code) {
         // Show code
         if (codeDisplay) {
           codeDisplay.classList.add('show')
@@ -953,155 +990,103 @@
         }
         if (copyButton) {
           copyButton.classList.add('show')
-          copyButton.textContent = 'Copy Code'
         }
       } else {
-        // Show error if any
+        // Show error if present
         const error = this.state.errors.get(couponId)
-        if (error && card) {
-          const errorEl = document.createElement('div')
-          errorEl.className = 'coupon-widget-error'
-          errorEl.textContent = error
-          if (button) {
-            button.parentNode.insertBefore(errorEl, button)
+        if (error) {
+          const errorElement = document.createElement('div')
+          errorElement.className = 'coupon-widget-error'
+          errorElement.textContent = error
+          const codeSection = card.querySelector('.coupon-widget-code-section')
+          if (codeSection) {
+            codeSection.insertBefore(errorElement, codeSection.firstChild)
           }
         }
       }
     }
 
+    /**
+     * Show error for a specific coupon
+     * @param {string} couponId - Coupon ID
+     * @param {string} message - Error message
+     */
+    showError(couponId, message) {
+      if (!couponId || !message) return
+
+      this.state.errors.set(couponId, message)
+      this.updateCouponCard(couponId, null)
+    }
+
+    /**
+     * Copy coupon code to clipboard
+     * @param {string} couponId - Coupon ID
+     */
     copyCode(couponId) {
+      if (!couponId) return
+
       const claimedCoupon = this.state.claimedCoupons.get(couponId)
-      if (!claimedCoupon) return
+      if (!claimedCoupon || !claimedCoupon.code) {
+        console.warn('CouponWidget: No code available to copy for coupon', couponId)
+        return
+      }
 
       const code = claimedCoupon.code
-      const copyButton = document.querySelector(`[data-copy-coupon-id="${couponId}"]`)
 
-      if (navigator.clipboard) {
+      // Try modern clipboard API first
+      if (navigator.clipboard && navigator.clipboard.writeText) {
         navigator.clipboard.writeText(code).then(() => {
+          console.log('CouponWidget: Code copied to clipboard:', code)
+          // Update button to show copied state
+          const copyButton = document.querySelector(`[data-coupon-id="${couponId}"].coupon-widget-copy-button`)
           if (copyButton) {
-            copyButton.textContent = '✓ Copied!'
+            const originalText = copyButton.textContent
+            copyButton.textContent = 'Copied!'
             copyButton.classList.add('copied')
             setTimeout(() => {
-              copyButton.textContent = 'Copy Code'
+              copyButton.textContent = originalText
               copyButton.classList.remove('copied')
             }, 2000)
           }
-        }).catch(() => {
-          // Fallback
-          this.fallbackCopy(code, copyButton)
+        }).catch((err) => {
+          console.error('CouponWidget: Failed to copy code:', err)
+          this.fallbackCopyCode(code)
         })
       } else {
-        this.fallbackCopy(code, copyButton)
+        // Fallback for older browsers
+        this.fallbackCopyCode(code)
       }
     }
 
-    fallbackCopy(text, button) {
-      const textarea = document.createElement('textarea')
-      textarea.value = text
-      textarea.style.position = 'fixed'
-      textarea.style.opacity = '0'
-      document.body.appendChild(textarea)
-      textarea.select()
-      document.execCommand('copy')
-      document.body.removeChild(textarea)
-      
-      if (button) {
-        button.textContent = '✓ Copied!'
-        button.classList.add('copied')
-        setTimeout(() => {
-          button.textContent = 'Copy Code'
-          button.classList.remove('copied')
-        }, 2000)
+    /**
+     * Fallback copy method for older browsers
+     * @param {string} text - Text to copy
+     */
+    fallbackCopyCode(text) {
+      const textArea = document.createElement('textarea')
+      textArea.value = text
+      textArea.style.position = 'fixed'
+      textArea.style.left = '-999999px'
+      textArea.style.top = '-999999px'
+      document.body.appendChild(textArea)
+      textArea.focus()
+      textArea.select()
+
+      try {
+        document.execCommand('copy')
+        console.log('CouponWidget: Code copied to clipboard (fallback):', text)
+        document.body.removeChild(textArea)
+      } catch (err) {
+        console.error('CouponWidget: Fallback copy failed:', err)
+        document.body.removeChild(textArea)
       }
     }
 
-    setState(newState) {
-      this.state = { ...this.state, ...newState }
-      this.render()
-    }
-
-    render() {
-      if (!this.container) return
-
-      const { loading, vendor, coupons, error, hasActiveClaim, activeClaimExpiry } = this.state
-
-      if (loading) {
-        this.container.innerHTML = '<div class="coupon-widget-empty"><div class="coupon-widget-empty-icon">⏳</div><p>Loading coupons...</p></div>'
-        return
-      }
-
-      if (error) {
-        this.container.innerHTML = `<div class="coupon-widget-error">${this.escapeHtml(error)}</div>`
-        return
-      }
-
-      if (!vendor || coupons.length === 0) {
-        this.container.innerHTML = '<div class="coupon-widget-empty"><div class="coupon-widget-empty-icon">📭</div><p>No coupons available at this time.</p></div>'
-        return
-      }
-
-      // Show active claim message if user has one
-      let activeClaimMessage = ''
-      if (hasActiveClaim && activeClaimExpiry) {
-        const expiryDate = new Date(activeClaimExpiry)
-        const daysLeft = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24))
-        activeClaimMessage = `<div class="coupon-widget-info" style="background: #1e3a8a; color: #dbeafe; padding: 12px; border-radius: 8px; margin-bottom: 16px; text-align: center;">
-          <strong>You have an active coupon!</strong> It expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}. Other coupons are disabled until it expires.
-        </div>`
-      }
-
-      let html = activeClaimMessage + '<div class="coupon-widget-grid">'
-
-      coupons.forEach((coupon) => {
-        const claimedCoupon = this.state.claimedCoupons.get(coupon.id)
-        const error = this.state.errors.get(coupon.id)
-        const offerText = coupon.discount_value || 'Special Offer'
-        
-        // Check if this coupon is the active claim or if user has an active claim for another coupon
-        const isActiveClaim = hasActiveClaim && coupon.is_claimed && claimedCoupon
-        const isDisabled = hasActiveClaim && !isActiveClaim && !claimedCoupon
-        
-        html += `
-          <div class="coupon-widget-card ${isDisabled ? 'opacity-60' : ''}" data-coupon-card-id="${coupon.id}" style="${isDisabled ? 'pointer-events: none;' : ''}">
-            ${vendor.logo_url ? `<img src="${this.escapeHtml(vendor.logo_url)}" alt="${this.escapeHtml(vendor.name)}" class="coupon-widget-card-image" onerror="this.style.display='none'">` : '<div class="coupon-widget-card-image"></div>'}
-            <div class="coupon-widget-card-content">
-              <div class="coupon-widget-card-brand">${this.escapeHtml(vendor.name)}</div>
-              <div class="coupon-widget-card-offer">${this.escapeHtml(offerText)}</div>
-              ${vendor.description ? `<div class="coupon-widget-card-description">${this.escapeHtml(vendor.description)}</div>` : ''}
-              <div class="coupon-widget-code-section">
-                ${error ? `<div class="coupon-widget-error">${this.escapeHtml(error)}</div>` : ''}
-                ${isDisabled ? '<div class="coupon-widget-error" style="background: #7c2d12; border-color: #991b1b; color: #fca5a5;">You already have an active coupon. Please wait until it expires.</div>' : ''}
-                <div class="coupon-widget-code-display ${claimedCoupon || isActiveClaim ? 'show' : ''}">
-                  <div class="coupon-widget-code-label">Your Coupon Code</div>
-                  <div class="coupon-widget-code-value">${claimedCoupon ? this.escapeHtml(claimedCoupon.code) : (isActiveClaim && coupon.code ? this.escapeHtml(coupon.code) : '')}</div>
-                </div>
-                <button 
-                  class="coupon-widget-button" 
-                  data-coupon-id="${coupon.id}"
-                  data-instance-id="${this.config.containerId}"
-                  ${claimedCoupon || isActiveClaim || isDisabled ? 'style="display:none"' : ''}
-                  ${isDisabled ? 'disabled' : ''}
-                  onclick="CouponWidget.handleGenerateCode('${this.config.containerId}', '${coupon.id}')">
-                  ${claimedCoupon || isActiveClaim ? '' : 'Generate Code'}
-                </button>
-                <button 
-                  class="coupon-widget-copy-button ${claimedCoupon || isActiveClaim ? 'show' : ''}"
-                  data-copy-coupon-id="${coupon.id}"
-                  data-instance-id="${this.config.containerId}"
-                  onclick="CouponWidget.copyCode('${this.config.containerId}', '${coupon.id}')">
-                  Copy Code
-                </button>
-                ${vendor.website ? `<a href="${this.escapeHtml(vendor.website)}" target="_blank" rel="noopener noreferrer" class="coupon-widget-link">VISIT WEBSITE</a>` : ''}
-              </div>
-            </div>
-          </div>
-        `
-      })
-
-      html += '</div>'
-      this.container.innerHTML = html
-    }
-
+    /**
+     * Escape HTML to prevent XSS
+     * @param {string} str - String to escape
+     * @returns {string} Escaped string
+     */
     escapeHtml(str) {
       if (!str) return ''
       const div = document.createElement('div')
@@ -1110,282 +1095,33 @@
     }
   }
 
-  /**
-   * Automatically detect user ID from various CMS platforms
-   * Supports: WordPress, WooCommerce, custom implementations
-   */
-  function detectUserId() {
-    // Priority 1: Check for custom user ID in global variable (set by WordPress helper code)
-    // This is the most reliable method and doesn't require REST API
-    if (typeof window.COUPON_WIDGET_USER_ID !== 'undefined') {
-      if (window.COUPON_WIDGET_USER_ID) {
-        console.log('CouponWidget: ✅ Detected WordPress user ID from helper code:', window.COUPON_WIDGET_USER_ID)
-        return String(window.COUPON_WIDGET_USER_ID)
-      } else {
-        // Helper code exists but user is not logged in
-        console.log('CouponWidget: ℹ️ Helper code detected but user is not logged in (COUPON_WIDGET_USER_ID is empty)')
-      }
-    } else {
-      // Helper code not detected - show helpful message
-      console.warn('CouponWidget: ⚠️ WordPress helper code not detected!')
-      console.warn('CouponWidget: 💡 Add this to your theme\'s functions.php:')
-      console.warn('CouponWidget: function expose_user_id_to_coupon_widget() {')
-      console.warn('CouponWidget:   if (is_user_logged_in()) {')
-      console.warn('CouponWidget:     $user_id = get_current_user_id();')
-      console.warn('CouponWidget:     echo "<script>window.COUPON_WIDGET_USER_ID = \'".$user_id."\';</script>";')
-      console.warn('CouponWidget:   }')
-      console.warn('CouponWidget: }')
-      console.warn('CouponWidget: add_action(\'wp_footer\', \'expose_user_id_to_coupon_widget\');')
-    }
-
-    // Priority 2: Check for user ID in data attribute on body or html (set by helper code)
-    const bodyUserId = document.body?.getAttribute('data-user-id') || document.documentElement?.getAttribute('data-user-id')
-    if (bodyUserId) {
-      console.log('CouponWidget: ✅ Detected WordPress user ID from data attribute:', bodyUserId)
-      return bodyUserId
-    }
-
-    // Priority 3: Check for WordPress user data in meta tags (set by helper code)
-    const wpUserIdMeta = document.querySelector('meta[name="wp-user-id"]')
-    if (wpUserIdMeta && wpUserIdMeta.content) {
-      console.log('CouponWidget: ✅ Detected WordPress user ID from meta tag:', wpUserIdMeta.content)
-      return wpUserIdMeta.content
-    }
-
-    // Priority 4: Check WordPress global variables (if available)
-    if (typeof window.wpApiSettings !== 'undefined' && window.wpApiSettings.currentUser) {
-      const wpUser = window.wpApiSettings.currentUser
-      if (wpUser.id) {
-        console.log('CouponWidget: ✅ Detected WordPress user ID from wpApiSettings:', wpUser.id)
-        return String(wpUser.id)
-      }
-    }
-
-    // Priority 5: Check WordPress REST API user object
-    if (typeof window.wp !== 'undefined' && window.wp.api && window.wp.api.models) {
-      try {
-        const currentUser = window.wp.api.models.User.currentUser
-        if (currentUser && currentUser.id) {
-          console.log('CouponWidget: ✅ Detected WordPress REST API user ID:', currentUser.id)
-          return String(currentUser.id)
-        }
-      } catch (e) {
-        // Ignore errors
-      }
-    }
-
-    // Priority 6: Check for WooCommerce user data
-    if (typeof window.wc_add_to_cart_params !== 'undefined' && window.wc_add_to_cart_params.current_user_id) {
-      console.log('CouponWidget: ✅ Detected WooCommerce user ID:', window.wc_add_to_cart_params.current_user_id)
-      return String(window.wc_add_to_cart_params.current_user_id)
-    }
-
-    // 7. Try to fetch from WordPress REST API synchronously (if possible)
-    // Note: This is a best-effort attempt, full async fetch happens later
-    try {
-      if (typeof window.wpApiSettings !== 'undefined' && window.wpApiSettings.root) {
-        // We'll try async fetch, but for now return null
-        // The async fetch will update the widget later
-      }
-    } catch (e) {
-      // Ignore
-    }
-
-    // 8. No anonymous user support - return null if no user ID detected
-    // Anonymous users are not allowed - only logged-in users can access coupons
-    // The plugin will detect logged-in users via WordPress cookies
-    console.warn('CouponWidget: No WordPress user ID detected. Plugin will attempt to detect logged-in user via cookies.')
-    console.warn('CouponWidget: If you are logged in, the plugin should detect your user ID automatically.')
-    console.warn('CouponWidget: If you see authentication errors, please ensure you are logged in to WordPress.')
-    
-    // Clear any cached anonymous ID since we don't support anonymous users
-    try {
-      localStorage.removeItem('coupon_widget_anonymous_id')
-    } catch (e) {
-      // Ignore localStorage errors
-    }
-    
-    return null
-  }
-
-  /**
-   * Try to fetch user ID from WordPress REST API
-   * This is called as a last resort - helper code in functions.php is preferred
-   * Note: This often returns 401 if REST API authentication isn't configured
-   */
-  async function fetchWordPressUserIdSync() {
-    // Skip REST API fetch if helper code should have set the user ID
-    // This prevents unnecessary 401 errors
-    if (typeof window.COUPON_WIDGET_USER_ID !== 'undefined') {
-      return null // Helper code should have set it, but it's empty/undefined
-    }
-    
-    try {
-      // Try multiple WordPress REST API endpoints
-      const endpoints = []
-      
-      // Method 1: Use wpApiSettings if available
-      if (typeof window.wpApiSettings !== 'undefined' && window.wpApiSettings.root) {
-        endpoints.push(window.wpApiSettings.root + 'wp/v2/users/me')
-      }
-      
-      // Method 2: Try common WordPress REST API paths
-      const currentOrigin = window.location.origin
-      endpoints.push(
-        currentOrigin + '/wp-json/wp/v2/users/me',
-        currentOrigin + '/?rest_route=/wp/v2/users/me'
-      )
-      
-      // Try each endpoint
-      for (const apiUrl of endpoints) {
-        try {
-          const response = await fetch(apiUrl, {
-            credentials: 'include', // Include cookies for authentication
-            method: 'GET',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-          })
-
-          if (response.ok) {
-            const user = await response.json()
-            if (user.id) {
-              console.log('CouponWidget: ✅ Fetched WordPress user ID from REST API:', user.id)
-              return String(user.id)
-            }
-          } else if (response.status === 401) {
-            // 401 is expected if REST API auth isn't configured - don't log as error
-            console.debug('CouponWidget: WordPress REST API requires authentication (401). Use helper code in functions.php instead.')
-            break // Don't try other endpoints if auth is required
-          }
-        } catch (e) {
-          // Continue to next endpoint
-          continue
-        }
-      }
-    } catch (error) {
-      // Silently fail - REST API is optional
-      console.debug('CouponWidget: Could not fetch WordPress user ID from REST API:', error)
-    }
-    return null
-  }
-
-  /**
-   * Try to fetch user ID from WordPress REST API (async version)
-   * This is called asynchronously and updates the widget if user is found
-   */
-  async function fetchWordPressUserId() {
-    return await fetchWordPressUserIdSync()
-  }
-
+  // Global CouponWidget object
   const CouponWidget = {
     initFromAttributes() {
-      // Find all potential widget containers
-      const containers = document.querySelectorAll(
-        '[id^="coupon-widget"], [data-coupon-widget], [data-vendor-id]'
-      )
-
-      if (containers.length === 0) {
-        console.warn('[CouponWidget] No containers found. Make sure you have a div with data-vendor-id attribute.')
-        console.log('[CouponWidget] Checking for any div with id containing "coupon":', document.querySelectorAll('[id*="coupon"]').length)
-        console.log('[CouponWidget] Checking for any element with data-vendor-id:', document.querySelectorAll('[data-vendor-id]').length)
-        return
-      }
-
-      console.log(`[CouponWidget] Found ${containers.length} potential container(s)`)
-      
-      // Log details about each container
-      containers.forEach((container, index) => {
-        console.log(`[CouponWidget] Container ${index + 1}:`, {
-          id: container.id,
-          vendorId: container.getAttribute('data-vendor-id'),
-          apiEndpoint: container.getAttribute('data-api-key-endpoint'),
-          className: container.className,
-          initialized: container.dataset.widgetInitialized
-        })
-      })
-
-      // Try to auto-detect user ID once for all containers
-      let autoDetectedUserId = detectUserId()
-      
-      // If not found, try async WordPress REST API fetch
-      if (!autoDetectedUserId) {
-        fetchWordPressUserIdSync().then((wpUserId) => {
-          if (wpUserId) {
-            console.log('CouponWidget: Fetched WordPress user ID asynchronously:', wpUserId)
-            // Update all instances with the detected user ID
-            containers.forEach((container) => {
-              const containerId = container.id || container.getAttribute('id')
-              const instance = widgetState.instances.get(containerId)
-              if (instance && instance.config) {
-                instance.config.userId = wpUserId
-                console.log('CouponWidget: Updated instance with WordPress user ID')
-              }
-            })
-          }
-        })
-      }
-
+      const containers = document.querySelectorAll('[data-vendor-id]')
       containers.forEach((container) => {
-        // Skip if already initialized
-        if (container.dataset.widgetInitialized === 'true') {
-          return
-        }
+        if (container.dataset.widgetInitialized === 'true') return
 
-        const vendorId = container.getAttribute('data-vendor-id') || container.getAttribute('data-vendor')
-        // Use data attribute if provided, otherwise try auto-detection
-        let userId = container.getAttribute('data-user-id') || autoDetectedUserId
+        const vendorId = container.getAttribute('data-vendor-id')
         const theme = container.getAttribute('data-theme') || 'light'
         const apiKeyEndpoint = container.getAttribute('data-api-key-endpoint') || null
-        const containerId = container.id || `coupon-widget-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
-
-        if (!vendorId) {
-          // Skip containers without vendor-id (might be other elements)
-          return
-        }
-
-        // Validate vendor ID format
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-        if (!uuidRegex.test(vendorId)) {
-          console.warn('CouponWidget: Invalid vendor ID format:', vendorId)
-          return
-        }
+        const containerId = container.id || 'coupon-widget-' + Math.random().toString(36).slice(2)
 
         if (!container.id) {
           container.id = containerId
         }
 
-        // Mark as initialized to prevent duplicate initialization
         container.dataset.widgetInitialized = 'true'
 
         const instance = new CouponWidgetInstance({
           vendorId,
-          userId: userId || undefined, // Will be detected by plugin via cookies if not provided
           theme,
           containerId,
-          apiKeyEndpoint: apiKeyEndpoint || undefined, // API Key method endpoint
+          apiKeyEndpoint,
         })
 
         widgetState.instances.set(containerId, instance)
-        console.log(`[CouponWidget] Initializing widget for container ${containerId}${userId ? ` with user ID: ${userId}` : ' (plugin will detect logged-in user via cookies)'}`)
-        console.log(`[CouponWidget] Instance config:`, {
-          vendorId: vendorId,
-          userId: userId || 'auto-detect',
-          theme: theme,
-          containerId: containerId,
-          apiKeyEndpoint: apiKeyEndpoint || 'none'
-        })
         instance.init()
-
-        // Try to fetch WordPress user ID asynchronously and update if found
-        if (!userId) {
-          fetchWordPressUserId().then((wpUserId) => {
-            if (wpUserId && instance.config) {
-              instance.config.userId = wpUserId
-              console.log('CouponWidget: Updated widget with WordPress user ID:', wpUserId)
-            }
-          })
-        }
       })
     },
 
@@ -1395,15 +1131,7 @@
         return
       }
 
-      // Auto-detect user ID if not provided
-      if (!config.userId) {
-        const autoDetectedUserId = detectUserId()
-        if (autoDetectedUserId) {
-          config.userId = autoDetectedUserId
-          console.log('CouponWidget: Auto-detected user ID:', autoDetectedUserId)
-        }
-      }
-
+      // User ID is handled server-side by the plugin - we don't detect it client-side
       const containerId = config.containerId || 'coupon-widget'
       let container = document.getElementById(containerId)
 
@@ -1414,16 +1142,6 @@
       }
 
       const instance = new CouponWidgetInstance(config)
-      
-      // Try to fetch WordPress user ID asynchronously and update if found
-      if (!config.userId) {
-        fetchWordPressUserId().then((wpUserId) => {
-          if (wpUserId && instance.config) {
-            instance.config.userId = wpUserId
-            console.log('CouponWidget: Updated widget with WordPress user ID:', wpUserId)
-          }
-        })
-      }
       widgetState.instances.set(containerId, instance)
       instance.init()
 
