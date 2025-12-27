@@ -132,10 +132,6 @@ class Coupon_Dispenser_Widget {
             Coupon_Dispenser_Settings::get_instance();
         }
         
-        // Ensure WordPress authenticates users in REST API context
-        // This makes get_current_user_id() work properly in REST API
-        add_filter('determine_current_user', array($this, 'rest_api_authenticate_user'), 20);
-        
         // Enqueue scripts
         add_action('wp_enqueue_scripts', array($this, 'enqueue_scripts'), 20);
         file_put_contents($test_file_abs, date('Y-m-d H:i:s') . " - wp_enqueue_scripts action registered\n", FILE_APPEND);
@@ -217,6 +213,16 @@ class Coupon_Dispenser_Widget {
             true // Load in footer
         );
         
+        // Generate REST API nonce for authentication
+        $rest_nonce = wp_create_nonce('wp_rest');
+        
+        // Localize script to expose nonce and API URL
+        wp_localize_script('coupon-dispenser-widget', 'couponDispenserWidget', array(
+            'apiUrl' => $api_base_url,
+            'restNonce' => $rest_nonce,
+            'restUrl' => rest_url('coupon-dispenser/v1/token'),
+        ));
+        
         // Add inline script to configure API base URL
         wp_add_inline_script('coupon-dispenser-widget', 
             "console.log('[CouponDispenser] Script enqueued - URL: " . esc_js($widget_script_url) . "');" .
@@ -248,7 +254,7 @@ class Coupon_Dispenser_Widget {
         register_rest_route('coupon-dispenser/v1', '/token', array(
             'methods' => 'GET',
             'callback' => array($this, 'get_widget_session_token'),
-            'permission_callback' => array($this, 'rest_api_permission_check'), // Check authentication but allow all
+            'permission_callback' => 'is_user_logged_in', // WordPress REST API standard: require logged-in user
         ));
         
         // Debug endpoint (remove in production)
@@ -309,35 +315,6 @@ class Coupon_Dispenser_Widget {
                 );
             }
             
-            // CRITICAL: Force WordPress to authenticate the user
-            // WordPress REST API doesn't automatically authenticate unless we explicitly request it
-            // This ensures get_current_user_id() works properly
-            // WordPress handles cookie authentication internally - we don't read cookies directly
-            if (!function_exists('wp_set_current_user')) {
-                require_once(ABSPATH . 'wp-includes/pluggable.php');
-            }
-            
-            // Force WordPress to determine the current user
-            // WordPress automatically authenticates from cookies via the determine_current_user filter
-            // We're not reading cookies directly - WordPress does that internally
-            $current_user_id = wp_get_current_user()->ID;
-            
-            // If wp_get_current_user() didn't work, try to force WordPress authentication
-            // This happens when REST API doesn't automatically authenticate
-            if ($current_user_id === 0) {
-                // Force WordPress to run its authentication system
-                // WordPress's determine_current_user filter handles cookie authentication internally
-                // We're not reading cookies - WordPress does that
-                $user_id = apply_filters('determine_current_user', 0);
-                if ($user_id && $user_id > 0) {
-                    wp_set_current_user($user_id);
-                    $current_user_id = $user_id;
-                    error_log('Coupon Dispenser Plugin: Authenticated user via WordPress authentication system: ' . $current_user_id);
-                } else {
-                    error_log('Coupon Dispenser Plugin: WordPress authentication system returned user ID 0');
-                }
-            }
-            
             // Get vendor ID and API key from options (settings override constants)
             // ALWAYS prioritize options over constants to allow manual updates
             $vendor_id = get_option('cdw_vendor_id', '');
@@ -379,12 +356,12 @@ class Coupon_Dispenser_Widget {
             }
             
             // REQUIRE logged-in users - anonymous users are not allowed
-            // Use the authenticated user ID we got above
-            $user_id = $current_user_id;
+            // Use get_current_user_id() - WordPress REST API authenticates automatically when nonce is provided
+            $user_id = get_current_user_id();
             
-            // get_current_user_id() returns 0 if user is not logged in
+            // get_current_user_id() returns 0 if user is not logged in or nonce is invalid
             if ($user_id === 0) {
-                error_log('Coupon Dispenser Plugin: User is not logged in (user ID is 0)');
+                error_log('Coupon Dispenser Plugin: User is not logged in (get_current_user_id() returned 0). This usually means the REST API nonce is missing or invalid.');
                 return new WP_Error(
                     'authentication_required',
                     'You must be logged in to view and claim coupons. Please log in to your account.',

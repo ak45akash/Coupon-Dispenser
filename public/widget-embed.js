@@ -384,12 +384,25 @@
 
       const url = queryParams.toString() ? `${apiKeyEndpoint}?${queryParams.toString()}` : apiKeyEndpoint
 
+      // Get REST API nonce from WordPress (exposed via wp_localize_script)
+      const restNonce = typeof couponDispenserWidget !== 'undefined' && couponDispenserWidget.restNonce
+        ? couponDispenserWidget.restNonce
+        : null
+
+      // Build headers with nonce for WordPress REST API authentication
+      const headers = {
+        'Content-Type': 'application/json',
+      }
+      
+      // Add WordPress REST API nonce header if available
+      if (restNonce) {
+        headers['X-WP-Nonce'] = restNonce
+      }
+
       const response = await fetch(url, {
         method: 'GET',
-        headers: { 
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Include cookies for partner's auth
+        headers: headers,
+        credentials: 'same-origin', // WordPress REST API requires same-origin for cookie auth
         mode: 'cors',
       })
 
