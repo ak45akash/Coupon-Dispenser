@@ -345,23 +345,33 @@ export async function atomicClaimCoupon(
   const now = new Date()
   const claimMonth = `${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}` // YYYYMM
   const claimedAt = now.toISOString()
+  const expiryDate = new Date(now)
+  expiryDate.setDate(expiryDate.getDate() + 30)
 
   // Atomic transaction: Mark coupon as claimed AND insert claim history
   // We'll do this in two steps, but the unique constraints ensure atomicity
   
   // Step 1: Mark coupon as permanently claimed
-  const { error: updateError } = await supabaseAdmin
+  const { data: updatedRow, error: updateError } = await supabaseAdmin
     .from('coupons')
     .update({
       is_claimed: true,
       claimed_by: userId,
       claimed_at: claimedAt,
+      expiry_date: expiryDate.toISOString(),
     })
     .eq('id', couponId)
     .eq('is_claimed', false) // Only update if not already claimed (optimistic lock)
+    .select('id')
+    .maybeSingle()
 
   if (updateError) {
     throw new Error(`Database error: ${updateError.message}`)
+  }
+
+  // If nothing was updated, another request won the race.
+  if (!updatedRow) {
+    throw new Error('COUPON_ALREADY_CLAIMED')
   }
 
   // Reject anonymous users - only logged-in users can claim coupons
@@ -417,6 +427,7 @@ export async function atomicClaimCoupon(
             is_claimed: false,
             claimed_by: null,
             claimed_at: null,
+            expiry_date: null,
           })
           .eq('id', couponId)
         
@@ -431,6 +442,7 @@ export async function atomicClaimCoupon(
         is_claimed: false,
         claimed_by: null,
         claimed_at: null,
+        expiry_date: null,
       })
       .eq('id', couponId)
     
