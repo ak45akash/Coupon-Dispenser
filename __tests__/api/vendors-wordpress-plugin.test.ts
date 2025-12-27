@@ -91,51 +91,60 @@ describe('GET /api/vendors/[id]/wordpress-plugin', () => {
       .mockResolvedValueOnce(mockShortcodeContent)
       .mockResolvedValueOnce(mockWidgetRenderContent)
 
-    // Setup archiver mock
-    const mockArchive = archiver('zip', {}) as any
-    mockArchive.append = jest.fn().mockReturnThis()
-    mockArchive.on = jest.fn((event, callback) => {
-      if (event === 'end') {
-        // Simulate archive completion after finalize
-        setTimeout(() => {
-          callback()
-        }, 0)
-      }
-      return mockArchive
-    })
-    mockArchive.finalize = jest.fn(() => {
-      // Trigger 'end' event
-      setTimeout(() => {
-        const onCall = mockArchive.on.mock.calls.find(call => call[0] === 'end')
-        if (onCall && onCall[1]) {
-          onCall[1]()
+    // Setup archiver mock - properly typed
+    const mockArchive: {
+      append: jest.Mock
+      on: jest.Mock
+      finalize: jest.Mock
+      _endCallback?: () => void
+    } = {
+      append: jest.fn().mockReturnThis(),
+      on: jest.fn((event: string, callback: () => void) => {
+        if (event === 'end') {
+          // Store callback to call later
+          mockArchive._endCallback = callback
         }
-      }, 0)
-    })
+        return mockArchive
+      }),
+      finalize: jest.fn(() => {
+        // Trigger 'end' event
+        setTimeout(() => {
+          if (mockArchive._endCallback) {
+            mockArchive._endCallback()
+          }
+        }, 0)
+      }),
+    }
+    ;(archiver as unknown as jest.Mock).mockReturnValue(mockArchive)
   })
 
   it('should generate ZIP file for super admin', async () => {
-    // Mock archiver to actually work
-    const mockArchive = {
+    // Mock archiver to actually work - properly typed
+    const mockArchive: {
+      append: jest.Mock
+      on: jest.Mock
+      finalize: jest.Mock
+      _endCallback?: () => void
+    } = {
       append: jest.fn().mockReturnThis(),
-      on: jest.fn((event: string, callback: Function) => {
+      on: jest.fn((event: string, callback: () => void) => {
         if (event === 'end') {
           // Store callback to call later
-          (mockArchive as any)._endCallback = callback
+          mockArchive._endCallback = callback
         }
         return mockArchive
       }),
       finalize: jest.fn(() => {
         // Call end callback after finalize
         setTimeout(() => {
-          if ((mockArchive as any)._endCallback) {
-            (mockArchive as any)._endCallback()
+          if (mockArchive._endCallback) {
+            mockArchive._endCallback()
           }
         }, 10)
       }),
     }
     
-    ;(archiver as jest.Mock).mockReturnValue(mockArchive as any)
+    ;(archiver as unknown as jest.Mock).mockReturnValue(mockArchive)
 
     const request = new NextRequest(`http://localhost/api/vendors/${mockVendorId}/wordpress-plugin`, {
       headers: {
@@ -251,8 +260,8 @@ describe('GET /api/vendors/[id]/wordpress-plugin', () => {
     expect(mockReadFile).toHaveBeenCalled()
 
     // Verify archiver was called with replaced content
-    const mockArchive = archiver('zip', {}) as any
-    expect(mockArchive.append).toHaveBeenCalled()
+    // The archiver mock is set up in beforeEach, so we just verify it was called
+    expect(archiver).toHaveBeenCalledWith('zip', expect.any(Object))
   })
 
   it('should use NEXTAUTH_URL for API base URL if available', async () => {

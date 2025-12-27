@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import CouponModal from '@/components/coupons/CouponModal'
+import type { Vendor } from '@/types/database'
 
 // Mock fetch
 global.fetch = jest.fn()
@@ -13,9 +14,39 @@ Object.defineProperty(window, 'location', {
   writable: true,
 })
 
-const mockVendors = [
-  { id: 'vendor-1', name: 'Vendor 1', email: 'vendor1@test.com' },
-  { id: 'vendor-2', name: 'Vendor 2', email: 'vendor2@test.com' },
+import type { Vendor } from '@/types/database'
+
+const mockVendors: Vendor[] = [
+  { 
+    id: 'vendor-1', 
+    name: 'Vendor 1', 
+    description: null,
+    website: 'https://vendor1.com',
+    logo_url: null,
+    contact_email: 'vendor1@test.com',
+    contact_phone: null,
+    active: true,
+    created_by: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    deleted_at: null,
+    deleted_by: null,
+  },
+  { 
+    id: 'vendor-2', 
+    name: 'Vendor 2', 
+    description: null,
+    website: 'https://vendor2.com',
+    logo_url: null,
+    contact_email: 'vendor2@test.com',
+    contact_phone: null,
+    active: true,
+    created_by: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    deleted_at: null,
+    deleted_by: null,
+  },
 ]
 
 describe('CouponModal', () => {
