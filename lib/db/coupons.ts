@@ -291,18 +291,6 @@ export async function claimCoupon(
     })
 
   if (historyError) {
-    // If claim_history is missing or temporarily unavailable, don't break claiming.
-    // We still permanently claim the coupon in `coupons` table.
-    // (Monthly enforcement depends on claim_history; ensure migrations are applied in production.)
-    const msg = historyError.message || ''
-    if (historyError.code === '42P01' || (msg.includes('claim_history') && msg.includes('does not exist'))) {
-      console.error('[atomicClaimCoupon] claim_history unavailable; proceeding without monthly enforcement:', {
-        code: historyError.code,
-        message: historyError.message,
-      })
-      return { coupon_code: coupon.code }
-    }
-
     // If it's a monthly limit violation, rollback the claim
     if (historyError.code === '23505' && historyError.message?.includes('unique_vendor_user_claim_month')) {
       await supabaseAdmin
@@ -397,6 +385,18 @@ export async function atomicClaimCoupon(
     })
 
   if (historyError) {
+    // If claim_history is missing or temporarily unavailable, don't break claiming.
+    // We still permanently claim the coupon in `coupons` table.
+    // (Monthly enforcement depends on claim_history; ensure migrations are applied in production.)
+    const msg = historyError.message || ''
+    if (historyError.code === '42P01' || (msg.includes('claim_history') && msg.includes('does not exist'))) {
+      console.error('[atomicClaimCoupon] claim_history unavailable; proceeding without monthly enforcement:', {
+        code: historyError.code,
+        message: historyError.message,
+      })
+      return { coupon_code: coupon.code }
+    }
+
     // If claim_history insert fails, we need to rollback the coupon update
     // But since Supabase doesn't support transactions in JS client,
     // we'll rely on the unique constraint check above
