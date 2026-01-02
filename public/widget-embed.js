@@ -105,11 +105,20 @@
     return `
       .coupon-widget-container {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-        width: 100%;
-        max-width: 100%;
-        margin: 0;
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
         padding: 24px;
         box-sizing: border-box;
+      }
+      /* Override any inline styles from shortcode */
+      div.coupon-widget-container,
+      div#coupon-widget.coupon-widget-container,
+      div.coupon-dispenser-widget-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        margin: 0 !important;
+        border: none !important;
       }
       .coupon-widget-grid {
         display: grid;
