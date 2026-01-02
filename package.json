@@ -4,6 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
+    "prebuild": "node scripts/validate-widget.js",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
@@ -11,7 +12,8 @@
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
     "type-check": "tsc --noEmit",
-    "seed:users": "node scripts/seed-users.js"
+    "seed:users": "node scripts/seed-users.js",
+    "validate:widget": "node scripts/validate-widget.js"
   },
   "dependencies": {
     "@radix-ui/react-alert-dialog": "^1.1.15",
