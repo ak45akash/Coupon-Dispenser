@@ -23,7 +23,7 @@ const nextConfig = {
           { key: 'Access-Control-Allow-Origin', value: '*' },
           { key: 'Access-Control-Allow-Methods', value: 'GET,OPTIONS' },
           { key: 'Content-Type', value: 'application/javascript' },
-          { key: 'Cache-Control', value: 'public, max-age=31536000, immutable' },
+          { key: 'Cache-Control', value: 'public, max-age=3600, must-revalidate' },
         ],
       },
     ]

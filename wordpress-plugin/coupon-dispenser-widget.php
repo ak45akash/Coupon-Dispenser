@@ -3,7 +3,7 @@
  * Plugin Name: Coupon Dispenser Widget
  * Plugin URI: https://iakash.dev
  * Description: Embed coupon widgets from Coupon Dispenser platform. Zero-code integration for WordPress.
- * Version: 1.1.2
+ * Version: 1.1.3
  * Author: Akash
  * Author URI: https://iakash.dev
  * Text Domain: coupon-dispenser-widget
@@ -41,7 +41,7 @@ if (function_exists('error_log')) {
 }
 
 // Plugin constants
-define('CDW_VERSION', '1.1.2');
+define('CDW_VERSION', '1.1.3');
 define('CDW_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('CDW_PLUGIN_URL', plugin_dir_url(__FILE__));
 define('CDW_PLUGIN_BASENAME', plugin_basename(__FILE__));
@@ -268,6 +268,21 @@ class Coupon_Dispenser_Widget {
             'callback' => array($this, 'debug_config'),
             'permission_callback' => '__return_true',
         ));
+    }
+    
+    /**
+     * Serve local widget file for development/testing
+     * This allows testing widget changes without deploying
+     */
+    public function serve_local_widget() {
+        // Only serve if widget-embed-local.js exists (for local testing)
+        $local_widget_path = ABSPATH . 'widget-embed-local.js';
+        if (file_exists($local_widget_path)) {
+            header('Content-Type: application/javascript');
+            header('Cache-Control: no-cache, must-revalidate');
+            readfile($local_widget_path);
+            exit;
+        }
     }
     
     /**
