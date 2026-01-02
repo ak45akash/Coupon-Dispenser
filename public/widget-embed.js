@@ -106,9 +106,10 @@
       .coupon-widget-container {
         font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
         width: 100%;
-        max-width: 1600px;
-        margin: 0 auto;
+        max-width: 100%;
+        margin: 0;
         padding: 24px;
+        box-sizing: border-box;
       }
       .coupon-widget-grid {
         display: grid;
