@@ -112,7 +112,7 @@
       }
       .coupon-widget-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+        grid-template-columns: repeat(3, 1fr);
         gap: 24px;
         margin-top: 20px;
       }
@@ -295,9 +295,35 @@
         from { opacity: 0; transform: translateY(10px); }
         to { opacity: 1; transform: translateY(0); }
       }
+      /* Tablet: 2 columns */
+      @media (max-width: 1024px) and (min-width: 769px) {
+        .coupon-widget-grid {
+          grid-template-columns: repeat(2, 1fr);
+        }
+      }
+      /* Mobile: 1 column */
       @media (max-width: 768px) {
         .coupon-widget-grid {
           grid-template-columns: 1fr;
+          gap: 16px;
+        }
+        .coupon-widget-container {
+          padding: 16px;
+        }
+      }
+      /* Small mobile: 1 column with reduced padding */
+      @media (max-width: 480px) {
+        .coupon-widget-container {
+          padding: 12px;
+        }
+        .coupon-widget-grid {
+          gap: 12px;
+        }
+        .coupon-widget-card {
+          min-height: 350px;
+        }
+        .coupon-widget-card-content {
+          padding: 16px;
         }
       }
     `
