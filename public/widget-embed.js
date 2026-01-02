@@ -114,11 +114,14 @@
       /* Override any inline styles from shortcode */
       div.coupon-widget-container,
       div#coupon-widget.coupon-widget-container,
-      div.coupon-dispenser-widget-container {
+      div.coupon-dispenser-widget-container,
+      div#coupon-widget.coupon-dispenser-widget-container {
         width: 100% !important;
         max-width: 100% !important;
         margin: 0 !important;
         border: none !important;
+        padding: 24px !important;
+        box-sizing: border-box !important;
       }
       .coupon-widget-grid {
         display: grid;
