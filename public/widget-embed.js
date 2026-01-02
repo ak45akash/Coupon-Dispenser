@@ -868,6 +868,195 @@
         }
       }
     }
+
+    showError(couponId, message) {
+      this.state.errors.set(couponId, message)
+      this.updateCouponCard(couponId)
+    }
+
+    updateCouponCard(couponId, claimedCoupon = null) {
+      const card = document.querySelector(`[data-coupon-card-id="${couponId}"]`)
+      if (!card) return
+
+      const codeDisplay = card.querySelector('.coupon-widget-code-display')
+      const codeValue = card.querySelector('.coupon-widget-code-value')
+      const button = card.querySelector('[data-coupon-id]')
+      const copyButton = card.querySelector('.coupon-widget-copy-button')
+      const errorDiv = card.querySelector('.coupon-widget-error')
+
+      // Clear error
+      if (errorDiv) {
+        errorDiv.remove()
+      }
+
+      if (claimedCoupon) {
+        // Show code
+        if (codeDisplay) {
+          codeDisplay.classList.add('show')
+        }
+        if (codeValue) {
+          codeValue.textContent = claimedCoupon.code
+        }
+        if (button) {
+          button.style.display = 'none'
+        }
+        if (copyButton) {
+          copyButton.classList.add('show')
+          copyButton.textContent = 'Copy Code'
+        }
+      } else {
+        // Show error if any
+        const error = this.state.errors.get(couponId)
+        if (error && card) {
+          const errorEl = document.createElement('div')
+          errorEl.className = 'coupon-widget-error'
+          errorEl.textContent = error
+          if (button) {
+            button.parentNode.insertBefore(errorEl, button)
+          }
+        }
+      }
+    }
+
+    copyCode(couponId) {
+      const claimedCoupon = this.state.claimedCoupons.get(couponId)
+      if (!claimedCoupon) return
+
+      const code = claimedCoupon.code
+      const copyButton = document.querySelector(`[data-copy-coupon-id="${couponId}"]`)
+
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(code).then(() => {
+          if (copyButton) {
+            copyButton.textContent = '✓ Copied!'
+            copyButton.classList.add('copied')
+            setTimeout(() => {
+              copyButton.textContent = 'Copy Code'
+              copyButton.classList.remove('copied')
+            }, 2000)
+          }
+        }).catch(() => {
+          // Fallback
+          this.fallbackCopy(code, copyButton)
+        })
+      } else {
+        this.fallbackCopy(code, copyButton)
+      }
+    }
+
+    fallbackCopy(text, button) {
+      const textarea = document.createElement('textarea')
+      textarea.value = text
+      textarea.style.position = 'fixed'
+      textarea.style.opacity = '0'
+      document.body.appendChild(textarea)
+      textarea.select()
+      document.execCommand('copy')
+      document.body.removeChild(textarea)
+      
+      if (button) {
+        button.textContent = '✓ Copied!'
+        button.classList.add('copied')
+        setTimeout(() => {
+          button.textContent = 'Copy Code'
+          button.classList.remove('copied')
+        }, 2000)
+      }
+    }
+
+    setState(newState) {
+      this.state = { ...this.state, ...newState }
+      this.render()
+    }
+
+    render() {
+      if (!this.container) return
+
+      const { loading, vendor, coupons, error, hasActiveClaim, activeClaimExpiry } = this.state
+
+      if (loading) {
+        this.container.innerHTML = '<div class="coupon-widget-empty"><div class="coupon-widget-empty-icon">⏳</div><p>Loading coupons...</p></div>'
+        return
+      }
+
+      if (error) {
+        this.container.innerHTML = `<div class="coupon-widget-error">${this.escapeHtml(error)}</div>`
+        return
+      }
+
+      if (!vendor || coupons.length === 0) {
+        this.container.innerHTML = '<div class="coupon-widget-empty"><div class="coupon-widget-empty-icon">📭</div><p>No coupons available at this time.</p></div>'
+        return
+      }
+
+      // Show active claim message if user has one
+      let activeClaimMessage = ''
+      if (hasActiveClaim && activeClaimExpiry) {
+        const expiryDate = new Date(activeClaimExpiry)
+        const daysLeft = Math.ceil((expiryDate - new Date()) / (1000 * 60 * 60 * 24))
+        activeClaimMessage = `<div class="coupon-widget-info" style="background: #1e3a8a; color: #dbeafe; padding: 12px; border-radius: 8px; margin-bottom: 16px; text-align: center;">
+          <strong>You have an active coupon!</strong> It expires in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}. Other coupons are disabled until it expires.
+        </div>`
+      }
+
+      let html = activeClaimMessage + '<div class="coupon-widget-grid">'
+
+      coupons.forEach((coupon) => {
+        const claimedCoupon = this.state.claimedCoupons.get(coupon.id)
+        const error = this.state.errors.get(coupon.id)
+        const offerText = coupon.discount_value || 'Special Offer'
+        
+        // Check if this coupon is the active claim or if user has an active claim for another coupon
+        const isActiveClaim = hasActiveClaim && coupon.is_claimed && claimedCoupon
+        const isDisabled = hasActiveClaim && !isActiveClaim && !claimedCoupon
+        
+        html += `
+          <div class="coupon-widget-card ${isDisabled ? 'opacity-60' : ''}" data-coupon-card-id="${coupon.id}" style="${isDisabled ? 'pointer-events: none;' : ''}">
+            ${vendor.logo_url ? `<img src="${this.escapeHtml(vendor.logo_url)}" alt="${this.escapeHtml(vendor.name)}" class="coupon-widget-card-image" onerror="this.style.display='none'">` : '<div class="coupon-widget-card-image"></div>'}
+            <div class="coupon-widget-card-content">
+              <div class="coupon-widget-card-brand">${this.escapeHtml(vendor.name)}</div>
+              <div class="coupon-widget-card-offer">${this.escapeHtml(offerText)}</div>
+              ${vendor.description ? `<div class="coupon-widget-card-description">${this.escapeHtml(vendor.description)}</div>` : ''}
+              <div class="coupon-widget-code-section">
+                ${error ? `<div class="coupon-widget-error">${this.escapeHtml(error)}</div>` : ''}
+                ${isDisabled ? '<div class="coupon-widget-error" style="background: #7c2d12; border-color: #991b1b; color: #fca5a5;">You already have an active coupon. Please wait until it expires.</div>' : ''}
+                <div class="coupon-widget-code-display ${claimedCoupon || isActiveClaim ? 'show' : ''}">
+                  <div class="coupon-widget-code-label">Your Coupon Code</div>
+                  <div class="coupon-widget-code-value">${claimedCoupon ? this.escapeHtml(claimedCoupon.code) : (isActiveClaim && coupon.code ? this.escapeHtml(coupon.code) : '')}</div>
+                </div>
+                <button 
+                  class="coupon-widget-button" 
+                  data-coupon-id="${coupon.id}"
+                  data-instance-id="${this.config.containerId}"
+                  ${claimedCoupon || isActiveClaim || isDisabled ? 'style="display:none"' : ''}
+                  ${isDisabled ? 'disabled' : ''}
+                  onclick="CouponWidget.handleGenerateCode('${this.config.containerId}', '${coupon.id}')">
+                  ${claimedCoupon || isActiveClaim ? '' : 'Generate Code'}
+                </button>
+                <button 
+                  class="coupon-widget-copy-button ${claimedCoupon || isActiveClaim ? 'show' : ''}"
+                  data-copy-coupon-id="${coupon.id}"
+                  data-instance-id="${this.config.containerId}"
+                  onclick="CouponWidget.copyCode('${this.config.containerId}', '${coupon.id}')">
+                  Copy Code
+                </button>
+                ${vendor.website ? `<a href="${this.escapeHtml(vendor.website)}" target="_blank" rel="noopener noreferrer" class="coupon-widget-link">VISIT WEBSITE</a>` : ''}
+              </div>
+            </div>
+          </div>
+        `
+      })
+
+      html += '</div>'
+      this.container.innerHTML = html
+    }
+
+    escapeHtml(str) {
+      if (!str) return ''
+      const div = document.createElement('div')
+      div.textContent = str
+      return div.innerHTML
+    }
   }
 
   // Global CouponWidget object
