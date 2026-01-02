@@ -98,8 +98,8 @@ class Coupon_Dispenser_Shortcode {
         <div id="<?php echo esc_attr($container_id); ?>" 
              data-vendor-id="<?php echo esc_attr($vendor_id); ?>"
              data-api-key-endpoint="<?php echo esc_js($rest_url); ?>"
-             class="coupon-dispenser-widget-container"
-             style="min-height: 50px; border: 1px dashed #ccc; padding: 10px; margin: 10px 0;">
+             class="coupon-widget-container"
+             style="min-height: 50px;">
             <div style="color: #666; font-size: 12px;">
                 Coupon Widget Container (ID: <?php echo esc_html($container_id); ?>) - Waiting for initialization...
             </div>
